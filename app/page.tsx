@@ -10,6 +10,11 @@ import SecurityView from "@/components/SecurityView";
 import SkillsView from "@/components/SkillsView";
 import SimulationView from "@/components/SimulationView";
 import SandboxView from "@/components/SandboxView";
+import ArchitectureView from "@/components/ArchitectureView";
+import ArchitectureViewV2 from "@/components/ArchitectureViewV2";
+import dynamic from "next/dynamic";
+
+const NeuralArchitecture3D = dynamic(() => import("@/components/NeuralArchitecture3D"), { ssr: false });
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<MainTabId>("code");
@@ -17,6 +22,10 @@ export default function HomePage() {
   const renderTabContent = () => {
     if (activeTab === "code") {
       return <FileViewer />;
+    }
+
+    if (activeTab === "architecture") {
+      return <ArchitectureViewV2 />;
     }
 
     if (activeTab === "meta") {
@@ -53,7 +62,10 @@ export default function HomePage() {
   return (
     <main className="h-full w-full flex flex-col">
       <MainTabs activeTab={activeTab} onTabChange={setActiveTab} />
-      <div className="flex-1 overflow-hidden">{renderTabContent()}</div>
+      <div className="flex-1 h-full relative" style={{ minHeight: 0 }}>
+        {activeTab === "neural-viz" && <NeuralArchitecture3D />}
+        {activeTab !== "neural-viz" && renderTabContent()}
+      </div>
     </main>
   );
 }
