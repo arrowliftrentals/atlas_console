@@ -2,7 +2,7 @@
 
 import React from "react";
 
-export type MainTabId = "code" | "meta" | "logs" | "tasks" | "security" | "skills" | "simulation" | "sandbox";
+export type MainTabId = "code" | "meta" | "logs" | "tasks" | "security" | "skills" | "simulation" | "sandbox" | "architecture" | "neural-viz";
 
 interface MainTabsProps {
   activeTab: MainTabId;
@@ -12,6 +12,8 @@ interface MainTabsProps {
 const MainTabs: React.FC<MainTabsProps> = ({ activeTab, onTabChange }) => {
   const tabs: { id: MainTabId; label: string; badge?: number }[] = [
     { id: "code", label: "Code" },
+    { id: "architecture", label: "Architecture" },
+    { id: "neural-viz", label: "Neural 3D" },
     { id: "meta", label: "Meta" },
     { id: "logs", label: "Logs" },
     { id: "tasks", label: "Tasks" },
