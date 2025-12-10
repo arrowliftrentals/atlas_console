@@ -8,7 +8,9 @@ import * as THREE from 'three';
 import { InstancedMesh, Object3D, Color, Matrix4 } from 'three';
 import { useFrame } from '@react-three/fiber';
 import { EdgeStateV2, NodeStateV2, TelemetryEventV2 } from './NeuralTelemetryTypesV2';
-import { PARTICLE_COLORS_BY_EVENT } from './NeuralVisualEncodingV2';
+import { PARTICLE_COLORS_BY_EVENT, NODE_COLORS, REGION_COLORS } from './NeuralVisualEncodingV2';
+import { useNeuralTelemetryStoreV2 } from './NeuralTelemetryStoreV2';
+import { classifyNode } from './NeuralCognitiveLayoutV2';
 
 interface Props {
   nodes: Map<string, NodeStateV2>;
@@ -44,6 +46,7 @@ export function NeuralParticlesInstancedV2({
 }: Props) {
   const meshRef = useRef<InstancedMesh>(null!);
   const glowRef = useRef<InstancedMesh>(null!);
+  const updateParticleProgress = useNeuralTelemetryStoreV2((s) => s.updateParticleProgress);
   
   // Fixed-size particle pool (never reallocated)
   const particles = useMemo<ParticleRuntime[]>(
@@ -148,8 +151,32 @@ export function NeuralParticlesInstancedV2({
       // Speed based on priority
       p.speed = ev.priority === 'high' ? 1.5 : ev.priority === 'low' ? 0.3 : 0.8;
       
-      // Color based on event type
-      p.color.set(PARTICLE_COLORS_BY_EVENT[ev.type] || '#ffffff');
+      // Inherit color from source node
+      const sourceNode = nodes.get(ev.source);
+      if (sourceNode) {
+        // Compute source node's color using same logic as node renderer
+        const nodeMetadata = classifyNode(sourceNode.id, sourceNode.subsystem);
+        const regionColor = new Color(REGION_COLORS[nodeMetadata.region]);
+        const subsystemColor = new Color(NODE_COLORS[sourceNode.subsystem]);
+        
+        // Blend region and subsystem colors (70% region, 30% subsystem)
+        const nodeColor = regionColor.lerp(subsystemColor, 0.3);
+        
+        // Special handling for specific nodes
+        const isAgentRouter = sourceNode.id.toLowerCase().includes('agent_router') || sourceNode.id.toLowerCase().includes('agentrouter');
+        const isSandboxExecution = sourceNode.id.toLowerCase().includes('sandbox_execution');
+        
+        if (isAgentRouter) {
+          nodeColor.setHex(0xFFD700); // Pure gold
+        } else if (isSandboxExecution) {
+          nodeColor.setHex(0x00CED1); // Cyan
+        }
+        
+        p.color.copy(nodeColor);
+      } else {
+        // Fallback to event type color if source node not found
+        p.color.set(PARTICLE_COLORS_BY_EVENT[ev.type] || '#ffffff');
+      }
       
       // Size reflects "weight" of operation (how many spawns this decision triggered)
       // Single tool = smaller, multi-tool decision = larger
@@ -172,6 +199,9 @@ export function NeuralParticlesInstancedV2({
       const entries = Array.from(processedEventsRef.current);
       processedEventsRef.current = new Set(entries.slice(-500));
     }
+
+    // Collect active particles for progress tracking
+    const activeParticlesData: { sourceId: string; targetId: string; progress: number }[] = [];
 
     // Update all particles
     particles.forEach((p, i) => {
@@ -275,6 +305,13 @@ export function NeuralParticlesInstancedV2({
       
       meshRef.current.setMatrixAt(i, dummy.matrix);
       meshRef.current.setColorAt(i, p.color);
+      
+      // Track particle progress for node illumination
+      activeParticlesData.push({
+        sourceId: edge.sourceId,
+        targetId: edge.targetId,
+        progress: p.t,
+      });
     });
     meshRef.current.instanceMatrix.needsUpdate = true;
     if (meshRef.current.instanceColor) {
@@ -295,6 +332,11 @@ export function NeuralParticlesInstancedV2({
         console.log('[PARTICLE COUNT] Active particles:', activeCount);
         onActiveCountChange(activeCount);
       }
+    }
+    
+    // Update particle progress in store for node illumination timing
+    if (activeParticlesData.length > 0) {
+      updateParticleProgress(activeParticlesData);
     }
   });
 
