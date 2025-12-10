@@ -54,7 +54,7 @@ export function NeuralCognitiveShellsV2({ visible = true, opacity = 0.15 }: Prop
           color="#00CED1"
           wireframe
           transparent
-          opacity={opacity}
+          opacity={opacity * 0.4}
         />
       </mesh>
 

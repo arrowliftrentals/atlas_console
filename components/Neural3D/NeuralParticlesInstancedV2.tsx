@@ -284,9 +284,9 @@ export function NeuralParticlesInstancedV2({
       const t2 = t * t;
       const factor = 2 * mt * t;
       
-      const x = mt2 * x1 + factor * ctrlX + t2 * x2;
-      const y = mt2 * y1 + factor * ctrlY + t2 * y2;
-      const z = mt2 * z1 + factor * ctrlZ + t2 * z2;
+      let x = mt2 * x1 + factor * ctrlX + t2 * x2;
+      let y = mt2 * y1 + factor * ctrlY + t2 * y2;
+      let z = mt2 * z1 + factor * ctrlZ + t2 * z2;
 
       // Validate computed position
       if (!isFinite(x) || !isFinite(y) || !isFinite(z)) {
@@ -298,6 +298,32 @@ export function NeuralParticlesInstancedV2({
         meshRef.current.setMatrixAt(i, dummy.matrix);
         return;
       }
+
+      // Apply reflection effect when particle gets close to other nodes
+      const reflectionRadius = 8; // Distance at which reflection starts
+      const reflectionStrength = 0.3; // How much to deflect
+      
+      nodes.forEach((node) => {
+        // Skip source and target nodes
+        if (node.id === edge.sourceId || node.id === edge.targetId) return;
+        
+        const [nx, ny, nz] = node.position;
+        const distX = x - nx;
+        const distY = y - ny;
+        const distZ = z - nz;
+        const dist = Math.sqrt(distX*distX + distY*distY + distZ*distZ);
+        
+        // If within reflection radius, deflect particle away from node
+        if (dist < reflectionRadius && dist > 0.1) {
+          const influence = Math.pow((reflectionRadius - dist) / reflectionRadius, 2); // Quadratic falloff
+          const deflection = reflectionStrength * influence;
+          
+          // Normalize direction away from node and apply deflection
+          x += (distX / dist) * deflection;
+          y += (distY / dist) * deflection;
+          z += (distZ / dist) * deflection;
+        }
+      });
 
       dummy.position.set(x, y, z);
       dummy.scale.set(p.size, p.size, p.size);
