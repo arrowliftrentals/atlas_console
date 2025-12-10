@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Particle Render Test</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; }
+        canvas { display: block; }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: monospace;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <div>Particles: <span id="count">0</span></div>
+        <div>FPS: <span id="fps">0</span></div>
+        <div>Camera: <span id="camera">0,0,0</span></div>
+        <div id="status">Initializing...</div>
+    </div>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Lighting
+        scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(50, 50, 50);
+        scene.add(dirLight);
+
+        // Camera position
+        camera.position.set(30, 30, 30);
+        camera.lookAt(0, 0, 0);
+
+        // Controls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
+        // Test nodes
+        const nodePositions = [
+            { id: 'agent_router', pos: [0, 0, 20], color: 0x60A5FA },
+            { id: 'llm_gateway', pos: [20, 0, 0], color: 0x10B981 },
+            { id: 'tool_handler', pos: [-20, 0, 0], color: 0xF59E0B }
+        ];
+
+        // Create test nodes
+        nodePositions.forEach(node => {
+            const geometry = new THREE.SphereGeometry(2, 32, 32);
+            const material = new THREE.MeshStandardMaterial({ 
+                color: node.color,
+                emissive: node.color,
+                emissiveIntensity: 0.5
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(...node.pos);
+            scene.add(mesh);
+
+            // Add label
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 256;
+            canvas.height = 64;
+            ctx.fillStyle = 'white';
+            ctx.font = '20px monospace';
+            ctx.fillText(node.id, 10, 40);
+            const texture = new THREE.CanvasTexture(canvas);
+            const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+            const sprite = new THREE.Sprite(spriteMaterial);
+            sprite.position.set(...node.pos);
+            sprite.position.y += 4;
+            sprite.scale.set(8, 2, 1);
+            scene.add(sprite);
+        });
+
+        // Particle system
+        const particles = [];
+        let particleIdCounter = 0;
+
+        class Particle {
+            constructor(sourcePos, targetPos, color) {
+                this.id = `particle-${particleIdCounter++}`;
+                this.sourcePos = new THREE.Vector3(...sourcePos);
+                this.targetPos = new THREE.Vector3(...targetPos);
+                this.progress = 0;
+                this.speed = 0.01;
+                this.color = color;
+                
+                // Create visual mesh - LARGE sphere
+                const geometry = new THREE.SphereGeometry(1.2, 16, 16);
+                const material = new THREE.MeshStandardMaterial({
+                    color: color,
+                    emissive: color,
+                    emissiveIntensity: 8,
+                    toneMapped: false
+                });
+                this.mesh = new THREE.Mesh(geometry, material);
+                
+                // Add point light
+                this.light = new THREE.PointLight(color, 20, 8, 2);
+                this.mesh.add(this.light);
+                
+                scene.add(this.mesh);
+                
+                console.log(`Created particle ${this.id} from`, sourcePos, 'to', targetPos);
+            }
+
+            update(delta) {
+                this.progress += this.speed * delta * 60;
+                
+                if (this.progress >= 1.0) {
+                    this.progress = 1.0;
+                    return true; // completed
+                }
+
+                // Bezier curve interpolation
+                const t = this.progress;
+                const invT = 1 - t;
+                const mid = new THREE.Vector3()
+                    .lerpVectors(this.sourcePos, this.targetPos, 0.5)
+                    .multiplyScalar(0.6);
+
+                const x = invT * invT * this.sourcePos.x + 2 * invT * t * mid.x + t * t * this.targetPos.x;
+                const y = invT * invT * this.sourcePos.y + 2 * invT * t * mid.y + t * t * this.targetPos.y;
+                const z = invT * invT * this.sourcePos.z + 2 * invT * t * mid.z + t * t * this.targetPos.z;
+
+                this.mesh.position.set(x, y, z);
+                return false;
+            }
+
+            destroy() {
+                scene.remove(this.mesh);
+                this.mesh.geometry.dispose();
+                this.mesh.material.dispose();
+                console.log(`Destroyed particle ${this.id}`);
+            }
+        }
+
+        // Create paths (lines)
+        const paths = [
+            { from: nodePositions[0].pos, to: nodePositions[1].pos, color: 0x22D3EE },
+            { from: nodePositions[0].pos, to: nodePositions[2].pos, color: 0xFCD34D }
+        ];
+
+        paths.forEach(path => {
+            const start = new THREE.Vector3(...path.from);
+            const end = new THREE.Vector3(...path.to);
+            const mid = new THREE.Vector3().lerpVectors(start, end, 0.5).multiplyScalar(0.6);
+            
+            const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
+            const points = curve.getPoints(50);
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ 
+                color: path.color, 
+                transparent: true, 
+                opacity: 0.9,
+                linewidth: 3
+            });
+            const line = new THREE.Line(geometry, material);
+            scene.add(line);
+        });
+
+        // Spawn particles continuously
+        setInterval(() => {
+            // Agent -> LLM
+            particles.push(new Particle(
+                nodePositions[0].pos, 
+                nodePositions[1].pos, 
+                0xFF6B35
+            ));
+            
+            // Agent -> Tool
+            particles.push(new Particle(
+                nodePositions[0].pos, 
+                nodePositions[2].pos, 
+                0x60A5FA
+            ));
+            
+            document.getElementById('status').textContent = 
+                `✅ Spawning particles (total: ${particles.length})`;
+        }, 800);
+
+        // Animation loop
+        let lastTime = performance.now();
+        let frameCount = 0;
+        let lastFpsUpdate = performance.now();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const now = performance.now();
+            const delta = (now - lastTime) / 1000;
+            lastTime = now;
+
+            // Update particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const completed = particles[i].update(delta);
+                if (completed) {
+                    particles[i].destroy();
+                    particles.splice(i, 1);
+                }
+            }
+
+            // Update UI
+            document.getElementById('count').textContent = particles.length;
+            document.getElementById('camera').textContent = 
+                `${camera.position.x.toFixed(1)}, ${camera.position.y.toFixed(1)}, ${camera.position.z.toFixed(1)}`;
+
+            // FPS counter
+            frameCount++;
+            if (now - lastFpsUpdate > 1000) {
+                document.getElementById('fps').textContent = frameCount;
+                frameCount = 0;
+                lastFpsUpdate = now;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        console.log('🚀 Particle render test initialized');
+        console.log('👀 Watch for particles flowing between nodes');
+        document.getElementById('status').textContent = '✅ Ready - particles spawning...';
+    </script>
+</body>
+</html>

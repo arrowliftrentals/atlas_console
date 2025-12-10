@@ -50,6 +50,42 @@ export function NeuralNodesInstancedV2({ nodes, edges, timeScale }: Props) {
       `,
     });
   }, []);
+
+  // Create custom glow shader with radial gradient transparency
+  const glowMaterial = useMemo(() => {
+    return new THREE.ShaderMaterial({
+      vertexShader: `
+        varying vec3 vNormal;
+        varying vec3 vColor;
+        
+        void main() {
+          vColor = instanceColor;
+          vNormal = normalize(normalMatrix * normal);
+          vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        varying vec3 vColor;
+        varying vec3 vNormal;
+        
+        void main() {
+          // Fresnel effect - glow stronger at edges
+          vec3 viewDir = normalize(cameraPosition);
+          float fresnel = pow(1.0 - abs(dot(vNormal, viewDir)), 2.0);
+          
+          // Fade from opaque at node to transparent at edge
+          float alpha = 1.0 - fresnel;
+          
+          gl_FragColor = vec4(vColor, alpha * 0.55);
+        }
+      `,
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.BackSide,
+    });
+  }, []);
   
   // Count connections per node
   const connectionCounts = useMemo(() => {
@@ -84,11 +120,7 @@ export function NeuralNodesInstancedV2({ nodes, edges, timeScale }: Props) {
       
       // Scale based on connection count (exponential) - 3x larger
       const connectionCount = connectionCounts.get(node.id) || 0;
-      const baseScale = 0.9 * Math.pow(1.15, connectionCount); // Increased from 0.3 to 0.9
-      
-      // Breathing animation
-      const breathing = 1 + 0.05 * Math.sin(t * 2 + i * 0.1);
-      const scale = baseScale * breathing;
+      const scale = 0.9 * Math.pow(1.15, connectionCount); // Increased from 0.3 to 0.9
 
       // Node mesh
       dummy.position.set(x, y, z);
@@ -104,16 +136,16 @@ export function NeuralNodesInstancedV2({ nodes, edges, timeScale }: Props) {
       // Blend region and subsystem colors (70% region, 30% subsystem)
       const baseColor = regionColor.lerp(subsystemColor, 0.3);
       
-      // Special handling for agent_router - use very dark gold to prevent white appearance
+      // Special handling for specific nodes to prevent white/washed out appearance
       const isAgentRouter = node.id.toLowerCase().includes('agent_router') || node.id.toLowerCase().includes('agentrouter');
+      const isSandboxExecution = node.id.toLowerCase().includes('sandbox_execution');
       
-      // Override for agent_router FIRST - skip all adjustments
+      // Override for special nodes FIRST - skip all adjustments
       if (isAgentRouter) {
         baseColor.setHex(0xFFD700); // Pure gold
+      } else if (isSandboxExecution) {
+        baseColor.setHex(0x00CED1); // Cyan for sandbox execution
       } else {
-        // Apply importance-based brightness
-        baseColor.multiplyScalar(0.7 + nodeMetadata.importance * 0.5);
-        
         // State modifications
         if (node.state === 'overloaded') {
           baseColor.offsetHSL(0.05, 0.2, 0.1);
@@ -134,17 +166,14 @@ export function NeuralNodesInstancedV2({ nodes, edges, timeScale }: Props) {
       // Set per-instance color using setColorAt
       meshRef.current.setColorAt(i, baseColor);
 
-      // Glow layer (larger, semi-transparent)
+      // Outer glow layer (gradient halo with breathing animation)
       if (glowRef.current) {
-        dummy.scale.set(scale * 1.4, scale * 1.4, scale * 1.4);
+        const breathing = 1 + 0.05 * Math.sin(t * 2 + i * 0.1);
+        const glowScale = scale * 1.6 * breathing;
+        dummy.scale.set(glowScale, glowScale, glowScale);
         dummy.updateMatrix();
         glowRef.current.setMatrixAt(i, dummy.matrix);
-        
-        // Glow intensity based on utilization
-        const glowColor = baseColor.clone();
-        const glowAlpha = node.utilization * 0.6;
-        glowColor.multiplyScalar(glowAlpha);
-        glowRef.current.setColorAt(i, glowColor);
+        glowRef.current.setColorAt(i, baseColor);
       }
     });
 
@@ -193,18 +222,13 @@ export function NeuralNodesInstancedV2({ nodes, edges, timeScale }: Props) {
         <sphereGeometry args={[1, 16, 16]} />
       </instancedMesh>
 
-      {/* Glow layer */}
+      {/* Outer glow layer - gradient halo */}
       <instancedMesh
         ref={glowRef}
-        args={[undefined as any, undefined as any, nodeArray.length]}
+        args={[undefined as any, glowMaterial, nodeArray.length]}
+        renderOrder={-1}
       >
-        <sphereGeometry args={[1, 16, 16]} />
-        <meshBasicMaterial
-          vertexColors
-          transparent
-          opacity={0.4}
-          depthWrite={false}
-        />
+        <sphereGeometry args={[1, 32, 32]} />
       </instancedMesh>
     </group>
   );

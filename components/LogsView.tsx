@@ -32,7 +32,7 @@ const LogsView: React.FC = () => {
 
   useEffect(() => {
     loadLogs();
-    const interval = setInterval(loadLogs, 2000); // Poll every 2 seconds for real-time updates
+    const interval = setInterval(loadLogs, 5000); // Poll every 5 seconds for real-time updates
     return () => clearInterval(interval);
   }, []);
 

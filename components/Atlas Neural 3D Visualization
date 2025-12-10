@@ -1,0 +1,239 @@
+ATLAS Neural 3D Visualization – Performance Expectation & Technical Specification Document
+ 
+1. Mission Statement – Expectation of Performance
+The neural 3D visualization will serve as a real-time, photorealistic and data-accurate representation of information flow within the Atlas environment. Its purpose is to allow full observability of Atlas’s internal operations by visually depicting every meaningful interaction between components, modules, services, agents, memory layers, and external plugins.
+All computational entities capable of sending, receiving, transforming, or storing information will be represented as signal nodes. Any communication between these nodes—whether synchronous, asynchronous, queued, or background—will be represented by pathways rendered as dynamic 3D edges. Data exchanges moving along these pathways will be visualized as particles (or streams of particles) that travel from origin node to destination node in real time, with velocity, luminosity, density, and color encoding meaningful metadata about the data and its context.
+The visualization is not decorative. It must be functionally truthful, responding directly to Atlas’s internal telemetry with minimal delay. The user must be able to observe Atlas thinking, retrieving, embedding, inferring, routing, or chaining tasks, with each action represented by precise spatial, temporal, and aesthetic cues. The design must merge the clarity of a systems-engineering diagram with the aesthetic dynamism of a firing neural connectome—pulsing, glowing, emergent, and intuitively legible even at high complexity.
+ 
+2. Technical Specifications
+ 
+2.1 System Purpose & Observability Scope
+The visualization must represent all Atlas subsystems and their interactions, including but not limited to:
+•	LLM core operations
+•	Working memory
+•	Long-term vector memory (Pinecone or similar)
+•	Embedding creation pipelines
+•	Retrieval engines
+•	Plugin agents
+•	Code execution modules
+•	OS-level interfaces
+•	Network I/O
+•	Sensor, audio, and vision inputs
+•	Background processes and asynchronous tasks
+All of the following interaction types must be visualized:
+•	Data transfers
+•	Token generation and flow
+•	Memory reads/writes
+•	Vector retrievals
+•	Plugin invocation and execution
+•	External API calls
+•	Internal agent-to-agent communication
+•	Telemetry events and performance metrics
+Ephemeral micro-events may be aggregated if doing so materially improves performance or legibility.
+ 
+2.2 Node Model Specification
+Every entity capable of sending or receiving information must appear as a distinct signal node.
+Node Categories
+•	Core processor node
+•	Memory nodes (working, long-term, vector DB)
+•	Plugin agent nodes
+•	Input/output interface nodes
+•	External dependency nodes
+•	Internal services (queues, schedulers, pipelines)
+Node Geometry & Animations
+•	Spherical or neuron-like geometry
+•	Subtle breathing animation to indicate “alive” state
+•	Pulse intensity proportional to node activity
+•	Size scaling based on throughput
+•	Glow ring that brightens during high load
+•	Color-coded by subsystem
+Node Metadata (on hover or click)
+•	Node name and type
+•	Current throughput
+•	Latency history
+•	Queue depth
+•	Error/warning state
+•	Memory or processing utilization
+•	Last event timestamp
+Node States
+•	Active
+•	Idle
+•	Overloaded
+•	Blocked
+•	Error / degraded performance
+2.3 Pathway Model Specification
+Pathways connect nodes and represent communication.
+Geometry
+•	Curved or straight dynamic edges
+•	Directionality visible through flow animation
+•	Thickness proportional to bandwidth utilization
+•	Subtle oscillation or shimmer to show activity
+Color Encoding
+•	Blue: internal data transfer
+•	Green: memory operations
+•	Gold: embedding/vector retrieval
+•	Red: errors or high-latency transmissions
+•	Purple: plugin activation
+•	White/glow: user-initiated events
+Behavior
+•	Brightens and pulses when active
+•	Dims when idle
+•	Can fade temporarily for legibility
+•	Highlight when selected
+•	Persistent or ephemeral depending on event type
+ 
+2.4 Particle / Data Flow Specification
+Particles represent actual data exchanges.
+Particle Properties
+•	Shape: glowing orb, photon streak, or plasma droplet
+•	Trail effect: soft comet tail with decay
+•	Opacity correlated with data size
+•	Burst mode for large transmissions
+Color Mapping
+•	System messages: blue
+•	Memory reads/writes: green
+•	Embedding/vector operations: gold
+•	High-priority tasks: white
+•	Plugin activation: purple
+•	Error flows: red with spark artifacts
+Velocity Rules
+•	Faster = high-priority/low-latency operations
+•	Slower = queued or delayed tasks
+•	Acceleration/deceleration based on real telemetry
+Density Rules
+•	One particle per event for sparse operations
+•	Probabilistic sampling for high-volume telemetry
+ 
+2.5 Spatial Layout Rules
+Global Layout Style Options
+•	Organic neural-web graph
+•	Hierarchical concentric structure
+•	Force-directed dynamic layout
+Recommended Layout
+Hierarchical with the following structure:
+1.	LLM core at center
+2.	Memory nodes orbiting inner ring
+3.	Vector DB and embedding nodes outer-middle
+4.	Plugins orbiting outer ring
+5.	External systems positioned as satellites
+6.	Background processes layered behind core ring
+Stability Requirements
+•	Smooth transitions
+•	No jitter
+•	Collision avoidance
+•	Persistent node locations unless reorganized deliberately
+ 
+2.6 Interaction & UX Requirements
+The visualization must support:
+•	Hover to reveal metadata
+•	Click to expand node details
+•	Toggle layers (memory, plugins, IO, external APIs)
+•	Time scrub bar to replay historical data
+•	Slow-motion mode for detailed debugging
+•	Heatmap overlays for:
+o	activity frequency
+o	latency
+o	memory utilization
+o	agent activation patterns
+•	Snapshot export to PNG or SVG
+•	Live telemetry panel for raw event data
+The interface must remain intuitive even at large scale.
+ 
+2.7 Performance Constraints
+Rendering Performance
+•	Target: 90–120 FPS
+•	GPU acceleration required (WebGPU preferred)
+•	Seamless interpolation for missing telemetry
+•	Parallel rendering threads where possible
+Scalability
+•	Node count supported: up to 10,000 with LOD
+•	Particle count supported: up to 50,000 active
+•	Auto clustering at high zoom-out
+•	Level-of-detail scaling based on camera distance
+ 
+2.8 Telemetry API Specification
+The visualization must be driven entirely by Atlas’s real-time telemetry.
+Telemetry Event Schema
+{
+  "source": "memory-core",
+  "target": "embedding-engine",
+  "type": "data_transfer",
+  "bytes": 2048,
+  "timestamp": 1733810932,
+  "latency_ms": 12,
+  "metadata": {}
+}
+Event Requirements
+•	Millisecond-resolution timestamps
+•	Latency and throughput metrics
+•	Event type categorization
+•	Graceful handling of missing/incomplete data
+•	Anonymization for sensitive payloads
+ 
+2.9 Aesthetic Directives
+The visualization must evoke a living neural connectome, with:
+•	Pulsing, glowing synaptic pathways
+•	High-contrast dark-mode foundation
+•	Smooth transitions (no abrupt rendering unless error-related)
+•	Micro-sparks for high-volume bursts
+•	Color-coded clarity to ensure immediate legibility
+•	A feeling of organized, dynamic life
+The system should look alive without being visually overwhelming.
+ 
+2.10 Rendering Engine Requirements
+•	WebGPU-based engine strongly preferred
+•	Acceptable frameworks:
+o	Three.js with WebGPU backend
+o	Babylon.js
+o	Unity (WebGL/WebGPU export)
+o	Unreal Engine (if native app)
+•	Must support:
+o	PWA deployment
+o	Off-screen rendering
+o	VR/AR expansion in future phases
+ 
+2.11 Security & Privacy Requirements
+•	Sensitive user data must never be visualized.
+•	Only structural event metadata allowed.
+•	Tokens, text content, user messages must be omitted or masked.
+•	Telemetry sanitized before entering renderer.
+•	Visualization should reflect topology, not raw content.
+ 
+2.12 Integration Requirements
+•	Real-time websocket or streaming telemetry feed
+•	Rendering engine packaged in modular directory structure
+•	Plugin-based system to extend node types
+•	Version-controlled schema definitions
+•	Telemetry collector component to normalize input
+ 
+2.13 Output Requirements for the Model Generating Code
+Claude Sonnet 4.5 should output:
+•	Complete technical specification document
+•	Architecture diagrams (ASCII/Markdown)
+•	Project scaffolding and file tree
+•	Example telemetry dataset
+•	JSON schemas
+•	Rendering pseudocode
+•	Performance benchmarking plan
+•	Level-of-detail management strategy
+•	Stress test plan
+•	Error handling and telemetry fallback logic
+ 
+2.14 Prohibited Behaviors
+The system must not:
+•	Invent new Atlas subsystems
+•	Change architecture without instruction
+•	Reveal sensitive or raw user data
+•	Randomize aesthetic choices not defined in spec
+•	Reduce accuracy for performance without authorization
+ 
+2.15 Success Criteria
+The visualization is considered successful when:
+•	Real telemetry is reflected within 50–100 ms
+•	Node layout remains stable and interpretable
+•	Particles accurately represent event flow
+•	System maintains FPS target at expected complexity
+•	User can immediately understand subsystem activity
+•	Debugging insights become visually obvious
+•	Aesthetic quality strongly resembles a glowing, dynamic neural network
+
