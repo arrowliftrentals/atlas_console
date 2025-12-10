@@ -32,7 +32,7 @@ export function NeuralCognitiveLegendV2({ nodeStats }: Props) {
   return (
     <div style={{
       position: 'absolute',
-      bottom: '76px',
+      bottom: '21px',
       left: '16px',
       zIndex: 10,
       pointerEvents: 'auto',
@@ -43,8 +43,8 @@ export function NeuralCognitiveLegendV2({ nodeStats }: Props) {
         border: '1px solid rgba(75, 85, 99, 0.5)',
         backdropFilter: 'blur(12px)',
         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-        minWidth: '280px',
-        maxWidth: '320px',
+        minWidth: '210px',
+        maxWidth: '250px',
       }}>
         {/* Header */}
         <div 
@@ -65,13 +65,6 @@ export function NeuralCognitiveLegendV2({ nodeStats }: Props) {
             letterSpacing: '0.5px',
           }}>
             COGNITIVE ARCHITECTURE
-          </div>
-          <div style={{
-            fontSize: '11px',
-            color: '#9CA3AF',
-            fontFamily: 'monospace',
-          }}>
-            {nodeStats.core + nodeStats.memory + nodeStats.perception} nodes
           </div>
         </div>
 
@@ -212,13 +205,7 @@ function RegionCard({ name, description, color, count, radius, subItems }: Regio
                 </span>
               )}
             </div>
-            <div style={{
-              fontSize: '11px',
-              color: '#9CA3AF',
-              fontFamily: 'monospace',
-            }}>
-              {count}
-            </div>
+
           </div>
           <div style={{
             fontSize: '10px',
@@ -227,13 +214,7 @@ function RegionCard({ name, description, color, count, radius, subItems }: Regio
           }}>
             {description}
           </div>
-          <div style={{
-            fontSize: '9px',
-            color: '#6B7280',
-            fontFamily: 'monospace',
-          }}>
-            {radius}
-          </div>
+
         </div>
       </div>
 

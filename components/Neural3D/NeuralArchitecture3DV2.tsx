@@ -438,53 +438,6 @@ export default function NeuralArchitecture3DV2({
 
       {/* Cognitive Architecture Legend */}
       <NeuralCognitiveLegendV2 nodeStats={nodeStats} />
-      
-      {/* Debug: Show positioned nodes */}
-      {positionedNodes.size > 0 && (
-        <div style={{
-          position: 'absolute',
-          top: 10,
-          right: 10,
-          background: 'rgba(0,0,0,0.8)',
-          color: 'white',
-          padding: '10px',
-          fontSize: '12px',
-          fontFamily: 'monospace',
-          zIndex: 1000,
-        }}>
-          <div>Positioned nodes: {positionedNodes.size}</div>
-          {(() => {
-            const database = positionedNodes.get('database');
-            const vectorStore = positionedNodes.get('vector_store');
-            return (
-              <>
-                <div style={{ marginTop: '10px', borderTop: '1px solid #444', paddingTop: '10px' }}>
-                  <div style={{ fontWeight: 'bold', color: '#FF1493' }}>DATABASE:</div>
-                  {database ? (
-                    <>
-                      <div>✅ In positionedNodes</div>
-                      <div>Pos: [{database.position.map(p => p.toFixed(1)).join(', ')}]</div>
-                    </>
-                  ) : (
-                    <div>❌ Not in positionedNodes</div>
-                  )}
-                </div>
-                <div style={{ marginTop: '10px', borderTop: '1px solid #444', paddingTop: '10px' }}>
-                  <div style={{ fontWeight: 'bold', color: '#FF1493' }}>VECTOR_STORE:</div>
-                  {vectorStore ? (
-                    <>
-                      <div>✅ In positionedNodes</div>
-                      <div>Pos: [{vectorStore.position.map(p => p.toFixed(1)).join(', ')}]</div>
-                    </>
-                  ) : (
-                    <div>❌ Not in positionedNodes</div>
-                  )}
-                </div>
-              </>
-            );
-          })()}
-        </div>
-      )}
     </div>
   );
 }
