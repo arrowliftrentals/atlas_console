@@ -20,7 +20,7 @@ const ChatPanel: React.FC = () => {
   const [showProgress, setShowProgress] = useState(false);
   const [width, setWidth] = useState<number>(DEFAULT_CHAT_PANEL_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
-  const [isHealthy, setIsHealthy] = useState(true);
+  const [isHealthy, setIsHealthy] = useState<boolean | null>(null); // null = checking, true = healthy, false = unhealthy
   const [attachments, setAttachments] = useState<Array<{name: string, type: string, content: string, size?: number}>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -48,22 +48,27 @@ const ChatPanel: React.FC = () => {
     window.localStorage.setItem(CHAT_PANEL_WIDTH_KEY, String(width));
   }, [width]);
 
-  // Health check - poll backend every 10 seconds
+  // Health check - poll backend immediately and every 30 seconds
   useEffect(() => {
     const checkHealth = async () => {
       try {
-        const response = await fetch('http://localhost:8000/health');
-        setIsHealthy(response.ok);
+        // Check both health endpoint and try a simple chat endpoint verification
+        const healthResponse = await fetch('http://localhost:8000/health');
+        if (healthResponse.ok) {
+          setIsHealthy(true);
+        } else {
+          setIsHealthy(false);
+        }
       } catch (err) {
         setIsHealthy(false);
       }
     };
 
-    // Check immediately
+    // Check immediately on mount
     checkHealth();
 
-    // Then check every 10 seconds
-    const interval = setInterval(checkHealth, 10000);
+    // Then check every 30 seconds
+    const interval = setInterval(checkHealth, 30000);
 
     return () => clearInterval(interval);
   }, []);
@@ -156,9 +161,13 @@ const ChatPanel: React.FC = () => {
       const response = await sendAtlasChat(messageContent, activeSessionId);
       // Add assistant response
       addMessage(activeSessionId, { type: 'assistant', content: response.answer, response });
+      // Mark as healthy on successful chat
+      setIsHealthy(true);
     } catch (err: any) {
       setError(err.message || "Failed to send message");
       console.error("ATLAS chat error:", err);
+      // Mark as unhealthy on chat error
+      setIsHealthy(false);
     } finally {
       setLoading(false);
     }
@@ -251,9 +260,12 @@ const ChatPanel: React.FC = () => {
       {/* Header */}
       <div className="px-3 py-2 border-b border-[var(--atlas-border-subtle)] flex items-center justify-between">
         <div className="flex items-center gap-2">
-          {/* Status Indicator - Green for operational, Red for not */}
+          {/* Status Indicator - Green for operational, Red for not, Yellow for checking */}
           <div className="relative">
-            <div className={`w-2 h-2 rounded-full ${isHealthy ? 'bg-green-500' : 'bg-red-500'} animate-pulse`}></div>
+            <div className={`w-2 h-2 rounded-full ${
+              isHealthy === null ? 'bg-yellow-500' : 
+              isHealthy ? 'bg-green-500' : 'bg-red-500'
+            } animate-pulse`}></div>
           </div>
           {/* ATLAS Badge */}
           <span className="text-sm font-semibold text-[var(--atlas-text-primary)]">ATLAS</span>

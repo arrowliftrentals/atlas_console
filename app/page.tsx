@@ -14,7 +14,7 @@ import ArchitectureView from "@/components/ArchitectureView";
 import ArchitectureViewV2 from "@/components/ArchitectureViewV2";
 import dynamic from "next/dynamic";
 
-const NeuralArchitecture3D = dynamic(() => import("@/components/NeuralArchitecture3D"), { ssr: false });
+const NeuralArchitecture3D = dynamic(() => import("@/components/Neural3D/NeuralArchitecture3DV2"), { ssr: false });
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<MainTabId>("code");
@@ -63,7 +63,7 @@ export default function HomePage() {
     <main className="h-full w-full flex flex-col">
       <MainTabs activeTab={activeTab} onTabChange={setActiveTab} />
       <div className="flex-1 h-full relative" style={{ minHeight: 0 }}>
-        {activeTab === "neural-viz" && <NeuralArchitecture3D />}
+        {activeTab === "neural-viz" && <NeuralArchitecture3D key={`neural-viz-${activeTab}`} />}
         {activeTab !== "neural-viz" && renderTabContent()}
       </div>
     </main>
