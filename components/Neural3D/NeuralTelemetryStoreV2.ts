@@ -5,14 +5,23 @@ import { create } from 'zustand';
 import { TelemetryEventV2, NodeStateV2, EdgeStateV2 } from './NeuralTelemetryTypesV2';
 import { computeNodeStateFromEvent, computeEdgeStateFromEvent, decayNodeActivity } from './NeuralTelemetryUtilsV2';
 
+interface ParticleProgress {
+  sourceId: string;
+  targetId: string;
+  progress: number; // 0 to 1
+  timestamp: number;
+}
+
 interface NeuralTelemetryStoreState {
   nodes: Map<string, NodeStateV2>;
   edges: Map<string, EdgeStateV2>;
   particleEvents: TelemetryEventV2[];
+  activeParticles: Map<string, ParticleProgress[]>; // nodeId -> particles affecting it
   lastUpdateTs: number;
   
   // Actions
   ingestEvents: (events: TelemetryEventV2[]) => void;
+  updateParticleProgress: (particles: { sourceId: string; targetId: string; progress: number }[]) => void;
   clearParticleEvents: () => void;
   decayActivityPeriodically: () => void;
   resetState: () => void;
@@ -22,6 +31,7 @@ export const useNeuralTelemetryStoreV2 = create<NeuralTelemetryStoreState>((set,
   nodes: new Map(),
   edges: new Map(),
   particleEvents: [],
+  activeParticles: new Map(),
   lastUpdateTs: performance.now(),
 
   ingestEvents: (events) => {
@@ -57,6 +67,39 @@ export const useNeuralTelemetryStoreV2 = create<NeuralTelemetryStoreState>((set,
     });
   },
 
+  updateParticleProgress: (particles) => {
+    const activeParticles = new Map<string, ParticleProgress[]>();
+    const now = Date.now();
+    
+    for (const p of particles) {
+      // Track for source node (always active)
+      if (!activeParticles.has(p.sourceId)) {
+        activeParticles.set(p.sourceId, []);
+      }
+      activeParticles.get(p.sourceId)!.push({
+        sourceId: p.sourceId,
+        targetId: p.targetId,
+        progress: p.progress,
+        timestamp: now,
+      });
+      
+      // Track for target node (only if progress >= 50%)
+      if (p.progress >= 0.5) {
+        if (!activeParticles.has(p.targetId)) {
+          activeParticles.set(p.targetId, []);
+        }
+        activeParticles.get(p.targetId)!.push({
+          sourceId: p.sourceId,
+          targetId: p.targetId,
+          progress: p.progress,
+          timestamp: now,
+        });
+      }
+    }
+    
+    set({ activeParticles });
+  },
+
   clearParticleEvents: () => {
     console.log('[STORE] clearParticleEvents called');
     set({ particleEvents: [] });
@@ -78,6 +121,7 @@ export const useNeuralTelemetryStoreV2 = create<NeuralTelemetryStoreState>((set,
     nodes: new Map(),
     edges: new Map(),
     particleEvents: [],
+    activeParticles: new Map(),
     lastUpdateTs: performance.now(),
   }),
 }));
