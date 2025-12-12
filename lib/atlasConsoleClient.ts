@@ -3,14 +3,22 @@ import { ConsoleSession, ConsoleFileListResponse, AgentResponse, AtlasChatRespon
 const CONSOLE_API_BASE = '/api/console';
 const ATLAS_API_BASE = '/api/atlas';
 
-export async function listConsoleSessions(): Promise<{sessions: ConsoleSession[], total: number}> {
-  const res = await fetch(`${CONSOLE_API_BASE}/sessions`, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
-    cache: 'no-store',
-  });
-  if (!res.ok) throw new Error('Failed to fetch console sessions');
-  return res.json();
+export async function fetchConsoleSessions(): Promise<ConsoleSessionListResponse> {
+  try {
+    const res = await fetch(`${CONSOLE_API_BASE}/sessions`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      console.warn('[ConsoleClient] Failed to fetch console sessions:', res.status, res.statusText);
+      return { sessions: [] }; // Return empty result instead of throwing
+    }
+    return res.json();
+  } catch (err) {
+    console.warn('[ConsoleClient] Error fetching console sessions:', err);
+    return { sessions: [] }; // Return empty result on error
+  }
 }
 
 export async function createConsoleSession(
@@ -26,14 +34,22 @@ export async function createConsoleSession(
 }
 
 export async function fetchConsoleFiles(path: string = '.'): Promise<ConsoleFileListResponse> {
-  const params = new URLSearchParams({ path });
-  const res = await fetch(`${CONSOLE_API_BASE}/files?${params.toString()}`, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
-    cache: 'no-store',
-  });
-  if (!res.ok) throw new Error('Failed to fetch console files');
-  return res.json();
+  try {
+    const params = new URLSearchParams({ path });
+    const res = await fetch(`${CONSOLE_API_BASE}/files?${params.toString()}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      console.warn('[ConsoleClient] Failed to fetch console files:', res.status, res.statusText);
+      return { files: [], directories: [] }; // Return empty result instead of throwing
+    }
+    return res.json();
+  } catch (err) {
+    console.warn('[ConsoleClient] Error fetching console files:', err);
+    return { files: [], directories: [] }; // Return empty result on error
+  }
 }
 
 export async function clearConsoleSession(sessionId: string): Promise<{status: string, session_id: string}> {

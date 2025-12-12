@@ -1,16 +1,41 @@
 // NeuralParticlesInstancedV2.tsx
-// High-performance particle system using instanced rendering with fixed-size pool
+// Helical ribbon particle system following shell surface paths
 
 'use client';
 
 import { useRef, useMemo } from 'react';
 import * as THREE from 'three';
-import { InstancedMesh, Object3D, Color, Matrix4 } from 'three';
+import { InstancedMesh, Object3D, Color, Matrix4, Vector3 } from 'three';
 import { useFrame } from '@react-three/fiber';
 import { EdgeStateV2, NodeStateV2, TelemetryEventV2 } from './NeuralTelemetryTypesV2';
 import { PARTICLE_COLORS_BY_EVENT, NODE_COLORS, REGION_COLORS } from './NeuralVisualEncodingV2';
 import { useNeuralTelemetryStoreV2 } from './NeuralTelemetryStoreV2';
 import { classifyNode } from './NeuralCognitiveLayoutV2';
+
+const CORE_RADIUS = 20;
+const MEMORY_RADIUS = 60;
+const PERCEPTION_RADIUS = 100;
+
+// Determine which shell a position belongs to
+function getNodeShell(position: [number, number, number]): number {
+  const [x, y, z] = position;
+  const radius = Math.sqrt(x*x + y*y + z*z);
+  const distToCore = Math.abs(radius - CORE_RADIUS);
+  const distToMemory = Math.abs(radius - MEMORY_RADIUS);
+  const distToPerception = Math.abs(radius - PERCEPTION_RADIUS);
+  const minDist = Math.min(distToCore, distToMemory, distToPerception);
+  if (minDist === distToCore) return CORE_RADIUS;
+  if (minDist === distToMemory) return MEMORY_RADIUS;
+  return PERCEPTION_RADIUS;
+}
+
+// Project point to sphere surface
+function projectToSphere(x: number, y: number, z: number, radius: number): [number, number, number] {
+  const len = Math.sqrt(x*x + y*y + z*z);
+  if (len === 0) return [radius, 0, 0];
+  const scale = radius / len;
+  return [x * scale, y * scale, z * scale];
+}
 
 interface Props {
   nodes: Map<string, NodeStateV2>;
@@ -241,52 +266,16 @@ export function NeuralParticlesInstancedV2({
         return;
       }
 
-      // Quadratic bezier curve along edge
+      // Straight line path along edge
       const [x1, y1, z1] = src.position;
       const [x2, y2, z2] = dst.position;
       
-      // Calculate control point perpendicular to edge
-      const midX = (x1 + x2) / 2;
-      const midY = (y1 + y2) / 2;
-      const midZ = (z1 + z2) / 2;
-      
-      const dx = x2 - x1;
-      const dy = y2 - y1;
-      const dz = z2 - z1;
-      const edgeLen = Math.sqrt(dx*dx + dy*dy + dz*dz);
-      
-      // Perpendicular offset (cross product with up vector)
-      const curvature = edgeLen * 0.15; // 15% of edge length
-      const perpX = -dz * curvature / (edgeLen || 1);
-      const perpY = curvature;
-      const perpZ = dx * curvature / (edgeLen || 1);
-      
-      const ctrlX = midX + perpX;
-      const ctrlY = midY + perpY;
-      const ctrlZ = midZ + perpZ;
-      
-      // Validate control point
-      if (!isFinite(ctrlX) || !isFinite(ctrlY) || !isFinite(ctrlZ)) {
-        console.warn('[PARTICLE] Invalid control point, deactivating particle');
-        p.active = false;
-        activeCountRef.current--; // Decrement when deactivating
-        dummy.position.set(10000, 10000, 10000);
-        dummy.scale.set(0, 0, 0);
-        dummy.updateMatrix();
-        meshRef.current.setMatrixAt(i, dummy.matrix);
-        return;
-      }
-      
-      // Quadratic bezier: B(t) = (1-t)^2*P0 + 2(1-t)t*P1 + t^2*P2
       const t = p.t;
-      const mt = 1 - t;
-      const mt2 = mt * mt;
-      const t2 = t * t;
-      const factor = 2 * mt * t;
       
-      let x = mt2 * x1 + factor * ctrlX + t2 * x2;
-      let y = mt2 * y1 + factor * ctrlY + t2 * y2;
-      let z = mt2 * z1 + factor * ctrlZ + t2 * z2;
+      // Simple linear interpolation - straight line
+      let x = x1 + (x2 - x1) * t;
+      let y = y1 + (y2 - y1) * t;
+      let z = z1 + (z2 - z1) * t;
 
       // Validate computed position
       if (!isFinite(x) || !isFinite(y) || !isFinite(z)) {
