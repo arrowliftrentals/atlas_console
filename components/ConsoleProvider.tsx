@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ConsoleSession, AgentResponse } from '@/lib/types';
-import { listConsoleSessions } from '@/lib/atlasConsoleClient';
+import { fetchConsoleSessions } from '@/lib/atlasConsoleClient';
 
 export interface ChatMessage {
   type: 'user' | 'assistant';
@@ -47,7 +47,7 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
     setLoadingSessions(true);
     setError(null);
     try {
-      const data = await listConsoleSessions();
+      const data = await fetchConsoleSessions();
       setSessions(data.sessions);
       
       // Auto-select first session if none selected

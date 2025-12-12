@@ -36,10 +36,10 @@ export interface CognitiveNodeMetadata {
   importance: number; // 0-1, affects size and position
 }
 
-// Core radius settings
-const CORE_RADIUS = 20;        // Central reasoning sphere
-const MEMORY_RADIUS = 60;      // Memory shell
-const PERCEPTION_RADIUS = 100; // Outer perception shell
+// Core radius settings - exported for use in other components
+export const CORE_RADIUS = 20;        // Central reasoning sphere
+export const MEMORY_RADIUS = 60;      // Memory shell
+export const PERCEPTION_RADIUS = 100; // Outer perception shell
 
 /**
  * Classify node into cognitive region based on ID/subsystem
@@ -248,11 +248,9 @@ export function classifyNode(nodeId: string, subsystem: NodeSubsystem): Cognitiv
 
 /**
  * Compute cognitive layout positions
- * Core: small central sphere
- * Memory: middle shell with latitude bands by memory type
- * Perception: outer shell with longitude sectors by perception type
+ * Nodes ordered along helical path to minimize straight-line connection distances
  */
-export function computeCognitiveLayout(nodes: Map<string, NodeStateV2>): Map<string, NodeStateV2> {
+export function computeCognitiveLayout(nodes: Map<string, NodeStateV2>, edges?: Map<string, any>): Map<string, NodeStateV2> {
   const result = new Map<string, NodeStateV2>();
   
   if (nodes.size === 0) return result;
@@ -268,6 +266,110 @@ export function computeCognitiveLayout(nodes: Map<string, NodeStateV2>): Map<str
   const coreNodes = classified.filter(c => c.metadata.region === 'core');
   const memoryNodes = classified.filter(c => c.metadata.region === 'memory');
   const perceptionNodes = classified.filter(c => c.metadata.region === 'perception');
+  
+  // ========== OPTIMIZE NODE ORDERING TO MINIMIZE DISTANCES ==========
+  
+  const optimizeNodeOrder = (nodeList: typeof memoryNodes, shellRadius: number): typeof memoryNodes => {
+    if (!edges || nodeList.length <= 1) return nodeList;
+    
+    // Build adjacency list with all connections (same-shell and cross-shell)
+    const connections = new Map<string, Set<string>>();
+    nodeList.forEach(n => connections.set(n.node.id, new Set()));
+    
+    // Add all edges involving nodes in this shell
+    if (edges) {
+      edges.forEach((edge: any) => {
+        const srcInShell = nodeList.find(n => n.node.id === edge.sourceId);
+        const dstInShell = nodeList.find(n => n.node.id === edge.targetId);
+        
+        // If source is in this shell, record the connection
+        if (srcInShell) {
+          connections.get(srcInShell.node.id)!.add(edge.targetId);
+        }
+        // If destination is in this shell, record the connection
+        if (dstInShell) {
+          connections.get(dstInShell.node.id)!.add(edge.sourceId);
+        }
+      });
+    }
+    
+    // Greedy TSP-like algorithm: order nodes to minimize total path length
+    // Start with the most connected node
+    const ordered: typeof memoryNodes = [];
+    const remaining = new Set(nodeList);
+    
+    // Find starting node (most connected)
+    let maxConnections = 0;
+    let startNode = nodeList[0];
+    nodeList.forEach(n => {
+      const connCount = connections.get(n.node.id)!.size;
+      if (connCount > maxConnections) {
+        maxConnections = connCount;
+        startNode = n;
+      }
+    });
+    
+    ordered.push(startNode);
+    remaining.delete(startNode);
+    
+    // Greedily add nodes that minimize total connection distance
+    while (remaining.size > 0) {
+      let bestNode = null;
+      let bestScore = -Infinity;
+      
+      remaining.forEach(candidate => {
+        let score = 0;
+        const candidateConnections = connections.get(candidate.node.id)!;
+        
+        // Score based on:
+        // 1. Connections to already-placed nodes (prefer neighbors of recently placed)
+        // 2. High connectivity (prefer hubs)
+        // 3. Proximity in the sequence
+        
+        ordered.forEach((placedNode, index) => {
+          // Check if candidate connects to this placed node
+          if (candidateConnections.has(placedNode.node.id)) {
+            // Recent placements get higher weight (prefer sequential neighbors)
+            const recencyWeight = index === ordered.length - 1 ? 10 : 
+                                  index === ordered.length - 2 ? 5 : 1;
+            score += recencyWeight;
+          }
+        });
+        
+        // Bonus for highly connected nodes (hubs should be central)
+        score += candidateConnections.size * 0.1;
+        
+        if (score > bestScore) {
+          bestScore = score;
+          bestNode = candidate;
+        }
+      });
+      
+      // If no connected nodes found, pick the most connected remaining node
+      if (bestScore <= 0) {
+        let maxConn = 0;
+        remaining.forEach(n => {
+          const connCount = connections.get(n.node.id)!.size;
+          if (connCount > maxConn) {
+            maxConn = connCount;
+            bestNode = n;
+          }
+        });
+      }
+      
+      if (bestNode) {
+        ordered.push(bestNode);
+        remaining.delete(bestNode);
+      } else {
+        // Fallback: add any remaining node
+        const next = remaining.values().next().value;
+        ordered.push(next);
+        remaining.delete(next);
+      }
+    }
+    
+    return ordered;
+  };
   
   console.log('[COGNITIVE LAYOUT] Three-shell architecture initialized:', {
     total: nodeArray.length,
@@ -298,147 +400,69 @@ export function computeCognitiveLayout(nodes: Map<string, NodeStateV2>): Map<str
     });
   }
   
-  // ========== CORE LAYOUT (tight central cluster) ==========
+  // ========== HELICAL LINE PLACEMENT ==========
+  // All nodes on each shell follow a single helical path from 85°N,5°W to 85°S,5°E
+  
+  // Helper: Calculate position on helical line
+  const getHelicalPosition = (index: number, total: number, radius: number): [number, number, number] => {
+    const t = index / Math.max(total - 1, 1); // 0 to 1
+    
+    // Latitude: 85°N to 85°S (graceful continuous slope)
+    const latStart = 85 * Math.PI / 180;  // 85°N
+    const latEnd = -85 * Math.PI / 180;   // 85°S
+    const lat = latStart + (latEnd - latStart) * t;
+    
+    // Longitude: spiral from 5°W to 5°E with one complete wrap
+    const lonStart = -5 * Math.PI / 180; // 5°W
+    const lonEnd = 5 * Math.PI / 180;    // 5°E
+    const helixRotations = 1; // One complete wrap around the sphere
+    const lon = lonStart + (lonEnd - lonStart) * t + (t * helixRotations * 2 * Math.PI);
+    
+    // Convert spherical to Cartesian
+    const x = radius * Math.cos(lat) * Math.cos(lon);
+    const y = radius * Math.sin(lat);
+    const z = radius * Math.cos(lat) * Math.sin(lon);
+    
+    return [x, y, z];
+  };
+  
+  // ========== CORE LAYOUT (optimized helical line) ==========
   
   if (coreNodes.length > 0) {
-    // Find CoreLoop or most important core node for center
-    const centerNode = coreNodes.find(c => c.node.id.toLowerCase().includes('coreloop')) || 
-                       coreNodes.reduce((max, c) => c.metadata.importance > max.metadata.importance ? c : max);
-    
-    // Place center node at origin
-    result.set(centerNode.node.id, {
-      ...centerNode.node,
-      position: [0, 0, 0]
-    });
-    
-    // Place other core nodes in small sphere around center
-    const otherCore = coreNodes.filter(c => c.node.id !== centerNode.node.id);
-    otherCore.forEach((c, idx) => {
-      const count = otherCore.length;
-      const phi = Math.acos(1 - 2 * (idx + 0.5) / count);
-      const theta = Math.PI * (1 + Math.sqrt(5)) * idx;
-      const r = CORE_RADIUS * (0.7 + 0.3 * c.metadata.importance); // Vary by importance
-      
-      const x = r * Math.sin(phi) * Math.cos(theta);
-      const y = r * Math.sin(phi) * Math.sin(theta);
-      const z = r * Math.cos(phi);
-      
+    const orderedCore = optimizeNodeOrder(coreNodes, CORE_RADIUS);
+    orderedCore.forEach((c, idx) => {
+      const pos = getHelicalPosition(idx, orderedCore.length, CORE_RADIUS);
       result.set(c.node.id, {
         ...c.node,
-        position: [x, y, z]
+        position: pos
       });
     });
   }
   
-  // ========== MEMORY LAYOUT (shell with latitude bands) ==========
+  // ========== MEMORY LAYOUT (optimized helical line) ==========
   
   if (memoryNodes.length > 0) {
-    // Group by memory type
-    const episodicNodes = memoryNodes.filter(c => c.metadata.memoryType === 'episodic');
-    const declarativeNodes = memoryNodes.filter(c => c.metadata.memoryType === 'declarative');
-    const proceduralNodes = memoryNodes.filter(c => c.metadata.memoryType === 'procedural');
-    const planningNodes = memoryNodes.filter(c => c.metadata.memoryType === 'planning');
-    const layeredNodes = memoryNodes.filter(c => c.metadata.memoryType === 'layered');
-    const vectorNodes = memoryNodes.filter(c => c.metadata.memoryType === 'vector');
-    const storageNodes = memoryNodes.filter(c => c.metadata.memoryType === 'storage');
-    
-    // Latitude bands:
-    // North pole (90°): Planning
-    // 45° N: Declarative
-    // Equator (0°): Episodic
-    // -45° S: Procedural
-    // South pole (-90°): Layered
-    
-    const placeMemoryBand = (
-      nodes: typeof episodicNodes,
-      latStart: number, // degrees
-      latEnd: number,
-      thetaOffset: number = 0 // longitude offset in radians
-    ) => {
-      nodes.forEach((c, idx) => {
-        const count = nodes.length;
-        
-        // Distribute evenly around longitude with optional offset
-        const theta = thetaOffset + (idx / count) * 2 * Math.PI;
-        
-        // Distribute within latitude band with deterministic jitter
-        const latMid = (latStart + latEnd) / 2;
-        const latRange = (latEnd - latStart) / 2;
-        const latJitter = getStableJitter(c.node.id, 1) * latRange * 0.4; // Stable jitter
-        const lat = (latMid + latJitter) * Math.PI / 180;
-        
-        const r = MEMORY_RADIUS * (0.9 + 0.2 * c.metadata.importance);
-        
-        const x = r * Math.cos(lat) * Math.cos(theta);
-        const y = r * Math.sin(lat);
-        const z = r * Math.cos(lat) * Math.sin(theta);
-        
-        result.set(c.node.id, {
-          ...c.node,
-          position: [x, y, z]
-        });
+    const orderedMemory = optimizeNodeOrder(memoryNodes, MEMORY_RADIUS);
+    orderedMemory.forEach((c, idx) => {
+      const pos = getHelicalPosition(idx, orderedMemory.length, MEMORY_RADIUS);
+      result.set(c.node.id, {
+        ...c.node,
+        position: pos
       });
-    };
-    
-    placeMemoryBand(planningNodes, 30, 50);              // Mid-upper (roadmap_router, task_store)
-    placeMemoryBand(vectorNodes, 30, 50, Math.PI / 3);   // Mid-upper, offset 60° (vector_store)
-    placeMemoryBand(storageNodes, 30, 50, Math.PI * 2 / 3); // Mid-upper, offset 120° (database)
-    placeMemoryBand(declarativeNodes, 50, 70);   // Upper hemisphere
-    placeMemoryBand(episodicNodes, -20, 30);     // Equator region
-    placeMemoryBand(proceduralNodes, -50, -20);  // Lower hemisphere
-    placeMemoryBand(layeredNodes, -90, -50);     // South pole region
+    });
   }
   
-  // ========== PERCEPTION LAYOUT (outer shell with longitude sectors) ==========
+  // ========== PERCEPTION LAYOUT (optimized helical line) ==========
   
   if (perceptionNodes.length > 0) {
-    // Group by perception type
-    const toolsNodes = perceptionNodes.filter(c => c.metadata.perceptionType === 'tools');
-    const apiNodes = perceptionNodes.filter(c => c.metadata.perceptionType === 'api');
-    const telemetryNodes = perceptionNodes.filter(c => c.metadata.perceptionType === 'telemetry');
-    const consoleNodes = perceptionNodes.filter(c => c.metadata.perceptionType === 'console');
-    
-    // Longitude sectors (quadrants):
-    // Sector 1 (0°-90°): Tools
-    // Sector 2 (90°-180°): API
-    // Sector 3 (180°-270°): Telemetry
-    // Sector 4 (270°-360°): Console
-    
-    const placePerceptionSector = (
-      nodes: typeof toolsNodes,
-      thetaStart: number, // degrees
-      thetaEnd: number
-    ) => {
-      nodes.forEach((c, idx) => {
-        const count = nodes.length;
-        
-        // Distribute within sector with deterministic offset
-        const thetaMid = (thetaStart + thetaEnd) / 2;
-        const thetaRange = (thetaEnd - thetaStart) / 2;
-        const thetaOffset = ((idx / count) - 0.5) * thetaRange * 1.5;
-        const thetaJitter = getStableJitter(c.node.id, 2) * thetaRange * 0.2; // Stable jitter
-        const theta = (thetaMid + thetaOffset + thetaJitter) * Math.PI / 180;
-        
-        // Distribute in latitude (spherical)
-        const phi = Math.acos(1 - 2 * (idx + 0.5) / count);
-        
-        const r = PERCEPTION_RADIUS * (0.9 + 0.2 * c.metadata.importance);
-        
-        const x = r * Math.sin(phi) * Math.cos(theta);
-        const y = r * Math.cos(phi);
-        const z = r * Math.sin(phi) * Math.sin(theta);
-        
-        result.set(c.node.id, {
-          ...c.node,
-          position: [x, y, z]
-        });
+    const orderedPerception = optimizeNodeOrder(perceptionNodes, PERCEPTION_RADIUS);
+    orderedPerception.forEach((c, idx) => {
+      const pos = getHelicalPosition(idx, orderedPerception.length, PERCEPTION_RADIUS);
+      result.set(c.node.id, {
+        ...c.node,
+        position: pos
       });
-    };
-    
-    placePerceptionSector(toolsNodes, 0, 90);       // Front-right
-    placePerceptionSector(apiNodes, 90, 180);       // Back-right
-    placePerceptionSector(telemetryNodes, 180, 270); // Back-left
-    placePerceptionSector(consoleNodes, 270, 360);   // Front-left
+    });
   }
   
   return result;

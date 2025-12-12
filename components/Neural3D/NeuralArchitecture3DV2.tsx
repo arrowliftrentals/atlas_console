@@ -5,10 +5,11 @@
 'use client';
 
 import { Canvas } from '@react-three/fiber';
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { OrbitControls } from '@react-three/drei';
+import { Vector3, Matrix4, Euler } from 'three';
 import { useNeuralTelemetryStoreV2 } from './NeuralTelemetryStoreV2';
-import { computeCognitiveLayout, classifyNode } from './NeuralCognitiveLayoutV2';
+import { computeCognitiveLayout, classifyNode, CORE_RADIUS, MEMORY_RADIUS } from './NeuralCognitiveLayoutV2';
 import { NeuralNodesInstancedV2 } from './NeuralNodesInstancedV2';
 import { NeuralEdgesInstancedV2 } from './NeuralEdgesInstancedV2';
 import { NeuralParticlesInstancedV2 } from './NeuralParticlesInstancedV2';
@@ -16,8 +17,15 @@ import { NeuralLabelsV2 } from './NeuralLabelsV2';
 import { NeuralHUDV2 } from './NeuralHUDV2';
 import { NeuralCognitiveShellsV2 } from './NeuralCognitiveShellsV2';
 import { NeuralCognitiveLegendV2 } from './NeuralCognitiveLegendV2';
-import { TelemetryEventV2 } from './NeuralTelemetryTypesV2';
+import { NeuralShellControls } from './NeuralShellControls';
+import { NeuralDraggableNodes } from './NeuralDraggableNodes';
+import { NeuralShellDragRotation } from './NeuralShellDragRotation';
+import { NeuralShellRotationHandles } from './NeuralShellRotationHandles';
+
+import { TelemetryEventV2, NodeStateV2 } from './NeuralTelemetryTypesV2';
 import { convertV1ToV2, inferSubsystem } from './NeuralTelemetryUtilsV2';
+import { optimizeShellRotations } from './NeuralShellOptimizer';
+import { optimizeNodePositionsOnShell } from './NeuralNodePositionOptimizer';
 
 interface Props {
   timeScale?: number;
@@ -34,6 +42,111 @@ export default function NeuralArchitecture3DV2({
   const [telemetryConnected, setTelemetryConnected] = useState(false);
   const [stats, setStats] = useState({ fps: 0, nodeCount: 0, edgeCount: 0, particleCount: 0 });
   const [activeParticleCount, setActiveParticleCount] = useState(0);
+  
+  // Shell rotation states
+  const [shellRotations, setShellRotations] = useState({
+    core: { x: 0, y: 0, z: 0 },
+    memory: { x: 0, y: 0, z: 0 },
+    perception: { x: 0, y: 0, z: 0 },
+  });
+  
+  // Track custom node positions (overrides computed layout)
+  const [customNodePositions, setCustomNodePositions] = useState<Map<string, [number, number, number]>>(new Map());
+  
+  // Track drag state to disable OrbitControls during node dragging
+  const [isDraggingNode, setIsDraggingNode] = useState(false);
+  
+  // Track which shell is selected for rotation
+  const [selectedShellForRotation, setSelectedShellForRotation] = useState<'core' | 'memory' | 'perception' | null>(null);
+  
+  // Track node count for auto-optimization
+  const prevNodeCountRef = useRef(0);
+  
+  // Optimization handler
+  const handleOptimizeRotations = () => {
+    console.log('[V2] Optimizing shell rotations...');
+    const optimized = optimizeShellRotations(nodes, edges, shellRotations);
+    setShellRotations(optimized);
+  };
+
+  const handleOptimizeNodePositions = useCallback(() => {
+    if (nodes.size === 0) {
+      console.warn('[V2] No nodes loaded yet. Wait for architecture to load from http://localhost:8000/v1/architecture/graph');
+      return;
+    }
+
+    console.log('[V2] ========================================');
+    console.log('[V2] OPTIMIZING MEMORY SHELL NODE POSITIONS');
+    console.log('[V2] Total nodes:', nodes.size, 'Total edges:', edges.size);
+    
+    // Get current computed layout to know which nodes are on memory shell
+    const computedLayout = computeCognitiveLayout(nodes, edges);
+    const nodesArray = Array.from(computedLayout.values());
+    const edgesArray = Array.from(edges.values());
+    
+    // Log node distribution by shell
+    const shellCounts = { core: 0, memory: 0, perception: 0 };
+    const memoryNodeIds: string[] = [];
+    
+    nodesArray.forEach(node => {
+      if (!node.position) return;
+      const dist = Math.sqrt(node.position[0] ** 2 + node.position[1] ** 2 + node.position[2] ** 2);
+      if (dist < 30) {
+        shellCounts.core++;
+      } else if (dist < 70) {
+        shellCounts.memory++;
+        memoryNodeIds.push(node.id);
+      } else {
+        shellCounts.perception++;
+      }
+    });
+    
+    console.log('[V2] Node distribution - Core:', shellCounts.core, 'Memory:', shellCounts.memory, 'Perception:', shellCounts.perception);
+    console.log('[V2] Memory shell nodes:', memoryNodeIds.join(', '));
+    
+    if (shellCounts.memory === 0) {
+      console.warn('[V2] No nodes found on memory shell (radius 30-70). Cannot optimize.');
+      return;
+    }
+    
+    // Optimize memory shell node positions
+    console.log('[V2] Starting optimization algorithm...');
+    const optimizedPositions = optimizeNodePositionsOnShell(
+      nodesArray,
+      edgesArray,
+      'memory',
+      1000 // iterations
+    );
+
+    console.log('[V2] Optimization complete! Returned', optimizedPositions.size, 'positions');
+
+    if (optimizedPositions.size > 0) {
+      // Clear existing memory shell positions and replace with optimized ones
+      const updated = new Map<string, [number, number, number]>();
+      
+      // Keep non-memory shell custom positions
+      customNodePositions.forEach((pos, nodeId) => {
+        if (!memoryNodeIds.includes(nodeId)) {
+          updated.set(nodeId, pos);
+        }
+      });
+      
+      // Add all optimized memory shell positions
+      optimizedPositions.forEach((newPos, nodeId) => {
+        updated.set(nodeId, newPos);
+        console.log(`[V2] Node ${nodeId} optimized to [${newPos[0].toFixed(1)}, ${newPos[1].toFixed(1)}, ${newPos[2].toFixed(1)}]`);
+      });
+      
+      console.log('[V2] Applying', updated.size, 'custom positions (including', optimizedPositions.size, 'optimized memory nodes)');
+      
+      // Force update by creating new Map instance
+      setCustomNodePositions(new Map(updated));
+      
+      // Force re-render by triggering a state update
+      console.log('[V2] Custom positions state updated. Layout should recalculate.');
+      console.log('[V2] ========================================');
+    }
+  }, [nodes, edges, customNodePositions]);
 
   // Debug: Track when particleEvents actually updates
   useEffect(() => {
@@ -43,7 +156,13 @@ export default function NeuralArchitecture3DV2({
     }
   }, [particleEvents]);
 
-  // Load static architecture graph on mount
+  // Auto-optimize when new nodes are added to memory shell - DISABLED
+  // Optimization only runs once on initial load
+  useEffect(() => {
+    prevNodeCountRef.current = nodes.size;
+  }, [nodes]);
+
+  // Load static architecture graph on mount and optimize positions
   useEffect(() => {
     fetch('http://localhost:8000/v1/architecture/graph')
       .then(res => res.json())
@@ -80,14 +199,23 @@ export default function NeuralArchitecture3DV2({
 
         console.log('[V2] Ingesting', initialEvents.length, 'initial events');
         ingestEvents(initialEvents);
+        
+        // Optimize positions immediately to avoid showing old constrained layout
+        // Use setTimeout with minimal delay to ensure nodes are in store first
+        setTimeout(() => {
+          console.log('[V2] Auto-optimizing memory shell positions after initial load');
+          handleOptimizeNodePositions();
+        }, 100);
       })
       .catch(err => {
         console.warn('[V2] Failed to load architecture graph:', err);
       });
-  }, [ingestEvents]);
+  }, [ingestEvents, handleOptimizeNodePositions]);
 
   // Compute stable positions using cognitive layout
   // Core → Memory → Perception (three concentric shells)
+  // Nodes ordered to minimize straight-line connection distances
+  // Apply custom positions from dragging and shell rotations
   const positionedNodes = useMemo(() => {
     console.log('[V2] Computing layout for', nodes.size, 'nodes');
     const nodeArray = Array.from(nodes.values());
@@ -95,8 +223,118 @@ export default function NeuralArchitecture3DV2({
     const hasDatabase = nodeArray.some(n => n.id === 'database');
     const hasVector = nodeArray.some(n => n.id === 'vector_store');
     console.log('[V2] Has database:', hasDatabase, 'Has vector_store:', hasVector);
-    return computeCognitiveLayout(nodes);
-  }, [nodes]);
+    
+    const computedLayout = computeCognitiveLayout(nodes, edges);
+    
+    // Include only core and memory shell nodes (hide perception/tools)
+    const filteredLayout = new Map<string, NodeStateV2>();
+    let coreCount = 0, memoryCount = 0, perceptionCount = 0;
+    
+    computedLayout.forEach((node, nodeId) => {
+      // Always include nodes with custom positions (optimized memory nodes)
+      if (customNodePositions.has(nodeId)) {
+        filteredLayout.set(nodeId, node);
+        memoryCount++;
+        return;
+      }
+      
+      // Include nodes based on shell
+      if (node.position) {
+        const [x, y, z] = node.position;
+        const dist = Math.sqrt(x * x + y * y + z * z);
+        
+        if (dist < 25) {
+          // Core shell nodes
+          filteredLayout.set(nodeId, node);
+          coreCount++;
+        } else if (dist < 50) {
+          // Memory shell nodes (if not already optimized)
+          if (!customNodePositions.has(nodeId)) {
+            filteredLayout.set(nodeId, node);
+            memoryCount++;
+          }
+        }
+        // Perception nodes (dist >= 50) are excluded
+        else {
+          perceptionCount++;
+        }
+      }
+    });
+    
+    console.log(`[V2 Layout] Showing nodes: core=${coreCount}, memory=${memoryCount}, hidden perception=${perceptionCount}`);
+    
+    // Apply shell rotations and custom positions
+    const finalLayout = new Map<string, NodeStateV2>();
+    filteredLayout.forEach((node, nodeId) => {
+      if (!node.position) {
+        finalLayout.set(nodeId, node);
+        return;
+      }
+      
+      let position = node.position;
+      
+      // Override with optimized/custom position if exists
+      if (customNodePositions.has(nodeId)) {
+        position = customNodePositions.get(nodeId)!;
+        const [cx, cy, cz] = position;
+        const cdist = Math.sqrt(cx*cx + cy*cy + cz*cz);
+        console.log(`[V2 Layout] Using custom position for ${nodeId}: [${cx.toFixed(1)}, ${cy.toFixed(1)}, ${cz.toFixed(1)}], dist=${cdist.toFixed(1)}`);
+        
+        // Custom positions are already in final world space - use directly without rotation
+        finalLayout.set(nodeId, {
+          ...node,
+          position: position,
+        });
+        return; // Skip shell rotation for manually positioned nodes
+      }
+      
+      // Apply shell rotation (only for non-custom positions)
+      const [x, y, z] = position;
+      const dist = Math.sqrt(x * x + y * y + z * z);
+      
+      // Determine which shell and get its rotation
+      let rotation = { x: 0, y: 0, z: 0 };
+      if (dist < CORE_RADIUS + 10) {
+        rotation = shellRotations.core;
+      } else if (dist < MEMORY_RADIUS + 10) {
+        rotation = shellRotations.memory;
+      } else {
+        rotation = shellRotations.perception;
+      }
+      
+      // Apply rotation using matrix transformation
+      const vector = new Vector3(x, y, z);
+      const matrix = new Matrix4();
+      matrix.makeRotationFromEuler(
+        new Euler(
+          (rotation.x * Math.PI) / 180,
+          (rotation.y * Math.PI) / 180,
+          (rotation.z * Math.PI) / 180,
+          'XYZ'
+        )
+      );
+      vector.applyMatrix4(matrix);
+      
+      finalLayout.set(nodeId, {
+        ...node,
+        position: [vector.x, vector.y, vector.z],
+      });
+    });
+    
+    return finalLayout;
+  }, [nodes, edges, customNodePositions, shellRotations]);
+  
+  // Handle node position changes from dragging
+  // Store position in un-rotated coordinate system so shell rotations work correctly
+  const handleNodePositionChange = (nodeId: string, position: [number, number, number]) => {
+    // Store the dragged position directly (already in world space)
+    // The dragging component handles sphere constraint internally
+    setCustomNodePositions(prev => {
+      const next = new Map(prev);
+      next.set(nodeId, position);
+      return next;
+    });
+  };
 
   // Compute node statistics for legend
   const nodeStats = useMemo(() => {
@@ -363,17 +601,14 @@ export default function NeuralArchitecture3DV2({
     }
   }, [particleEvents]);
 
-  // Clear consumed particle events after particles have had time to spawn (10 seconds)
+  // Clear consumed particle events periodically
   useEffect(() => {
     const interval = setInterval(() => {
-      if (particleEvents.length > 0) {
-        console.log('[V2] Clearing', particleEvents.length, 'particle events after 10s');
-        clearParticleEvents();
-      }
-    }, 10000); // Clear every 10 seconds (plenty of time for particle system to spawn)
+      clearParticleEvents();
+    }, 5000); // Clear every 5 seconds
 
     return () => clearInterval(interval);
-  }, [particleEvents.length, clearParticleEvents]);
+  }, [clearParticleEvents]);
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', backgroundColor: '#02030a' }}>
@@ -399,10 +634,40 @@ export default function NeuralArchitecture3DV2({
 
         <Suspense fallback={null}>
           {/* Cognitive region shells (wireframe guides) */}
-          <NeuralCognitiveShellsV2 visible={true} opacity={0.12} />
+          <NeuralCognitiveShellsV2 
+            visible={true} 
+            opacity={0.12}
+            shellRotations={shellRotations}
+          />
+          
+          {/* Rotation handles for selected shell */}
+          <NeuralShellRotationHandles
+            selectedShell={selectedShellForRotation}
+            shellRotations={shellRotations}
+          />
+          
+          {/* Shell drag rotation handler */}
+          <NeuralShellDragRotation
+            selectedShell={selectedShellForRotation}
+            shellRotations={shellRotations}
+            onRotationChange={(shell, rotation) => {
+              console.log('[Architecture] Updating shell rotation:', shell, rotation);
+              // Update local state
+              setShellRotations(prev => ({ ...prev, [shell]: rotation }));
+            }}
+          />
+          
+          {/* Draggable nodes with shell rotation support */}
+          <NeuralDraggableNodes
+            nodes={positionedNodes}
+            edges={edges}
+            timeScale={timeScale}
+            onNodePositionChange={handleNodePositionChange}
+            onDragStateChange={setIsDraggingNode}
+            disabled={!!selectedShellForRotation}
+          />
           
           {/* Instanced rendering components */}
-          <NeuralNodesInstancedV2 nodes={positionedNodes} edges={edges} timeScale={timeScale} />
           <NeuralEdgesInstancedV2 nodes={positionedNodes} edges={edges} timeScale={timeScale} />
           <NeuralParticlesInstancedV2
             nodes={positionedNodes}
@@ -417,10 +682,10 @@ export default function NeuralArchitecture3DV2({
               setActiveParticleCount(count);
             }}
           />
-          <NeuralLabelsV2 nodes={positionedNodes} edges={edges} />
         </Suspense>
 
         <OrbitControls
+          enabled={!isDraggingNode && !selectedShellForRotation}
           enableDamping
           dampingFactor={0.1}
           rotateSpeed={0.5}
@@ -429,14 +694,11 @@ export default function NeuralArchitecture3DV2({
           maxDistance={800}
         />
       </Canvas>
-
-      {/* HUD Overlay */}
-      <NeuralHUDV2
-        telemetryConnected={telemetryConnected}
-        stats={stats}
-      />
-
-      {/* Cognitive Architecture Legend */}
+      
+      {/* HUD Overlay - Top bar with connection status and stats */}
+      <NeuralHUDV2 telemetryConnected={true} stats={stats} />
+      
+      {/* Cognitive Legend - Bottom Left with detailed region info */}
       <NeuralCognitiveLegendV2 nodeStats={nodeStats} />
     </div>
   );

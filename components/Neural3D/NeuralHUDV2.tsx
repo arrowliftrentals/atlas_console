@@ -99,7 +99,7 @@ export function NeuralHUDV2({ telemetryConnected, stats }: Props) {
         fontFamily: 'monospace',
         pointerEvents: 'none',
       }}>
-        FPS: {stats.fps}
+        {stats.fps.toFixed(0)} FPS
       </div>
     </>
   );

@@ -52,8 +52,10 @@ export const useNeuralTelemetryStoreV2 = create<NeuralTelemetryStoreState>((set,
       });
       edgeUpdates.forEach((v, k) => edges.set(k, v));
 
-      // Queue for particle emission (LOD manager will sample)
-      particleEvents.push(ev);
+      // Queue for particle emission (cap at 1000 to prevent memory issues)
+      if (particleEvents.length < 1000) {
+        particleEvents.push(ev);
+      }
     }
 
     console.log('[STORE] After:', nodes.size, 'nodes,', edges.size, 'edges');
@@ -101,7 +103,12 @@ export const useNeuralTelemetryStoreV2 = create<NeuralTelemetryStoreState>((set,
   },
 
   clearParticleEvents: () => {
-    console.log('[STORE] clearParticleEvents called');
+    const currentEvents = get().particleEvents.length;
+    if (currentEvents === 0) return;
+    
+    console.log('[STORE] Clearing', currentEvents, 'particle events');
+    
+    // Just clear events - keep all edges (they represent the architecture)
     set({ particleEvents: [] });
   },
 

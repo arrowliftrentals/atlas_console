@@ -9,6 +9,11 @@ import { Mesh } from 'three';
 interface Props {
   visible?: boolean;
   opacity?: number;
+  shellRotations?: {
+    core: { x: number; y: number; z: number };
+    memory: { x: number; y: number; z: number };
+    perception: { x: number; y: number; z: number };
+  };
 }
 
 // Core radius settings (matching layout)
@@ -16,7 +21,15 @@ const CORE_RADIUS = 20;
 const MEMORY_RADIUS = 60;
 const PERCEPTION_RADIUS = 100;
 
-export function NeuralCognitiveShellsV2({ visible = true, opacity = 0.15 }: Props) {
+export function NeuralCognitiveShellsV2({ 
+  visible = true, 
+  opacity = 0.15,
+  shellRotations = {
+    core: { x: 0, y: 0, z: 0 },
+    memory: { x: 0, y: 0, z: 0 },
+    perception: { x: 0, y: 0, z: 0 },
+  }
+}: Props) {
   const coreMeshRef = useRef<Mesh>(null);
   const memoryMeshRef = useRef<Mesh>(null);
   const perceptionMeshRef = useRef<Mesh>(null);
@@ -26,7 +39,14 @@ export function NeuralCognitiveShellsV2({ visible = true, opacity = 0.15 }: Prop
   return (
     <group>
       {/* Core shell - Gold */}
-      <mesh ref={coreMeshRef}>
+      <mesh 
+        ref={coreMeshRef}
+        rotation={[
+          (shellRotations.core.x * Math.PI) / 180,
+          (shellRotations.core.y * Math.PI) / 180,
+          (shellRotations.core.z * Math.PI) / 180,
+        ]}
+      >
         <sphereGeometry args={[CORE_RADIUS, 32, 16]} />
         <meshBasicMaterial
           color="#FFD700"
@@ -37,7 +57,14 @@ export function NeuralCognitiveShellsV2({ visible = true, opacity = 0.15 }: Prop
       </mesh>
 
       {/* Memory shell - Deep Pink */}
-      <mesh ref={memoryMeshRef}>
+      <mesh 
+        ref={memoryMeshRef}
+        rotation={[
+          (shellRotations.memory.x * Math.PI) / 180,
+          (shellRotations.memory.y * Math.PI) / 180,
+          (shellRotations.memory.z * Math.PI) / 180,
+        ]}
+      >
         <sphereGeometry args={[MEMORY_RADIUS, 48, 24]} />
         <meshBasicMaterial
           color="#FF1493"
@@ -47,8 +74,15 @@ export function NeuralCognitiveShellsV2({ visible = true, opacity = 0.15 }: Prop
         />
       </mesh>
 
-      {/* Perception shell - Dark Turquoise */}
-      <mesh ref={perceptionMeshRef}>
+      {/* Perception shell - Dark Turquoise - TEMPORARILY HIDDEN */}
+      {false && <mesh 
+        ref={perceptionMeshRef}
+        rotation={[
+          (shellRotations.perception.x * Math.PI) / 180,
+          (shellRotations.perception.y * Math.PI) / 180,
+          (shellRotations.perception.z * Math.PI) / 180,
+        ]}
+      >
         <sphereGeometry args={[PERCEPTION_RADIUS, 64, 32]} />
         <meshBasicMaterial
           color="#00CED1"
@@ -56,7 +90,7 @@ export function NeuralCognitiveShellsV2({ visible = true, opacity = 0.15 }: Prop
           transparent
           opacity={opacity * 0.4}
         />
-      </mesh>
+      </mesh>}
 
       {/* Memory latitude bands (horizontal rings) */}
       {/* Planning band (North) */}
