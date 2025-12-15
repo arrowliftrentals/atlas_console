@@ -169,6 +169,108 @@ export async function atlasChat(
   return await reassembleChunkedResponse(data);
 }
 
+/**
+ * Stream chat responses using Server-Sent Events (SSE)
+ */
+export async function atlasChatStream(
+  payload: AtlasChatRequest,
+  onChunk: (chunk: string) => void,
+  onToolCall?: (toolName: string, status: string) => void,
+  onDone?: (sessionId: string) => void,
+  onError?: (error: string) => void,
+  apiUrl?: string
+): Promise<void> {
+  const url = apiUrl || defaultApiUrl.replace('/atlasChat', '/atlasChat/stream');
+
+  // Get or create session_id
+  const sessionId = payload.session_id ?? getOrCreateSessionId();
+
+  const payloadWithSession: AtlasChatRequest = {
+    ...payload,
+    session_id: sessionId,
+  };
+
+  console.debug('[atlasClient] atlasChatStream(): starting SSE stream');
+
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payloadWithSession),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Stream request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('Response body is not readable');
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      
+      // Keep the last incomplete line in the buffer
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            
+            switch (data.type) {
+              case 'connected':
+                console.debug('[SSE] Connected, session:', data.session_id);
+                if (data.session_id) {
+                  storeSessionId(data.session_id);
+                }
+                break;
+              
+              case 'answer_chunk':
+                onChunk(data.content);
+                break;
+              
+              case 'tool_call':
+                onToolCall?.(data.name, data.status);
+                break;
+              
+              case 'done':
+                console.debug('[SSE] Stream complete');
+                onDone?.(data.session_id);
+                break;
+              
+              case 'error':
+                console.error('[SSE] Error:', data.message);
+                onError?.(data.message);
+                break;
+              
+              default:
+                console.debug('[SSE] Unknown event type:', data.type);
+            }
+          } catch (e) {
+            console.error('[SSE] Failed to parse event data:', line, e);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[SSE] Stream error:', error);
+    onError?.(error instanceof Error ? error.message : String(error));
+    throw error;
+  }
+}
+
 // -----------------
 // Types for logs
 // -----------------
