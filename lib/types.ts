@@ -44,6 +44,11 @@ export type ConsoleFileListResponse = {
   workspace_root: string;
   current_path: string;
   files: ConsoleFileInfo[];
+  directories?: string[];
+};
+
+export type ConsoleSessionListResponse = {
+  sessions: ConsoleSession[];
 };
 
 export type Patch = {

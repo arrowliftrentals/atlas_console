@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const path = searchParams.get('path') || '.';
 
-    const url = new URL(`${BASE}/v1/console/files`);
+    const url = new URL(`${BASE}/api/console/files`);
     url.searchParams.set('path', path);
 
     const res = await fetch(url.toString(), {

@@ -34,124 +34,92 @@ function projectToSphere(point: Vector3, radius: number): Vector3 {
   return point.clone().multiplyScalar(radius / len);
 }
 
-// Create helical ribbon path along shell surface
-// Path spirals around the sphere surface between two points
-function createHelicalRibbonPath(start: Vector3, end: Vector3, radius: number, segments: number = 40): Vector3[] {
+// Create convex arched path between nodes (bulges outward from sphere)
+function createHelicalRibbonPath(start: Vector3, end: Vector3, radius: number, segments: number = 20): Vector3[] {
   const points: Vector3[] = [];
   
-  // Project endpoints to shell surface
-  const p1 = projectToSphere(start, radius);
-  const p2 = projectToSphere(end, radius);
+  const startVec = start.clone();
+  const endVec = end.clone();
   
-  // Calculate great circle distance to determine helix intensity
-  const angle = p1.angleTo(p2);
+  // Calculate midpoint and arch control point
+  const midPoint = new Vector3().addVectors(startVec, endVec).multiplyScalar(0.5);
+  const distance = startVec.distanceTo(endVec);
   
-  // Number of helical wraps based on distance (more distance = more spirals)
-  const helixTurns = Math.min(angle / Math.PI, 1.5); // 0 to 1.5 complete rotations
+  // Arch height as function of pathway length:
+  // Short paths (<20): low arch (10% of distance)
+  // Medium paths (20-60): scaled arch (10% to 25% of distance)
+  // Long paths (>60): high arch (25% of distance)
+  let archHeightRatio;
+  if (distance < 20) {
+    archHeightRatio = 0.10;
+  } else if (distance < 60) {
+    // Linear interpolation from 10% to 25%
+    archHeightRatio = 0.10 + ((distance - 20) / 40) * 0.15;
+  } else {
+    archHeightRatio = 0.25;
+  }
+  let archHeight = distance * archHeightRatio;
   
-  // Create rotation axis perpendicular to the plane containing p1, p2, and origin
-  const axis = new Vector3().crossVectors(p1, p2).normalize();
+  // Control point bulges OUTWARD from sphere center (convex)
+  const toOrigin = midPoint.clone().normalize();
   
+  // Constrain arch height to not extend beyond shell surface
+  // Calculate current distance from origin to midpoint
+  const midpointRadius = midPoint.length();
+  // Maximum allowed extension is the shell radius minus current midpoint distance
+  const maxArchHeight = radius - midpointRadius;
+  // Clamp arch height to stay within shell
+  archHeight = Math.min(archHeight, maxArchHeight * 0.9); // 90% to stay safely inside
+  
+  const controlPoint = midPoint.clone().add(toOrigin.multiplyScalar(archHeight));
+  
+  // Quadratic Bezier curve
   for (let i = 0; i <= segments; i++) {
     const t = i / segments;
-    
-    // Base position: spherical linear interpolation (slerp-like)
-    const basePoint = new Vector3().lerpVectors(p1, p2, t);
-    const geodesicPoint = projectToSphere(basePoint, radius);
-    
-    // Add helical rotation around the geodesic path
-    const helixAngle = t * helixTurns * 2 * Math.PI;
-    
-    // Create local coordinate system at geodesic point
-    const radialDir = geodesicPoint.clone().normalize(); // Points outward from sphere center
-    const tangentDir = new Vector3().crossVectors(axis, radialDir).normalize(); // Tangent to helix
-    
-    // Helical displacement (stays on sphere surface by being perpendicular to radial)
-    const helixRadius = radius * 0.03; // 3% of shell radius for ribbon width
-    const offsetAmount = Math.sin(helixAngle) * helixRadius;
-    
-    // Apply offset in tangent direction
-    const helixPoint = geodesicPoint.clone().add(tangentDir.multiplyScalar(offsetAmount));
-    
-    // Project back to sphere to maintain shell surface
-    points.push(projectToSphere(helixPoint, radius));
+    const point = new Vector3()
+      .addScaledVector(startVec, (1 - t) * (1 - t))
+      .addScaledVector(controlPoint, 2 * (1 - t) * t)
+      .addScaledVector(endVec, t * t);
+    points.push(point);
   }
   
   return points;
 }
 
-// Create contiguous arc path between different shells
-// Follows outer shell arc, then gracefully transitions to inner shell arc
-function createCrossShellHelicalPath(start: Vector3, end: Vector3, startRadius: number, endRadius: number, segments: number = 50): Vector3[] {
+// Create lightly arched path between different shells (straight line with subtle arch)
+function createCrossShellHelicalPath(start: Vector3, end: Vector3, startRadius: number, endRadius: number, segments: number = 20): Vector3[] {
   const points: Vector3[] = [];
   
-  const outerRadius = Math.max(startRadius, endRadius);
-  const innerRadius = Math.min(startRadius, endRadius);
+  const startVec = start.clone();
+  const endVec = end.clone();
   
-  // Determine which endpoint is on which shell
-  const startIsOuter = startRadius >= endRadius;
+  // Calculate midpoint and arch control point
+  const midPoint = new Vector3().addVectors(startVec, endVec).multiplyScalar(0.5);
+  const distance = startVec.distanceTo(endVec);
   
-  // Project start point to outer shell, end point to inner shell
-  const outerPoint = startIsOuter ? projectToSphere(start, outerRadius) : projectToSphere(end, outerRadius);
-  const innerPoint = startIsOuter ? projectToSphere(end, innerRadius) : projectToSphere(start, innerRadius);
+  // Light arch for cross-shell connections (half the arch height of same-shell)
+  let archHeightRatio;
+  if (distance < 20) {
+    archHeightRatio = 0.05; // Half of same-shell
+  } else if (distance < 60) {
+    archHeightRatio = 0.05 + ((distance - 20) / 40) * 0.075; // Half of same-shell
+  } else {
+    archHeightRatio = 0.125; // Half of same-shell
+  }
+  const archHeight = distance * archHeightRatio;
   
-  // Also project inner endpoint to outer shell to create arc path
-  const innerPointOnOuter = projectToSphere(innerPoint, outerRadius);
+  // Control point bulges OUTWARD from sphere center (convex)
+  const toOrigin = midPoint.clone().normalize();
+  const controlPoint = midPoint.clone().add(toOrigin.multiplyScalar(archHeight));
   
-  // Rotation axis for helical rotation
-  const axis = new Vector3().crossVectors(outerPoint, innerPointOnOuter).normalize();
-  
-  // Two-phase contiguous arc:
-  // Phase 1: Follow outer shell arc from outer point toward inner point's projection
-  // Phase 2: Spiral inward from outer shell to inner shell while continuing arc
-  const transitionPoint = 0.5; // 50% along outer arc, 50% transitioning to inner
-  
+  // Quadratic Bezier curve
   for (let i = 0; i <= segments; i++) {
     const t = i / segments;
-    
-    if (t <= transitionPoint) {
-      // Phase 1: Arc along outer shell surface
-      const shellT = t / transitionPoint;
-      
-      // Interpolate along outer shell arc
-      const arcPoint = new Vector3().lerpVectors(outerPoint, innerPointOnOuter, shellT);
-      const geodesicPoint = projectToSphere(arcPoint, outerRadius);
-      
-      // Add subtle helical rotation
-      const helixAngle = shellT * 0.5 * 2 * Math.PI; // Half rotation on outer arc
-      const radialDir = geodesicPoint.clone().normalize();
-      const tangentDir = new Vector3().crossVectors(axis, radialDir).normalize();
-      const helixRadius = outerRadius * 0.02;
-      const offsetAmount = Math.sin(helixAngle) * helixRadius;
-      
-      const helixPoint = geodesicPoint.clone().add(tangentDir.multiplyScalar(offsetAmount));
-      points.push(projectToSphere(helixPoint, outerRadius));
-    } else {
-      // Phase 2: Graceful transition from outer arc to inner shell
-      const transT = (t - transitionPoint) / (1 - transitionPoint);
-      
-      // Smoothly interpolate radius from outer to inner
-      const currentRadius = outerRadius - (outerRadius - innerRadius) * transT;
-      
-      // Continue arc path while transitioning between shells
-      // Follow the arc on the current transitional radius
-      const outerArcPoint = new Vector3().lerpVectors(outerPoint, innerPointOnOuter, t);
-      const innerArcPoint = new Vector3().lerpVectors(outerPoint, innerPoint, t);
-      
-      // Blend between outer shell arc and direct path to inner point
-      const blendedPoint = new Vector3().lerpVectors(outerArcPoint, innerArcPoint, transT);
-      const geodesicPoint = projectToSphere(blendedPoint, currentRadius);
-      
-      // Continue helical rotation through transition
-      const helixAngle = (0.5 + transT * 0.5) * 0.5 * 2 * Math.PI;
-      const radialDir = geodesicPoint.clone().normalize();
-      const tangentDir = new Vector3().crossVectors(axis, radialDir).normalize();
-      const helixRadius = currentRadius * 0.02;
-      const offsetAmount = Math.sin(helixAngle) * helixRadius;
-      
-      const helixPoint = geodesicPoint.clone().add(tangentDir.multiplyScalar(offsetAmount));
-      points.push(projectToSphere(helixPoint, currentRadius));
-    }
+    const point = new Vector3()
+      .addScaledVector(startVec, (1 - t) * (1 - t))
+      .addScaledVector(controlPoint, 2 * (1 - t) * t)
+      .addScaledVector(endVec, t * t);
+    points.push(point);
   }
   
   return points;
@@ -191,12 +159,22 @@ export function NeuralEdgesInstancedV2({ nodes, edges, timeScale }: Props) {
         return;
       }
       
-      // Create straight line path between nodes
+      // Create curved arch path between nodes
       const startVec = new Vector3(x1, y1, z1);
       const endVec = new Vector3(x2, y2, z2);
       
-      // Simple straight line - no curves
-      const pathPoints: Vector3[] = [startVec, endVec];
+      // Determine shell and use appropriate path algorithm
+      const startRadius = Math.sqrt(x1*x1 + y1*y1 + z1*z1);
+      const endRadius = Math.sqrt(x2*x2 + y2*y2 + z2*z2);
+      
+      let pathPoints: Vector3[];
+      if (Math.abs(startRadius - endRadius) < 10) {
+        // Same shell - use convex arch
+        pathPoints = createHelicalRibbonPath(startVec, endVec, (startRadius + endRadius) / 2);
+      } else {
+        // Cross-shell - use cross-shell path
+        pathPoints = createCrossShellHelicalPath(startVec, endVec, startRadius, endRadius);
+      }
       
       // Create tube geometry along straight path
       let geometry: TubeGeometry;

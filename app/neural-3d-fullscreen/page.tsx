@@ -1,6 +1,6 @@
 'use client';
 
-import NeuralArchitecture3D from '@/components/NeuralArchitecture3D';
+import NeuralArchitecture3D from '@/components/Neural3D/NeuralArchitecture3DV2';
 
 export default function NeuralFullscreen() {
   return (

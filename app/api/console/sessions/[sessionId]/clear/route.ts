@@ -9,7 +9,7 @@ export async function POST(
   try {
     const { sessionId } = await params;
 
-    const res = await fetch(`${BASE}/v1/console/sessions/${sessionId}/clear`, {
+    const res = await fetch(`${BASE}/api/console/sessions/${sessionId}/clear`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
     });

@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const backendUrl = `${BACKEND_URL}/v1/console/files/content?path=${encodeURIComponent(path)}`;
+    const backendUrl = `${BACKEND_URL}/api/console/files/content?path=${encodeURIComponent(path)}`;
     const backendRes = await fetch(backendUrl);
 
     if (!backendRes.ok) {
