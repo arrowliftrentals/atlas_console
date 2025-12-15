@@ -226,42 +226,30 @@ export default function NeuralArchitecture3DV2({
     
     const computedLayout = computeCognitiveLayout(nodes, edges);
     
-    // Include only core and memory shell nodes (hide perception/tools)
+    // Include ALL nodes (no filtering)
     const filteredLayout = new Map<string, NodeStateV2>();
     let coreCount = 0, memoryCount = 0, perceptionCount = 0;
     
     computedLayout.forEach((node, nodeId) => {
-      // Always include nodes with custom positions (optimized memory nodes)
-      if (customNodePositions.has(nodeId)) {
-        filteredLayout.set(nodeId, node);
-        memoryCount++;
-        return;
-      }
+      // Always include every node
+      filteredLayout.set(nodeId, node);
       
-      // Include nodes based on shell
+      // Count nodes by shell for debugging
       if (node.position) {
         const [x, y, z] = node.position;
         const dist = Math.sqrt(x * x + y * y + z * z);
         
-        if (dist < 25) {
-          // Core shell nodes
-          filteredLayout.set(nodeId, node);
+        if (dist < 30) {
           coreCount++;
-        } else if (dist < 50) {
-          // Memory shell nodes (if not already optimized)
-          if (!customNodePositions.has(nodeId)) {
-            filteredLayout.set(nodeId, node);
-            memoryCount++;
-          }
-        }
-        // Perception nodes (dist >= 50) are excluded
-        else {
+        } else if (dist < 70) {
+          memoryCount++;
+        } else {
           perceptionCount++;
         }
       }
     });
     
-    console.log(`[V2 Layout] Showing nodes: core=${coreCount}, memory=${memoryCount}, hidden perception=${perceptionCount}`);
+    console.log(`[V2 Layout] Showing ALL nodes: core=${coreCount}, memory=${memoryCount}, perception=${perceptionCount}, total=${filteredLayout.size}`);
     
     // Apply shell rotations and custom positions
     const finalLayout = new Map<string, NodeStateV2>();
@@ -329,9 +317,26 @@ export default function NeuralArchitecture3DV2({
   const handleNodePositionChange = (nodeId: string, position: [number, number, number]) => {
     // Store the dragged position directly (already in world space)
     // The dragging component handles sphere constraint internally
+    console.log(`[V2 Drag] Setting position for ${nodeId}:`, position);
+    
+    // Import dynamically to avoid SSR issues
+    if (typeof window !== 'undefined') {
+      import('@/lib/debugLogger').then(({ debugLogger }) => {
+        debugLogger.log('DRAG', `Setting position for ${nodeId}`, position);
+      });
+    }
+    
     setCustomNodePositions(prev => {
       const next = new Map(prev);
       next.set(nodeId, position);
+      console.log(`[V2 Drag] Total custom positions now:`, next.size);
+      
+      if (typeof window !== 'undefined') {
+        import('@/lib/debugLogger').then(({ debugLogger }) => {
+          debugLogger.log('DRAG', `Total custom positions now: ${next.size}`, Array.from(next.keys()));
+        });
+      }
+      
       return next;
     });
   };
@@ -457,19 +462,11 @@ export default function NeuralArchitecture3DV2({
     };
   }, []);
 
-  // Track which edges we've already spawned particles for (with cleanup)
+  // Track which edges we've already spawned particles for (persistent - no auto-clear)
   const spawnedEdgesRef = useRef<Set<string>>(new Set());
   
-  // Clean up old spawned edges periodically to allow respawning
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Clear the set every 5 seconds to allow particles to respawn
-      spawnedEdgesRef.current.clear();
-      console.log('[V2] Cleared spawned edges cache');
-    }, 5000);
-    
-    return () => clearInterval(interval);
-  }, []);
+  // NOTE: Removed auto-clear interval to prevent fake demo particles
+  // Particles now only spawn from real telemetry events via WebSocket
 
   // Process telemetry data with debouncing to prevent UI freezing
   const handleTelemetryUpdate = (data: any) => {
@@ -603,14 +600,9 @@ export default function NeuralArchitecture3DV2({
     }
   }, [particleEvents]);
 
-  // Clear consumed particle events periodically
-  useEffect(() => {
-    const interval = setInterval(() => {
-      clearParticleEvents();
-    }, 5000); // Clear every 5 seconds
-
-    return () => clearInterval(interval);
-  }, [clearParticleEvents]);
+  // NOTE: Removed auto-clear interval for particle events
+  // Particles are now cleared only after being spawned (one-time consumption)
+  // This prevents continuous respawning from the same static edges
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative', backgroundColor: '#02030a' }}>
@@ -670,8 +662,17 @@ export default function NeuralArchitecture3DV2({
           />
           
           {/* Instanced rendering components */}
+          <NeuralNodesInstancedV2 nodes={positionedNodes} edges={edges} timeScale={timeScale} />
           <NeuralEdgesInstancedV2 nodes={positionedNodes} edges={edges} timeScale={timeScale} />
-          {/* Particles disabled */}
+          <NeuralLabelsV2 nodes={positionedNodes} edges={edges} />
+          <NeuralParticlesInstancedV2 
+            nodes={positionedNodes} 
+            edges={edges} 
+            spawnEvents={particleEvents}
+            timeScale={timeScale}
+            maxParticles={maxParticles}
+            onActiveCountChange={setActiveParticleCount}
+          />
         </Suspense>
 
         <OrbitControls
