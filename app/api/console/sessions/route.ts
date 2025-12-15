@@ -4,7 +4,7 @@ const BASE = process.env.NEXT_PUBLIC_ATLAS_WEB_API_BASE || 'http://localhost:800
 
 export async function GET() {
   try {
-    const res = await fetch(`${BASE}/v1/console/sessions`, {
+    const res = await fetch(`${BASE}/api/console/sessions`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const res = await fetch(`${BASE}/v1/console/sessions`, {
+    const res = await fetch(`${BASE}/api/console/sessions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),

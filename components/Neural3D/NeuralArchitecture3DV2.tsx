@@ -348,6 +348,8 @@ export default function NeuralArchitecture3DV2({
         procedural: 0,
         planning: 0,
         layered: 0,
+        vector: 0,
+        storage: 0,
       },
       perceptionTypes: {
         tools: 0,
@@ -669,19 +671,7 @@ export default function NeuralArchitecture3DV2({
           
           {/* Instanced rendering components */}
           <NeuralEdgesInstancedV2 nodes={positionedNodes} edges={edges} timeScale={timeScale} />
-          <NeuralParticlesInstancedV2
-            nodes={positionedNodes}
-            edges={edges}
-            spawnEvents={particleEvents}
-            maxParticles={maxParticles}
-            timeScale={timeScale}
-            onActiveCountChange={(count) => {
-              if (particleEvents.length > 0 && count === 0) {
-                console.log('[V2] WARNING: Have', particleEvents.length, 'events but 0 active particles');
-              }
-              setActiveParticleCount(count);
-            }}
-          />
+          {/* Particles disabled */}
         </Suspense>
 
         <OrbitControls

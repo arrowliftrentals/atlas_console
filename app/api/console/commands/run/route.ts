@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const backendRes = await fetch(`${BACKEND_URL}/v1/console/commands/run`, {
+    const backendRes = await fetch(`${BACKEND_URL}/api/console/commands/run`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

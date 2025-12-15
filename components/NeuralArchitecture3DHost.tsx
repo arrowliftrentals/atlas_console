@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { useThreeScene } from '@/contexts/ThreeSceneContext';
 import { useTelemetry } from '@/contexts/TelemetryContext';
-import NeuralArchitecture3D from './NeuralArchitecture3D';
+import NeuralArchitecture3D from './Neural3D/NeuralArchitecture3DV2';
 
 export const NeuralArchitecture3DHost: React.FC = () => {
   const { isInteractive } = useThreeScene();

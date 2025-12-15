@@ -1,4 +1,4 @@
-import { ConsoleSession, ConsoleFileListResponse, AgentResponse, AtlasChatResponse } from './types';
+import { ConsoleSession, ConsoleFileListResponse, ConsoleSessionListResponse, AgentResponse, AtlasChatResponse } from './types';
 
 const CONSOLE_API_BASE = '/api/console';
 const ATLAS_API_BASE = '/api/atlas';
@@ -43,12 +43,12 @@ export async function fetchConsoleFiles(path: string = '.'): Promise<ConsoleFile
     });
     if (!res.ok) {
       console.warn('[ConsoleClient] Failed to fetch console files:', res.status, res.statusText);
-      return { files: [], directories: [] }; // Return empty result instead of throwing
+      return { workspace_root: '', current_path: path, files: [], directories: [] }; // Return empty result instead of throwing
     }
     return res.json();
   } catch (err) {
     console.warn('[ConsoleClient] Error fetching console files:', err);
-    return { files: [], directories: [] }; // Return empty result on error
+    return { workspace_root: '', current_path: path, files: [], directories: [] }; // Return empty result on error
   }
 }
 
@@ -84,7 +84,9 @@ export async function sendAtlasChat(
   });
 
   if (!res.ok) {
-    throw new Error(`Failed to send ATLAS chat: ${res.statusText}`);
+    const errorBody = await res.text();
+    console.error('[ATLAS Client] Error response:', res.status, errorBody);
+    throw new Error(`Failed to send ATLAS chat: ${res.statusText} - ${errorBody}`);
   }
 
   const backendResponse: AtlasChatResponse = await res.json();

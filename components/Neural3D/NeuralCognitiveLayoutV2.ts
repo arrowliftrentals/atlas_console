@@ -31,7 +31,7 @@ export type CognitiveRegion = 'core' | 'memory' | 'perception';
 
 export interface CognitiveNodeMetadata {
   region: CognitiveRegion;
-  memoryType?: 'episodic' | 'declarative' | 'procedural' | 'planning' | 'layered';
+  memoryType?: 'episodic' | 'declarative' | 'procedural' | 'planning' | 'layered' | 'vector' | 'storage';
   perceptionType?: 'tools' | 'api' | 'telemetry' | 'console';
   importance: number; // 0-1, affects size and position
 }
@@ -363,8 +363,10 @@ export function computeCognitiveLayout(nodes: Map<string, NodeStateV2>, edges?: 
       } else {
         // Fallback: add any remaining node
         const next = remaining.values().next().value;
-        ordered.push(next);
-        remaining.delete(next);
+        if (next) {
+          ordered.push(next);
+          remaining.delete(next);
+        }
       }
     }
     
