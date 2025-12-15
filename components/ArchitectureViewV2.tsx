@@ -2,18 +2,13 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import cytoscape, { Core, ElementDefinition } from 'cytoscape';
-import dagre from 'cytoscape-dagre';
-import klay from 'cytoscape-klay';
-import cola from 'cytoscape-cola';
 import { X, BarChart3, Grid3x3, Clock } from 'lucide-react';
 import AnalysisPanel from './AnalysisPanel';
 import DependencyMatrix from './DependencyMatrix';
 import Timeline from './Timeline';
 
-// Register layouts
-cytoscape.use(dagre);
-cytoscape.use(klay);
-cytoscape.use(cola);
+// Import layout plugins dynamically (will be registered in useEffect)
+let layoutsRegistered = false;
 
 interface ComponentNode {
   id: string;
@@ -95,10 +90,26 @@ export default function ArchitectureViewV2() {
     }
   };
 
+  // Register cytoscape layout plugins once
+  useEffect(() => {
+    if (!layoutsRegistered && typeof window !== 'undefined') {
+      import('cytoscape-dagre').then(dagre => {
+        cytoscape.use(dagre.default || dagre);
+      });
+      import('cytoscape-klay').then(klay => {
+        cytoscape.use(klay.default || klay);
+      });
+      import('cytoscape-cola').then(cola => {
+        cytoscape.use(cola.default || cola);
+      });
+      layoutsRegistered = true;
+    }
+  }, []);
+
   // Initialize Cytoscape
   useEffect(() => {
-    if (!containerRef.current || !data) {
-      console.log('Waiting for container or data...');
+    if (!containerRef.current || !data || !layoutsRegistered) {
+      console.log('Waiting for container, data, or layouts...');
       return;
     }
 

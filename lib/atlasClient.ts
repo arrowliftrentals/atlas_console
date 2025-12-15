@@ -151,6 +151,12 @@ export async function atlasChat(
     } catch {
       // ignore parse errors
     }
+    
+    // Provide friendlier error message for rate limits
+    if (res.status === 429 || msg.includes('429') || msg.includes('Too Many Requests')) {
+      throw new Error('Rate limit reached. Please wait a moment before sending another message.');
+    }
+    
     throw new Error(msg);
   }
 
