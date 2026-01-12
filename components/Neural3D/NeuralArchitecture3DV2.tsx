@@ -557,11 +557,32 @@ export default function NeuralArchitecture3DV2({
     };
   }, []);
 
-  // Track which edges we've already spawned particles for (persistent - no auto-clear)
-  const spawnedEdgesRef = useRef<Set<string>>(new Set());
+  // Track which edges we've already spawned particles for with timestamps
+  // Use Map instead of Set to store spawn timestamps for expiration
+  const spawnedEdgesRef = useRef<Map<string, number>>(new Map());
   
-  // NOTE: Removed auto-clear interval to prevent fake demo particles
-  // Particles now only spawn from real telemetry events via WebSocket
+  // Clear old spawned edges every 5 seconds to allow re-spawning on new queries
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const expirationTime = 3000; // 3 seconds - edges can re-spawn after this
+      
+      // Remove edges older than expiration time
+      let removedCount = 0;
+      spawnedEdgesRef.current.forEach((timestamp, edgeKey) => {
+        if (now - timestamp > expirationTime) {
+          spawnedEdgesRef.current.delete(edgeKey);
+          removedCount++;
+        }
+      });
+      
+      if (removedCount > 0) {
+        console.log('[V2] Cleared', removedCount, 'expired edges from spawn tracking');
+      }
+    }, 1000); // Check every second
+    
+    return () => clearInterval(interval);
+  }, []);
 
   // Process telemetry data with debouncing to prevent UI freezing
   const handleTelemetryUpdate = (data: any) => {
@@ -648,10 +669,11 @@ export default function NeuralArchitecture3DV2({
           // Create unique key: traceId + edge (so same edge in different traces = different particles)
           const edgeKey = `${traceId}:${source}->${target}`;
           
-          // Only process edges we haven't spawned particles for yet
+          // Only process edges we haven't recently spawned particles for
           if (spawnedEdgesRef.current.has(edgeKey)) continue;
           
-          spawnedEdgesRef.current.add(edgeKey);
+          // Track spawn time for expiration
+          spawnedEdgesRef.current.set(edgeKey, Date.now());
           
           // Track outgoing edges from each source
           if (!edgeMap.has(source)) {
