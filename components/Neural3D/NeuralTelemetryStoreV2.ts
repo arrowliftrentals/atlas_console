@@ -53,7 +53,8 @@ export const useNeuralTelemetryStoreV2 = create<NeuralTelemetryStoreState>((set,
       edgeUpdates.forEach((v, k) => edges.set(k, v));
 
       // Queue for particle emission (cap at 1000 to prevent memory issues)
-      if (particleEvents.length < 1000) {
+      // Skip events marked for architecture loading only
+      if (!ev.skipParticles && particleEvents.length < 1000) {
         particleEvents.push(ev);
       }
     }

@@ -264,6 +264,7 @@ export default function NeuralArchitecture3DV2({
             timestamp: Date.now(),
             bytes: 0,
             priority: 'normal' as const,
+            skipParticles: true,  // Don't spawn particles from initial architecture load
           });
         });
         
@@ -276,6 +277,7 @@ export default function NeuralArchitecture3DV2({
             timestamp: Date.now(),
             bytes: 0,
             priority: 'normal' as const,
+            skipParticles: true,  // Don't spawn particles from initial architecture load
           });
         });
 

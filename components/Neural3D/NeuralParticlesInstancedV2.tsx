@@ -75,6 +75,7 @@ export function NeuralParticlesInstancedV2({
   const meshRef = useRef<InstancedMesh>(null!);
   const glowRef = useRef<InstancedMesh>(null!);
   const updateParticleProgress = useNeuralTelemetryStoreV2((s) => s.updateParticleProgress);
+  const clearParticleEvents = useNeuralTelemetryStoreV2((s) => s.clearParticleEvents);
   
   // Fixed-size particle pool (never reallocated)
   const particles = useMemo<ParticleRuntime[]>(
@@ -226,6 +227,13 @@ export function NeuralParticlesInstancedV2({
     if (processedEventsRef.current.size > 1000) {
       const entries = Array.from(processedEventsRef.current);
       processedEventsRef.current = new Set(entries.slice(-500));
+    }
+    
+    // Clear consumed spawn events after processing
+    // This allows new telemetry events to spawn new particles
+    if (spawnEvents.length > 0) {
+      console.log('[PARTICLE] Clearing', spawnEvents.length, 'consumed spawn events');
+      clearParticleEvents();
     }
 
     // Collect active particles for progress tracking

@@ -24,6 +24,7 @@ export interface TelemetryEventV2 {
   // Trace hierarchy (visual differentiation)
   is_parent_trace?: boolean;  // True for root traces, false for child traces
   spawn_count?: number;       // How many operations this decision spawned (1 = single, 3+ = multi-tool)
+  skipParticles?: boolean;    // If true, don't spawn particles (for architecture loading)
 }
 
 export type NodeSubsystem =
