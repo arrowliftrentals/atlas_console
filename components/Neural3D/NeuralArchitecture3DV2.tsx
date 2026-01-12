@@ -872,6 +872,42 @@ export default function NeuralArchitecture3DV2({
         />
       )}
       
+      {/* Test Particle Button - bottom-right, above node selector */}
+      <button
+        onClick={() => {
+          console.log('[TEST] Injecting test particle event');
+          console.log('[TEST] Current nodes:', nodes.size, 'edges:', edges.size);
+          console.log('[TEST] Current particleEvents:', particleEvents.length);
+          
+          // Get first available edge from store
+          const firstEdge = Array.from(edges.values())[0];
+          if (!firstEdge) {
+            console.error('[TEST] No edges available to spawn particle');
+            return;
+          }
+          
+          console.log('[TEST] Using edge:', firstEdge.sourceId, '->', firstEdge.targetId);
+          
+          ingestEvents([{
+            source: firstEdge.sourceId,
+            target: firstEdge.targetId,
+            type: 'data_transfer' as const,
+            timestamp: Date.now(),
+            bytes: 1024,
+            priority: 'high' as const,
+            is_parent_trace: true,
+            spawn_count: 3,
+            skipParticles: false,
+          }]);
+          
+          console.log('[TEST] Event injected, particleEvents length:', particleEvents.length);
+        }}
+        className="absolute bottom-20 right-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded shadow-lg z-50 transition-colors"
+        title="Inject Test Particle"
+      >
+        Test Particle
+      </button>
+      
       {/* Node Selector Toggle Button - bottom-right */}
       <button
         onClick={() => setShowNodeSelector(!showNodeSelector)}

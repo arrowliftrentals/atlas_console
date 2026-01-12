@@ -125,10 +125,12 @@ export function NeuralParticlesInstancedV2({
     }
 
     // Log spawn events being processed (more detail)
-    if (spawnEvents.length > 0) {
-      console.log('[PARTICLE FRAME] Processing', spawnEvents.length, 'spawn events, edges available:', edges.size);
+    if (spawnEvents.length > 0 && frameCountRef.current % 10 === 0) {
+      console.log('[PARTICLE FRAME] Processing', spawnEvents.length, 'spawn events');
+      console.log('[PARTICLE FRAME] Nodes available:', nodes.size, 'Edges available:', edges.size);
       console.log('[PARTICLE FRAME] First spawn event:', spawnEvents[0]);
       console.log('[PARTICLE FRAME] Sample edges:', Array.from(edges.keys()).slice(0, 5));
+      console.log('[PARTICLE FRAME] Sample nodes:', Array.from(nodes.keys()).slice(0, 5));
     }
 
     // Spawn new particles from ALL events (one particle per hop)
