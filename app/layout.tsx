@@ -20,7 +20,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body className="h-screen w-screen bg-[#1e1e1e] text-gray-100">
         <ConsoleProvider>
-          {/* <ConsoleLogInterceptor /> */}
+          <ConsoleLogInterceptor />
           <div className="flex flex-col h-full w-full">
             <div className="flex flex-1 overflow-hidden">
               {/* Sidebar + resize handle */}

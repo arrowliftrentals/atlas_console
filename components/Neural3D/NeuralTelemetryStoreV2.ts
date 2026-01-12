@@ -54,8 +54,14 @@ export const useNeuralTelemetryStoreV2 = create<NeuralTelemetryStoreState>((set,
 
       // Queue for particle emission (cap at 1000 to prevent memory issues)
       // Skip events marked for architecture loading only
-      if (!ev.skipParticles && particleEvents.length < 1000) {
+      const shouldAddParticle = !ev.skipParticles && particleEvents.length < 1000;
+      console.log('[STORE] Event skipParticles:', ev.skipParticles, 'shouldAdd:', shouldAddParticle, 'queueLength:', particleEvents.length);
+      
+      if (shouldAddParticle) {
         particleEvents.push(ev);
+        console.log('[STORE] ✓ Added to particleEvents, new length:', particleEvents.length);
+      } else {
+        console.log('[STORE] ✗ Skipped particle event, skipParticles:', ev.skipParticles, 'queueFull:', particleEvents.length >= 1000);
       }
     }
 

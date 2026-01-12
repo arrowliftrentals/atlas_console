@@ -56,9 +56,7 @@ export function ConsoleLogInterceptor() {
 
         // Only send particle-related logs to avoid spam
         const relevantPrefixes = [
-          '[PARTICLE',
-          '[V2 EFFECT]',
-          '[TEST]',
+          '[STORE]',
         ];
 
         const isRelevant = relevantPrefixes.some(prefix => message.includes(prefix));

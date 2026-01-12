@@ -892,19 +892,20 @@ export default function NeuralArchitecture3DV2({
           info.push(`Nodes: ${nodes.size}, Edges: ${edges.size}`);
           info.push(`ParticleEvents: ${particleEvents.length}`);
           
-          // Get first available edge from store
-          const firstEdge = Array.from(edges.values())[0];
-          if (!firstEdge) {
-            info.push('ERROR: No edges available');
+          // Get first NON-self-referential edge from store
+          const validEdge = Array.from(edges.values()).find(e => e.sourceId !== e.targetId);
+          if (!validEdge) {
+            info.push('ERROR: No valid edges (all self-loops)');
+            info.push('Edges: ' + Array.from(edges.values()).slice(0, 5).map(e => `${e.sourceId}->${e.targetId}`).join(', '));
             setDebugInfo(info.join('\n'));
             return;
           }
           
-          info.push(`Using edge: ${firstEdge.sourceId} -> ${firstEdge.targetId}`);
+          info.push(`Using edge: ${validEdge.sourceId} -> ${validEdge.targetId}`);
           
           const testEvent = {
-            source: firstEdge.sourceId,
-            target: firstEdge.targetId,
+            source: validEdge.sourceId,
+            target: validEdge.targetId,
             type: 'data_transfer' as const,
             timestamp: Date.now(),
             bytes: 1024,
