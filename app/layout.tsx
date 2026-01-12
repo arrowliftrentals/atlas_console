@@ -6,6 +6,7 @@ import ChatPanel from "@/components/ChatPanel";
 import StatusBar from "@/components/StatusBar";
 import TerminalPanel from "@/components/TerminalPanel";
 import { ConsoleProvider } from "@/components/ConsoleProvider";
+import { ConsoleLogInterceptor } from "@/components/ConsoleLogInterceptor";
 
 export const metadata = {
   title: "ATLAS Web Console",
@@ -19,6 +20,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en">
       <body className="h-screen w-screen bg-[#1e1e1e] text-gray-100">
         <ConsoleProvider>
+          <ConsoleLogInterceptor />
           <div className="flex flex-col h-full w-full">
             <div className="flex flex-1 overflow-hidden">
               {/* Sidebar + resize handle */}
