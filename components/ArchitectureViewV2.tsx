@@ -429,15 +429,19 @@ export default function ArchitectureViewV2() {
       setInitError(null);
       
       return () => {
-        if (cy) {
-          cy.destroy();
+        if (cy && !cy.destroyed()) {
+          try {
+            cy.destroy();
+          } catch (err) {
+            console.warn('Error destroying Cytoscape:', err);
+          }
         }
       };
     } catch (err) {
       console.error('Failed to initialize Cytoscape:', err);
       setInitError(err instanceof Error ? err.message : 'Failed to initialize graph visualization');
     }
-  }, [data, layoutType]);
+  }, [data, errorEdges]);
   
   // Update edge styles when error edges change (without full re-render)
   useEffect(() => {
@@ -641,17 +645,42 @@ export default function ArchitectureViewV2() {
 
   const changeLayout = (type: 'dagre' | 'klay' | 'cola') => {
     setLayoutType(type);
-    if (cyRef.current) {
-      cyRef.current.layout({
-        name: type,
-        rankDir: 'LR',
-        nodeSep: 100,
-        rankSep: 200,
-        animate: true,
-        animationDuration: 500,
-      } as any).run();
-    }
   };
+  
+  // Handle layout changes without destroying Cytoscape
+  useEffect(() => {
+    if (!cyRef.current || !cyRef.current.nodes().length) return;
+    
+    const layoutConfig: any = {
+      name: layoutType,
+      animate: true,
+      animationDuration: 500,
+    };
+    
+    // Layout-specific parameters
+    if (layoutType === 'dagre') {
+      layoutConfig.rankDir = 'LR';
+      layoutConfig.nodeSep = 100;
+      layoutConfig.rankSep = 200;
+    } else if (layoutType === 'klay') {
+      layoutConfig.klay = {
+        direction: 'RIGHT',
+        spacing: 100,
+      };
+    } else if (layoutType === 'cola') {
+      layoutConfig.nodeSpacing = 80;
+      layoutConfig.edgeLength = 120;
+      layoutConfig.avoidOverlap = true;
+      layoutConfig.fit = true;
+      layoutConfig.padding = 50;
+    }
+    
+    try {
+      cyRef.current.layout(layoutConfig).run();
+    } catch (err) {
+      console.warn('Error changing layout:', err);
+    }
+  }, [layoutType]);
 
   const highlightComponent = (componentId: string) => {
     if (!cyRef.current) return;
