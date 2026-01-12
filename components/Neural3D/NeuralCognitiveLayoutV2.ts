@@ -44,13 +44,13 @@ export const PERCEPTION_RADIUS = 100; // Outer perception shell
 /**
  * Classify node into cognitive region based on ID/subsystem
  */
-export function classifyNode(nodeId: string, subsystem: NodeSubsystem): CognitiveNodeMetadata {
+export function classifyNode(nodeId: string, subsystem?: NodeSubsystem): CognitiveNodeMetadata {
   const id = nodeId.toLowerCase();
   
   // ========== CORE CONTROL & REASONING ==========
   
   // Core loop and phases
-  if (id.includes('coreloop') || id.includes('loop_phases') || id === 'core_loop') {
+  if (id.includes('coreloop') || id.includes('loop_phases') || id === 'core_loop' || id === 'coreloop') {
     return { region: 'core', importance: 1.0 }; // Center of everything
   }
   
@@ -65,7 +65,15 @@ export function classifyNode(nodeId: string, subsystem: NodeSubsystem): Cognitiv
     return { region: 'core', importance: 0.85 };
   }
   
+  // Intent parser
+  if (id.includes('intentparser') || id.includes('intent_parser')) {
+    return { region: 'core', importance: 0.9 };
+  }
+  
   // LLM routing and clients
+  if (id.includes('llmclient') || id.includes('llm_client')) {
+    return { region: 'core', importance: 0.85 };
+  }
   if (id.includes('agentrouter') || id.includes('agent_router') || id.includes('llm_router')) {
     return { region: 'core', importance: 0.9 };
   }
@@ -148,6 +156,14 @@ export function classifyNode(nodeId: string, subsystem: NodeSubsystem): Cognitiv
     return { region: 'memory', memoryType: 'layered', importance: 0.75 };
   }
   
+  // Memory manager and session memory (dynamic runtime nodes)
+  if (id.includes('memory_manager') || id.includes('memorymanager')) {
+    return { region: 'memory', memoryType: 'storage', importance: 0.85 };
+  }
+  if (id.includes('session_memory') || id.includes('sessionmemory')) {
+    return { region: 'memory', memoryType: 'episodic', importance: 0.8 };
+  }
+  
   // Vector stores & databases
   if (id.includes('vector') || id.includes('pinecone') || id.includes('chroma')) {
     return { region: 'memory', memoryType: 'vector', importance: 0.75 };
@@ -156,12 +172,32 @@ export function classifyNode(nodeId: string, subsystem: NodeSubsystem): Cognitiv
     return { region: 'memory', memoryType: 'storage', importance: 0.7 };
   }
   
-  // Generic memory
+  // Generic memory (fallback for any node with 'memory' in the name)
   if (id.includes('memory') || subsystem === 'working_memory' || subsystem === 'long_term_memory') {
     return { region: 'memory', memoryType: 'episodic', importance: 0.7 };
   }
   
   // ========== PERCEPTION & TOOLS ==========
+  
+  // Device manager
+  if (id.includes('devicemanager') || id.includes('device_manager')) {
+    return { region: 'perception', perceptionType: 'tools', importance: 0.75 };
+  }
+  
+  // Learning manager
+  if (id.includes('learningmanager') || id.includes('learning_manager')) {
+    return { region: 'perception', perceptionType: 'tools', importance: 0.7 };
+  }
+  
+  // Sandbox manager
+  if (id.includes('sandboxmanager') || id.includes('sandbox_manager') || id.includes('sandbox')) {
+    return { region: 'perception', perceptionType: 'tools', importance: 0.7 };
+  }
+  
+  // Screen controller
+  if (id.includes('screencontroller') || id.includes('screen_controller') || id.includes('screen')) {
+    return { region: 'perception', perceptionType: 'tools', importance: 0.7 };
+  }
   
   // File operations
   if (id.includes('fileops') || id.includes('file_ops') || 
@@ -203,6 +239,9 @@ export function classifyNode(nodeId: string, subsystem: NodeSubsystem): Cognitiv
   }
   
   // Routers & API layer
+  if (id === 'apiserver' || id.includes('api_server')) {
+    return { region: 'perception', perceptionType: 'api', importance: 0.75 };
+  }
   if (id.includes('router') && !id.includes('agent')) {
     return { region: 'perception', perceptionType: 'api', importance: 0.7 };
   }
@@ -215,7 +254,7 @@ export function classifyNode(nodeId: string, subsystem: NodeSubsystem): Cognitiv
   }
   
   // Telemetry & observability
-  if (id.includes('telemetrytracer') || id.includes('telemetry_tracer')) {
+  if (id === 'telemetry' || id.includes('telemetrytracer') || id.includes('telemetry_tracer')) {
     return { region: 'perception', perceptionType: 'telemetry', importance: 0.7 };
   }
   if (id.includes('telemetrymetrics') || id.includes('telemetry_metrics')) {
@@ -240,6 +279,36 @@ export function classifyNode(nodeId: string, subsystem: NodeSubsystem): Cognitiv
   }
   if (id.includes('threescene') || id.includes('neural3d')) {
     return { region: 'perception', perceptionType: 'console', importance: 0.7 };
+  }
+  
+  // ========== TELEMETRY SIMPLE NAMES ==========
+  // These are the simplified component names used in telemetry tracking
+  
+  if (id === 'api') {
+    return { region: 'perception', perceptionType: 'api', importance: 0.75 };
+  }
+  
+  if (id === 'memory') {
+    return { region: 'memory', memoryType: 'storage', importance: 0.85 };
+  }
+  
+  // Catch any remaining store/manager/service nodes
+  if (id.includes('store') && !id.includes('roadmap')) {
+    return { region: 'memory', memoryType: 'storage', importance: 0.7 };
+  }
+  
+  if (id.includes('manager') || id.includes('service')) {
+    return { region: 'perception', perceptionType: 'tools', importance: 0.7 };
+  }
+  
+  // Catch any router nodes
+  if (id.includes('router')) {
+    return { region: 'perception', perceptionType: 'api', importance: 0.65 };
+  }
+  
+  // Catch client nodes
+  if (id.includes('client')) {
+    return { region: 'core', importance: 0.7 };
   }
   
   // Default: perception/tools for unknown nodes

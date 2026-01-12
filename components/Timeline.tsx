@@ -32,7 +32,7 @@ export default function Timeline({ onTraceSelect, onPlaybackSpeed }: TimelinePro
 
   useEffect(() => {
     fetchTraces();
-    const interval = setInterval(fetchTraces, 5000);
+    const interval = setInterval(fetchTraces, 10000);
     return () => clearInterval(interval);
   }, []);
 

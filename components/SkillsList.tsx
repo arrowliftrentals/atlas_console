@@ -47,7 +47,12 @@ export default function SkillsList({ executions, selectedId, onSelect }: SkillsL
                                 }`}
                         >
                             <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-300">
-                                {new Date(execution.created_at).toLocaleString()}
+                                {(() => {
+                                    // Handle date format without timezone: "2026-01-12 06:56:13.144791"
+                                    const dateStr = execution.created_at.replace(' ', 'T') + 'Z';
+                                    const date = new Date(dateStr);
+                                    return isNaN(date.getTime()) ? execution.created_at : date.toLocaleString();
+                                })()}
                             </td>
                             <td className="px-3 py-2 text-sm text-gray-100 font-medium">
                                 {execution.name}

@@ -88,30 +88,10 @@ export function NeuralParticlesInstancedV2({
     [maxParticles]
   );
 
-  // Create custom shader material with per-instance colors
+  // Simple material with vertex colors
   const particleMaterial = useMemo(() => {
-    return new THREE.ShaderMaterial({
-      uniforms: {
-        emissiveIntensity: { value: 2.0 },
-      },
-      vertexShader: `
-        varying vec3 vColor;
-        
-        void main() {
-          vColor = instanceColor;
-          vec4 mvPosition = modelViewMatrix * instanceMatrix * vec4(position, 1.0);
-          gl_Position = projectionMatrix * mvPosition;
-        }
-      `,
-      fragmentShader: `
-        uniform float emissiveIntensity;
-        varying vec3 vColor;
-        
-        void main() {
-          vec3 emissive = vColor * emissiveIntensity;
-          gl_FragColor = vec4(emissive, 1.0);
-        }
-      `,
+    return new THREE.MeshBasicMaterial({
+      vertexColors: true,
     });
   }, []);
   const spawnIndexRef = useRef(0);
@@ -150,8 +130,21 @@ export function NeuralParticlesInstancedV2({
     // Spawn new particles from ALL events (one particle per hop)
     for (const ev of spawnEvents) {
       const edgeId = `${ev.source}->${ev.target}`;
+      
+      // Check if nodes exist
+      const srcNode = nodes.get(ev.source);
+      const dstNode = nodes.get(ev.target);
+      
+      if (!srcNode || !dstNode) {
+        console.warn('[PARTICLE] Missing nodes for edge:', edgeId, 
+          'source exists:', !!srcNode, 'target exists:', !!dstNode,
+          'Available nodes:', Array.from(nodes.keys()).slice(0, 10).join(', '));
+        continue;
+      }
+      
       if (!edges.has(edgeId)) {
-        console.log('[PARTICLE] Edge not found:', edgeId, 'Available edges:', Array.from(edges.keys()).slice(0, 5));
+        console.warn('[PARTICLE] Edge not found:', edgeId, 
+          'Available edges:', Array.from(edges.keys()).slice(0, 10).join(', '));
         continue;
       }
       
@@ -171,7 +164,9 @@ export function NeuralParticlesInstancedV2({
       p.currentHopIndex = 0;
       p.path = undefined; // No multi-hop tracking
       
-      console.log('[PARTICLE ACTIVATED] edgeId:', edgeId, 'particle index:', spawnIndexRef.current);
+      console.log('[PARTICLE ACTIVATED] edgeId:', edgeId, 'particle index:', spawnIndexRef.current,
+        'source:', ev.source, 'has position:', !!srcNode.position, 
+        'target:', ev.target, 'has position:', !!dstNode.position);
       
       // Speed based on priority
       p.speed = ev.priority === 'high' ? 1.5 : ev.priority === 'low' ? 0.3 : 0.8;

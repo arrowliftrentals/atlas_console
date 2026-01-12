@@ -54,7 +54,11 @@ export default function SkillDetail({ execution }: SkillDetailProps) {
                     <div>
                         <span className="text-xs font-semibold text-gray-400 uppercase">Created</span>
                         <p className="text-gray-100">
-                            {new Date(execution.created_at).toLocaleString()}
+                            {(() => {
+                                const dateStr = execution.created_at.replace(' ', 'T') + 'Z';
+                                const date = new Date(dateStr);
+                                return isNaN(date.getTime()) ? execution.created_at : date.toLocaleString();
+                            })()}
                         </p>
                     </div>
                 </div>

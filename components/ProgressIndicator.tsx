@@ -31,16 +31,26 @@ export default function ProgressIndicator({ sessionId, onComplete }: ProgressInd
   const [taskName, setTaskName] = useState("");
   const [isHeartbeat, setIsHeartbeat] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
+  const [connectionFailed, setConnectionFailed] = useState(false);
   const [ws, setWs] = useState<WebSocket | null>(null);
 
   useEffect(() => {
     // Connect to progress WebSocket
     const wsUrl = `ws://localhost:8000/v1/progress/stream/${sessionId}`;
-    const websocket = new WebSocket(wsUrl);
+    let websocket: WebSocket;
+    
+    try {
+      websocket = new WebSocket(wsUrl);
+    } catch (error) {
+      console.warn("[ProgressIndicator] Failed to create WebSocket connection (backend may be offline)");
+      setConnectionFailed(true);
+      return;
+    }
 
     websocket.onopen = () => {
       console.log("[ProgressIndicator] Connected to progress stream");
       setConnected(true);
+      setConnectionFailed(false);
     };
 
     websocket.onmessage = (event) => {
@@ -67,8 +77,13 @@ export default function ProgressIndicator({ sessionId, onComplete }: ProgressInd
       }
     };
 
-    websocket.onerror = (error) => {
-      console.error("[ProgressIndicator] WebSocket error:", error);
+    websocket.onerror = () => {
+      // Silently handle WebSocket errors (usually connection failures)
+      // Only log when in development mode
+      if (process.env.NODE_ENV === 'development') {
+        console.warn("[ProgressIndicator] WebSocket connection error (backend may be offline)");
+      }
+      setConnectionFailed(true);
     };
 
     websocket.onclose = () => {
@@ -79,7 +94,7 @@ export default function ProgressIndicator({ sessionId, onComplete }: ProgressInd
     setWs(websocket);
 
     return () => {
-      if (websocket.readyState === WebSocket.OPEN) {
+      if (websocket?.readyState === WebSocket.OPEN) {
         websocket.close();
       }
     };

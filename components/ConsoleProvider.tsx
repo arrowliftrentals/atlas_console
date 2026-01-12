@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ConsoleSession, AgentResponse } from '@/lib/types';
-import { fetchConsoleSessions } from '@/lib/atlasConsoleClient';
+import { fetchConsoleSessions, createConsoleSession } from '@/lib/atlasConsoleClient';
 
 export interface ChatMessage {
   type: 'user' | 'assistant';
@@ -20,6 +20,7 @@ interface ConsoleContextType {
   // Chat message state
   messagesBySession: Map<string, ChatMessage[]>;
   addMessage: (sessionId: string, message: ChatMessage) => void;
+  updateLastMessage: (sessionId: string, content: string, response?: AgentResponse) => void;
   getMessages: (sessionId: string) => ChatMessage[];
   clearMessages: (sessionId: string) => void;
   // File viewer state
@@ -50,9 +51,21 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
       const data = await fetchConsoleSessions();
       setSessions(data.sessions);
       
-      // Auto-select first session if none selected
-      if (!activeSessionId && data.sessions.length > 0) {
-        setActiveSessionId(data.sessions[0].session_id);
+      // Auto-select first session if none selected, or create one if none exist
+      if (!activeSessionId) {
+        if (data.sessions.length > 0) {
+          setActiveSessionId(data.sessions[0].session_id);
+        } else {
+          // No sessions exist, create a default one
+          console.log('[ConsoleProvider] No sessions found, creating default session');
+          const newSession = await createConsoleSession({
+            session_id: `session_${Date.now()}`,
+          });
+          setActiveSessionId(newSession.session_id);
+          // Refresh to get the newly created session
+          const updatedData = await fetchConsoleSessions();
+          setSessions(updatedData.sessions);
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load sessions');
@@ -67,6 +80,24 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
       const updated = new Map(prev);
       const existing = updated.get(sessionId) || [];
       updated.set(sessionId, [...existing, message]);
+      return updated;
+    });
+  };
+
+  const updateLastMessage = (sessionId: string, content: string, response?: AgentResponse) => {
+    setMessagesBySession(prev => {
+      const updated = new Map(prev);
+      const existing = updated.get(sessionId) || [];
+      if (existing.length > 0) {
+        const lastIndex = existing.length - 1;
+        const updatedMessages = [...existing];
+        updatedMessages[lastIndex] = {
+          ...updatedMessages[lastIndex],
+          content,
+          response,
+        };
+        updated.set(sessionId, updatedMessages);
+      }
       return updated;
     });
   };
@@ -98,6 +129,7 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
         setActiveSessionId,
         messagesBySession,
         addMessage,
+        updateLastMessage,
         getMessages,
         clearMessages,
         selectedFile,

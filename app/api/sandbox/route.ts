@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   try {
     const payload = await req.json();
 
-    const res = await fetch(`${atlasApiBase}/v1/atlas/sandbox/execute`, {
+    const res = await fetch(`${atlasApiBase}/api/sandbox/execute`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

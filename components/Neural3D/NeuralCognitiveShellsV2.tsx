@@ -74,8 +74,8 @@ export function NeuralCognitiveShellsV2({
         />
       </mesh>
 
-      {/* Perception shell - Dark Turquoise - TEMPORARILY HIDDEN */}
-      {false && <mesh 
+      {/* Perception shell - Dark Turquoise */}
+      <mesh 
         ref={perceptionMeshRef}
         rotation={[
           (shellRotations.perception.x * Math.PI) / 180,
@@ -90,7 +90,7 @@ export function NeuralCognitiveShellsV2({
           transparent
           opacity={opacity * 0.4}
         />
-      </mesh>}
+      </mesh>
 
       {/* Memory latitude bands (horizontal rings) */}
       {/* Planning band (North) */}

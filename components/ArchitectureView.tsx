@@ -17,7 +17,7 @@ interface ComponentNode {
   id: string;
   label: string;
   type: string;
-  status: "not_started" | "in_progress" | "implemented";
+  status: "live" | "stubbed" | "not_started" | "in_progress" | "implemented";
   percent_complete?: number;
   description?: string;
   dependencies: string[];
@@ -38,9 +38,11 @@ interface Stats {
 }
 
 const STATUS_COLORS = {
+  live: "#22C55E", // green - fully functional
+  stubbed: "#F59E0B", // amber - placeholder implementation
   not_started: "#6B7280", // gray
-  in_progress: "#F59E0B", // amber
-  implemented: "#22C55E", // green-500 to match implemented dot
+  in_progress: "#3B82F6", // blue
+  implemented: "#22C55E", // green (legacy)
 };
 
 const TYPE_ICONS = {
@@ -120,7 +122,7 @@ export default function ArchitectureView() {
 
       // Convert to ReactFlow nodes
       const flowNodes: Node[] = graphData.nodes.map((node) => {
-        const statusColor = STATUS_COLORS[node.status];
+        const statusColor = STATUS_COLORS[node.status as keyof typeof STATUS_COLORS] || STATUS_COLORS.live;
         const icon = TYPE_ICONS[node.type as keyof typeof TYPE_ICONS] || "📄";
         const functionalGroup = getNodeGroup(node.id);
 
@@ -146,11 +148,10 @@ export default function ArchitectureView() {
           style: {
             background: functionalGroup?.color || "rgba(75, 85, 99, 0.2)",
             color: "white",
-            border: `3px solid ${functionalGroup?.borderColor || statusColor}`,
+            border: `3px solid ${statusColor}`,
             borderRadius: "8px",
             padding: "10px",
             minWidth: "150px",
-            boxShadow: `0 0 0 2px ${statusColor}`,
           },
         };
       });
@@ -495,28 +496,22 @@ export default function ArchitectureView() {
           )}
         </div>
         
-        {stats && (
+        {data && (
           <div className="flex items-center gap-6 text-xs">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-green-500"></div>
               <span className="text-gray-300">
-                Implemented: {stats.implemented}
+                Live: {data.nodes.filter(n => n.status === 'live').length}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-amber-500"></div>
               <span className="text-gray-300">
-                In Progress: {stats.in_progress}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-gray-500"></div>
-              <span className="text-gray-300">
-                Not Started: {stats.not_started}
+                Stubbed: {data.nodes.filter(n => n.status === 'stubbed').length}
               </span>
             </div>
             <div className="font-semibold text-blue-400">
-              {stats.overall_completion_percent.toFixed(1)}% Complete
+              {((data.nodes.filter(n => n.status === 'live').length / data.nodes.length) * 100).toFixed(1)}% Live
             </div>
           </div>
         )}
