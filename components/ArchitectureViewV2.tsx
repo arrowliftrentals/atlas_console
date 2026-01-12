@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import cytoscape, { Core, ElementDefinition } from 'cytoscape';
-import { X, BarChart3, Grid3x3, Clock } from 'lucide-react';
+import { X, BarChart3, Grid3x3, Clock, Search } from 'lucide-react';
 import AnalysisPanel from './AnalysisPanel';
 import DependencyMatrix from './DependencyMatrix';
 import Timeline from './Timeline';
@@ -77,6 +77,8 @@ export default function ArchitectureViewV2() {
   const [replayTrace, setReplayTrace] = useState<any>(null);
   const [initError, setInitError] = useState<string | null>(null);
   const [errorEdges, setErrorEdges] = useState<Set<string>>(new Set());
+  const [showNodeSelector, setShowNodeSelector] = useState(false);
+  const [nodeSelectorSearch, setNodeSelectorSearch] = useState('');
 
   // Fetch architecture data and error edges
   useEffect(() => {
@@ -763,6 +765,17 @@ export default function ArchitectureViewV2() {
                 Timeline
               </button>
             </div>
+            <button
+              onClick={() => setShowNodeSelector(prev => !prev)}
+              className={`px-3 py-1 text-xs rounded flex items-center gap-1 ${
+                showNodeSelector
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+              }`}
+            >
+              <Search className="w-3 h-3" />
+              Nodes
+            </button>
             <div className="flex gap-2">
               <button
                 onClick={() => changeLayout('dagre')}
@@ -831,6 +844,124 @@ export default function ArchitectureViewV2() {
           {!data && !initError && (
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-gray-400 text-sm">Loading architecture data...</div>
+            </div>
+          )}
+          
+          {/* Node Selector Panel */}
+          {showNodeSelector && data && !showMatrix && (
+            <div className="absolute bottom-4 right-4 w-80 bg-[#252526] border border-gray-700 rounded-lg shadow-xl z-50 max-h-[70vh] flex flex-col">
+              {/* Header */}
+              <div className="p-3 border-b border-gray-700 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-white">Node Navigator</h3>
+                <button
+                  onClick={() => setShowNodeSelector(false)}
+                  className="text-gray-400 hover:text-white transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              
+              {/* Search */}
+              <div className="p-3 border-b border-gray-700">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search nodes..."
+                    value={nodeSelectorSearch}
+                    onChange={(e) => setNodeSelectorSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 bg-[#1e1e1e] border border-gray-700 rounded text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              
+              {/* Node List */}
+              <div className="flex-1 overflow-y-auto p-2">
+                {(() => {
+                  const query = nodeSelectorSearch.toLowerCase();
+                  const filtered = data.nodes.filter(node => 
+                    node.id.toLowerCase().includes(query) || 
+                    node.label.toLowerCase().includes(query)
+                  );
+                  
+                  // Group by cognitive region
+                  const grouped = { core: [], memory: [], perception: [] } as Record<CognitiveRegion, ComponentNode[]>;
+                  filtered.forEach(node => {
+                    const metadata = classifyNode(node.id);
+                    grouped[metadata.region].push(node);
+                  });
+                  
+                  const regionLabels = {
+                    core: 'Core Control & Reasoning',
+                    memory: 'Memory Systems',
+                    perception: 'Perception & Tools',
+                  };
+                  
+                  return (
+                    <>
+                      {(['core', 'memory', 'perception'] as const).map(region => {
+                        const regionNodes = grouped[region];
+                        if (regionNodes.length === 0) return null;
+                        
+                        const regionColor = REGION_COLORS[region];
+                        
+                        return (
+                          <div key={region} className="mb-3">
+                            <div className="px-2 py-1.5 mb-1.5 flex items-center gap-2">
+                              <div 
+                                className="w-3 h-3 rounded-full"
+                                style={{ backgroundColor: regionColor }}
+                              />
+                              <span className="text-sm font-bold text-gray-300 uppercase tracking-wide">
+                                {regionLabels[region]}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                ({regionNodes.length})
+                              </span>
+                            </div>
+                            
+                            <div className="space-y-1">
+                              {regionNodes.map(node => (
+                                <button
+                                  key={node.id}
+                                  onClick={() => highlightComponent(node.id)}
+                                  className="w-full px-3 py-1.5 bg-[#1e1e1e] hover:bg-[#2d2d2d] border border-gray-700 hover:border-gray-600 rounded text-left transition-colors"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <div 
+                                      className="w-2 h-2 rounded-full flex-shrink-0"
+                                      style={{ backgroundColor: regionColor }}
+                                    />
+                                    <span className="text-sm text-gray-200 font-mono truncate">
+                                      {node.id}
+                                    </span>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      
+                      {filtered.length === 0 && (
+                        <div className="text-center py-8 text-gray-500 text-sm">
+                          No nodes found
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+              
+              {/* Footer */}
+              <div className="p-2 border-t border-gray-700 text-xs text-gray-400 text-center">
+                {data.nodes.filter(n => 
+                  nodeSelectorSearch ? 
+                    n.id.toLowerCase().includes(nodeSelectorSearch.toLowerCase()) || 
+                    n.label.toLowerCase().includes(nodeSelectorSearch.toLowerCase())
+                  : true
+                ).length} of {data.nodes.length} nodes
+              </div>
             </div>
           )}
         </div>
