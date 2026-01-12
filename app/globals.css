@@ -37,6 +37,25 @@
     font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
     @apply text-xs;
   }
+  
+  /* Smooth rendering for streaming content */
+  .markdown-content {
+    will-change: contents;
+    contain: layout style;
+  }
+  
+  .markdown-content * {
+    animation: fadeIn 0.15s ease-in;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0.7;
+    }
+    to {
+      opacity: 1;
+    }
+  }
 }
 
 @layer components {
@@ -129,5 +148,121 @@
   
   .atlas-scrollbar::-webkit-scrollbar-thumb:hover {
     background: var(--atlas-border-strong);
+  }
+
+  /* Markdown Content Styling - VS Code Match */
+  .markdown-content {
+    font-size: 13px;
+    line-height: 1.6;
+    color: #cccccc;
+    font-weight: 500;
+  }
+
+  .markdown-content h1,
+  .markdown-content h2,
+  .markdown-content h3 {
+    color: #e3e3e3;
+    font-weight: 600;
+    margin-top: 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .markdown-content h1:first-child,
+  .markdown-content h2:first-child,
+  .markdown-content h3:first-child {
+    margin-top: 0;
+  }
+
+  .markdown-content h1 { font-size: 16px; }
+  .markdown-content h2 { font-size: 14px; }
+  .markdown-content h3 { font-size: 13px; }
+
+  .markdown-content p {
+    margin: 0.75rem 0;
+    line-height: 1.6;
+  }
+
+  .markdown-content strong {
+    color: #e3e3e3;
+    font-weight: 600;
+  }
+
+  .markdown-content em {
+    font-style: italic;
+  }
+
+  .markdown-content code {
+    color: #d4a574;
+    background-color: #3e3e42;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  }
+
+  .markdown-content pre {
+    background-color: #1e1e1e;
+    border: 1px solid #3c3c3c;
+    border-radius: 4px;
+    padding: 1rem;
+    margin: 1rem 0;
+    overflow-x: auto;
+  }
+
+  .markdown-content pre code {
+    background: none;
+    padding: 0;
+    color: #d4d4d4;
+  }
+
+  .markdown-content ul,
+  .markdown-content ol {
+    margin: 0.75rem 0;
+    padding-left: 1.5rem;
+  }
+
+  .markdown-content ul {
+    list-style-type: disc;
+  }
+
+  .markdown-content ol {
+    list-style-type: decimal;
+  }
+
+  .markdown-content li {
+    margin: 0.25rem 0;
+    line-height: 1.6;
+  }
+
+  .markdown-content ul > li::marker {
+    color: #cccccc;
+    font-weight: 600;
+  }
+
+  .markdown-content ol > li::marker {
+    color: #cccccc;
+    font-weight: 600;
+  }
+
+  .markdown-content a {
+    color: #4daafc;
+    text-decoration: none;
+  }
+
+  .markdown-content a:hover {
+    text-decoration: underline;
+  }
+
+  .markdown-content blockquote {
+    border-left: 3px solid #3c3c3c;
+    padding-left: 1rem;
+    margin: 1rem 0;
+    color: #999;
+  }
+
+  .markdown-content hr {
+    border: none;
+    border-top: 1px solid #3c3c3c;
+    margin: 1.5rem 0;
   }
 }

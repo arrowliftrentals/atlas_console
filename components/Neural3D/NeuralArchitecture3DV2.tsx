@@ -4,10 +4,11 @@
 
 'use client';
 
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree, useFrame } from '@react-three/fiber';
 import { Suspense, useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { OrbitControls } from '@react-three/drei';
 import { Vector3, Matrix4, Euler } from 'three';
+import type { OrbitControls as OrbitControlsType } from 'three-stdlib';
 import { useNeuralTelemetryStoreV2 } from './NeuralTelemetryStoreV2';
 import { computeCognitiveLayout, classifyNode, CORE_RADIUS, MEMORY_RADIUS } from './NeuralCognitiveLayoutV2';
 import { NeuralNodesInstancedV2 } from './NeuralNodesInstancedV2';
@@ -21,11 +22,71 @@ import { NeuralShellControls } from './NeuralShellControls';
 import { NeuralDraggableNodes } from './NeuralDraggableNodes';
 import { NeuralShellDragRotation } from './NeuralShellDragRotation';
 import { NeuralShellRotationHandles } from './NeuralShellRotationHandles';
+import { NodeSelectorPanel } from './NodeSelectorPanel';
 
 import { TelemetryEventV2, NodeStateV2 } from './NeuralTelemetryTypesV2';
 import { convertV1ToV2, inferSubsystem } from './NeuralTelemetryUtilsV2';
 import { optimizeShellRotations } from './NeuralShellOptimizer';
 import { optimizeNodePositionsOnShell } from './NeuralNodePositionOptimizer';
+
+// Camera animation component
+function CameraController({
+  focus,
+  controlsRef,
+  onComplete,
+}: {
+  focus: { position: Vector3; target: Vector3 } | null;
+  controlsRef: React.RefObject<OrbitControlsType | null>;
+  onComplete: () => void;
+}) {
+  const { camera } = useThree();
+  const animatingRef = useRef(false);
+  const startPosRef = useRef<Vector3>(new Vector3());
+  const startTargetRef = useRef<Vector3>(new Vector3());
+  const progressRef = useRef(0);
+
+  useEffect(() => {
+    if (focus && !animatingRef.current) {
+      console.log('[CameraController] Starting camera animation');
+      animatingRef.current = true;
+      startPosRef.current.copy(camera.position);
+      if (controlsRef.current) {
+        startTargetRef.current.copy(controlsRef.current.target);
+      }
+      progressRef.current = 0;
+    }
+  }, [focus, camera, controlsRef]);
+
+  useFrame((state, delta) => {
+    if (!focus || !animatingRef.current) return;
+
+    // Smooth animation over 1 second
+    progressRef.current += delta * 1.5;
+    const t = Math.min(progressRef.current, 1);
+    
+    // Easing function (ease-in-out)
+    const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+    // Interpolate camera position
+    camera.position.lerpVectors(startPosRef.current, focus.position, ease);
+    
+    // Interpolate OrbitControls target
+    if (controlsRef.current) {
+      controlsRef.current.target.lerpVectors(startTargetRef.current, focus.target, ease);
+      controlsRef.current.update();
+    }
+
+    // Complete animation
+    if (t >= 1) {
+      console.log('[CameraController] Animation complete');
+      animatingRef.current = false;
+      progressRef.current = 0;
+      onComplete();
+    }
+  });
+
+  return null;
+}
 
 interface Props {
   timeScale?: number;
@@ -59,6 +120,13 @@ export default function NeuralArchitecture3DV2({
   // Track which shell is selected for rotation
   const [selectedShellForRotation, setSelectedShellForRotation] = useState<'core' | 'memory' | 'perception' | null>(null);
   
+  // Track node selector panel visibility
+  const [showNodeSelector, setShowNodeSelector] = useState(false);
+  
+  // Camera focus state
+  const [cameraFocus, setCameraFocus] = useState<{ position: Vector3; target: Vector3 } | null>(null);
+  const orbitControlsRef = useRef<OrbitControlsType | null>(null);
+  
   // Track node count for auto-optimization
   const prevNodeCountRef = useRef(0);
   
@@ -68,6 +136,20 @@ export default function NeuralArchitecture3DV2({
     const optimized = optimizeShellRotations(nodes, edges, shellRotations);
     setShellRotations(optimized);
   };
+
+  // Handle node selection from panel - focus camera on node
+  const handleNodeSelect = useCallback((nodeId: string, position: [number, number, number]) => {
+    console.log('[V2] Focusing camera on node:', nodeId, 'at position:', position);
+    
+    const targetPos = new Vector3(...position);
+    const distance = 11.76; // Distance from node - 30% closer from 16.8 (16.8 * 0.7)
+    
+    // Calculate camera position offset from target
+    const direction = targetPos.clone().normalize();
+    const cameraPos = targetPos.clone().add(direction.multiplyScalar(distance));
+    
+    setCameraFocus({ position: cameraPos, target: targetPos });
+  }, []);
 
   const handleOptimizeNodePositions = useCallback(() => {
     if (nodes.size === 0) {
@@ -414,6 +496,17 @@ export default function NeuralArchitecture3DV2({
           try {
             const data = JSON.parse(event.data);
             console.log('[V2] Telemetry message received:', Object.keys(data));
+            
+            // DEBUG: Log events array details
+            if (data.events) {
+              console.log('[V2] Events array length:', data.events.length);
+              if (data.events.length > 0) {
+                console.log('[V2] First event:', JSON.stringify(data.events[0]));
+              }
+            } else {
+              console.log('[V2] NO events array in message');
+            }
+            
             handleTelemetryUpdate(data);
           } catch (err) {
             console.warn('[V2] Failed to parse telemetry:', err);
@@ -470,8 +563,57 @@ export default function NeuralArchitecture3DV2({
 
   // Process telemetry data with debouncing to prevent UI freezing
   const handleTelemetryUpdate = (data: any) => {
+    console.log('[handleTelemetryUpdate] Called with data:', JSON.stringify(data).substring(0, 200));
+    
     // Defer processing to next frame to prevent blocking render
     requestAnimationFrame(() => {
+      const memoryEvents: TelemetryEventV2[] = [];
+      
+      // Handle TWO formats:
+      // 1. Single event object: {type: 'memory_write', sourceId: 'X', targetId: 'Y'}
+      // 2. Events array: {events: [{type: 'memory_write', ...}, ...]}
+      
+      let eventsToProcess: any[] = [];
+      
+      if (data.type === 'memory_write' && data.sourceId && data.targetId) {
+        // Single event format from WebSocket
+        console.log('[handleTelemetryUpdate] Single memory_write event:', data.sourceId, '→', data.targetId);
+        eventsToProcess = [data];
+      } else if (data.events && Array.isArray(data.events)) {
+        // Events array format
+        console.log('[handleTelemetryUpdate] Found events array with', data.events.length, 'items');
+        eventsToProcess = data.events;
+      } else {
+        console.log('[handleTelemetryUpdate] Unrecognized format, keys:', Object.keys(data).join(', '));
+        return;
+      }
+      
+      // Process all events
+      eventsToProcess.forEach((evt: any) => {
+        console.log('[handleTelemetryUpdate] Processing event:', evt.type, evt.sourceId, evt.targetId);
+        if (evt.type === 'memory_write' && evt.sourceId && evt.targetId) {
+          console.log(`[MEMORY_WRITE] ${evt.sourceId} → ${evt.targetId} (${evt.layer || 'unknown'})`);
+          
+          memoryEvents.push({
+            source: evt.sourceId,
+            target: evt.targetId,
+            type: 'data_transfer' as const,
+            timestamp: Date.now(),
+            bytes: 1024,
+            priority: 'high' as const,
+            is_parent_trace: true,
+            spawn_count: 3, // Multiple particles for memory writes
+          });
+        }
+      });
+      
+      if (memoryEvents.length > 0) {
+        console.log('[V2] Processing', memoryEvents.length, 'memory_write events - calling ingestEvents');
+        ingestEvents(memoryEvents);
+      } else {
+        console.log('[V2] No memory_write events to process');
+      }
+      
       if (data.type === 'update' || data.type === 'initial_state') {
         const traces = data.active_traces || data.traces || [];
       
@@ -626,9 +768,12 @@ export default function NeuralArchitecture3DV2({
         <pointLight position={[50, 0, 50]} intensity={2.0} color="#FFD700" />
         <pointLight position={[-50, 0, -50]} intensity={2.0} color="#FF1493" />
 
+        {/* Camera focus controller */}
+        <CameraController focus={cameraFocus} controlsRef={orbitControlsRef} onComplete={() => setCameraFocus(null)} />
+
         <Suspense fallback={null}>
           {/* Cognitive region shells (wireframe guides) */}
-          <NeuralCognitiveShellsV2 
+          <NeuralCognitiveShellsV2
             visible={true} 
             opacity={0.12}
             shellRotations={shellRotations}
@@ -676,11 +821,13 @@ export default function NeuralArchitecture3DV2({
         </Suspense>
 
         <OrbitControls
+          ref={orbitControlsRef}
+          target={[0, 0, 0]}
           enabled={!isDraggingNode && !selectedShellForRotation}
           enableDamping
           dampingFactor={0.1}
           rotateSpeed={0.5}
-          zoomSpeed={1.5}
+          zoomSpeed={0.3}
           minDistance={20}
           maxDistance={800}
         />
@@ -691,6 +838,24 @@ export default function NeuralArchitecture3DV2({
       
       {/* Cognitive Legend - Bottom Left with detailed region info */}
       <NeuralCognitiveLegendV2 nodeStats={nodeStats} />
+      
+      {/* Node Selector Panel - expands upward from bottom-right */}
+      {showNodeSelector && (
+        <NodeSelectorPanel
+          nodes={positionedNodes}
+          onNodeSelect={handleNodeSelect}
+          onClose={() => setShowNodeSelector(false)}
+        />
+      )}
+      
+      {/* Node Selector Toggle Button - bottom-right */}
+      <button
+        onClick={() => setShowNodeSelector(!showNodeSelector)}
+        className="absolute bottom-4 right-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow-lg z-50 transition-colors"
+        title="Toggle Node Selector"
+      >
+        {showNodeSelector ? 'Hide Nodes' : 'Show Nodes'}
+      </button>
     </div>
   );
 }

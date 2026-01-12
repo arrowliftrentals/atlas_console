@@ -179,6 +179,22 @@ export default function NeuralNetworkScene() {
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
       
+      // Handle memory_write events for particle generation
+      if (data.events && Array.isArray(data.events)) {
+        data.events.forEach((evt: any) => {
+          if (evt.type === 'memory_write' && evt.sourceId && evt.targetId) {
+            console.log(`🔵 Particle: ${evt.sourceId} → ${evt.targetId} (${evt.layer})`);
+            
+            // Add to active flows for visualization
+            setActiveFlows(prev => [...prev, {
+              source: evt.sourceId,
+              target: evt.targetId,
+              timestamp: Date.now()
+            }]);
+          }
+        });
+      }
+      
       if (data.active_traces) {
         const activeNodeIds = new Set<string>();
         const newFlows: ActiveFlow[] = [];

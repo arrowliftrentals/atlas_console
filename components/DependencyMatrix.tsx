@@ -4,12 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 
 interface DependencyFlow {
-  source_id: string;
-  target_id: string;
-  call_count: number;
-  avg_latency_ms: number;
-  error_rate: number;
-  health_score: number;
+  timestamp: string;
+  conversation_id: string;
+  intent_type: string;
+  source: string;
+  target: string;
+  duration_ms: number;
+  success: boolean;
 }
 
 interface MatrixCell {
@@ -29,7 +30,7 @@ export default function DependencyMatrix() {
 
   useEffect(() => {
     fetchFlows();
-    const interval = setInterval(fetchFlows, 5000);
+    const interval = setInterval(fetchFlows, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -44,25 +45,38 @@ export default function DependencyMatrix() {
         // Extract unique components
         const compSet = new Set<string>();
         flowData.forEach((f: DependencyFlow) => {
-          compSet.add(f.source_id);
-          compSet.add(f.target_id);
+          compSet.add(f.source);
+          compSet.add(f.target);
         });
         const comps = Array.from(compSet).sort();
         setComponents(comps);
         
-        // Build matrix
+        // Build matrix - count occurrences of each source->target pair
         const matrixMap = new Map<string, MatrixCell>();
-        const maxCalls = Math.max(...flowData.map((f: DependencyFlow) => f.call_count), 1);
+        const callCounts = new Map<string, number>();
         
         flowData.forEach((f: DependencyFlow) => {
-          const key = `${f.source_id}-${f.target_id}`;
+          const key = `${f.source}-${f.target}`;
+          const current = callCounts.get(key) || 0;
+          callCounts.set(key, current + 1);
+        });
+        
+        const maxCalls = Math.max(...Array.from(callCounts.values()), 1);
+        
+        callCounts.forEach((count, key) => {
+          const [source, target] = key.split('-');
+          // Find a recent flow for this pair to get timing data
+          const recentFlow = flowData.find((f: DependencyFlow) => 
+            f.source === source && f.target === target
+          );
+          
           matrixMap.set(key, {
-            source: f.source_id,
-            target: f.target_id,
-            intensity: f.call_count / maxCalls,
-            health: f.health_score,
-            callCount: f.call_count,
-            latency: f.avg_latency_ms,
+            source,
+            target,
+            intensity: count / maxCalls,
+            health: recentFlow?.success ? 1.0 : 0.5,
+            callCount: count,
+            latency: recentFlow?.duration_ms || 0,
           });
         });
         
@@ -103,7 +117,7 @@ export default function DependencyMatrix() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#1E1E1E]">
+    <div className="h-full flex flex-col bg-[#1E1E1E] relative">
       {/* Header */}
       <div className="px-4 py-3 bg-[#252526] border-b border-gray-700">
         <h3 className="text-sm font-semibold text-white">Dependency Matrix</h3>
@@ -123,16 +137,16 @@ export default function DependencyMatrix() {
             <table className="border-collapse">
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-20 bg-[#252526] border border-gray-700 p-2"></th>
+                  <th className="sticky left-0 z-20 bg-[#252526] border border-gray-700 p-2" style={{ height: '120px' }}></th>
                   {components.map(comp => (
                     <th
                       key={comp}
-                      className="bg-[#252526] border border-gray-700 p-2 text-xs text-gray-300 writing-mode-vertical"
-                      style={{ minWidth: '30px', maxWidth: '30px' }}
+                      className="bg-[#252526] border border-gray-700 px-1 py-2 text-xs text-gray-300 align-bottom"
+                      style={{ minWidth: '30px', maxWidth: '30px', height: '120px', verticalAlign: 'bottom' }}
                     >
                       <div
-                        className="transform -rotate-45 origin-left whitespace-nowrap font-mono text-left"
-                        style={{ width: '150px' }}
+                        className="whitespace-nowrap font-mono text-center"
+                        style={{ writingMode: 'vertical-rl', textOrientation: 'mixed', transform: 'rotate(180deg)' }}
                       >
                         {comp}
                       </div>
@@ -151,7 +165,7 @@ export default function DependencyMatrix() {
                       const cell = matrix.get(key);
                       return (
                         <td
-                          key={target}
+                          key={key}
                           className="border border-gray-700 cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
                           style={{
                             width: '30px',
@@ -173,7 +187,7 @@ export default function DependencyMatrix() {
 
       {/* Hover tooltip */}
       {hoveredCell && (
-        <div className="fixed bottom-4 right-4 bg-[#252526] border border-gray-700 rounded-lg p-3 shadow-xl z-50">
+        <div className="absolute bottom-20 left-4 bg-[#252526] border border-gray-700 rounded-lg p-3 shadow-xl z-50">
           <div className="space-y-1 text-xs">
             <div className="font-semibold text-white mb-2">
               {hoveredCell.source} → {hoveredCell.target}
@@ -182,7 +196,7 @@ export default function DependencyMatrix() {
               Calls: <span className="text-white">{hoveredCell.callCount}</span>
             </div>
             <div className="text-gray-400">
-              Avg Latency: <span className="text-white">{hoveredCell.latency.toFixed(1)}ms</span>
+              Avg Latency: <span className="text-white">{hoveredCell.latency?.toFixed(1) || '0.0'}ms</span>
             </div>
             <div className="text-gray-400">
               Health: <span className={`font-semibold ${

@@ -6,6 +6,8 @@ import { X, BarChart3, Grid3x3, Clock } from 'lucide-react';
 import AnalysisPanel from './AnalysisPanel';
 import DependencyMatrix from './DependencyMatrix';
 import Timeline from './Timeline';
+import { classifyNode, CognitiveRegion } from './Neural3D/NeuralCognitiveLayoutV2';
+import { REGION_COLORS } from './Neural3D/NeuralVisualEncodingV2';
 
 // Import layout plugins dynamically (will be registered in useEffect)
 let layoutsRegistered = false;
@@ -14,7 +16,7 @@ interface ComponentNode {
   id: string;
   label: string;
   type: string;
-  status: 'implemented' | 'in_progress' | 'not_started';
+  status: 'live' | 'stubbed' | 'implemented' | 'in_progress' | 'not_started';
   percent_complete?: number;
   description?: string;
   dependencies: string[];
@@ -74,10 +76,16 @@ export default function ArchitectureViewV2() {
   const [showTimeline, setShowTimeline] = useState(false);
   const [replayTrace, setReplayTrace] = useState<any>(null);
   const [initError, setInitError] = useState<string | null>(null);
+  const [errorEdges, setErrorEdges] = useState<Set<string>>(new Set());
 
-  // Fetch architecture data
+  // Fetch architecture data and error edges
   useEffect(() => {
     fetchArchitectureData();
+    fetchErrorEdges();
+    
+    // Poll for error edges every 5 seconds
+    const interval = setInterval(fetchErrorEdges, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchArchitectureData = async () => {
@@ -89,20 +97,38 @@ export default function ArchitectureViewV2() {
       console.error('Failed to fetch architecture:', error);
     }
   };
+  
+  const fetchErrorEdges = async () => {
+    try {
+      const response = await fetch('http://localhost:8000/v1/telemetry/error-edges');
+      const result = await response.json();
+      const errors = new Set(
+        result.error_edges.map((edge: any) => `${edge.source}-${edge.target}`)
+      );
+      setErrorEdges(errors);
+    } catch (error) {
+      console.error('Failed to fetch error edges:', error);
+    }
+  };
 
   // Register cytoscape layout plugins once
   useEffect(() => {
     if (!layoutsRegistered && typeof window !== 'undefined') {
-      import('cytoscape-dagre').then(dagre => {
-        cytoscape.use(dagre.default || dagre);
+      Promise.all([
+        import('cytoscape-dagre').then(dagre => {
+          cytoscape.use(dagre.default || dagre);
+        }),
+        import('cytoscape-klay').then(klay => {
+          cytoscape.use(klay.default || klay);
+        }),
+        import('cytoscape-cola').then(cola => {
+          cytoscape.use(cola.default || cola);
+        })
+      ]).then(() => {
+        layoutsRegistered = true;
+        // Force re-render after layouts are registered
+        setInitError(null);
       });
-      import('cytoscape-klay').then(klay => {
-        cytoscape.use(klay.default || klay);
-      });
-      import('cytoscape-cola').then(cola => {
-        cytoscape.use(cola.default || cola);
-      });
-      layoutsRegistered = true;
     }
   }, []);
 
@@ -116,8 +142,11 @@ export default function ArchitectureViewV2() {
     try {
       const elements: ElementDefinition[] = [];
 
-      // Add nodes
+      // Add nodes with cognitive region classification
+      console.log('🎨 Classifying nodes by cognitive region:');
       data.nodes.forEach(node => {
+        const cognitiveMetadata = classifyNode(node.id);
+        console.log(`  ${node.id.padEnd(25)} -> ${cognitiveMetadata.region}`);
         elements.push({
           data: {
             id: node.id,
@@ -127,23 +156,40 @@ export default function ArchitectureViewV2() {
             percent: node.percent_complete || 0,
             description: node.description,
             file_path: node.file_path,
+            region: cognitiveMetadata.region,
           },
         });
       });
+      console.log('✅ Node classification complete');
+      
+      // Debug: Log first few elements with region data
+      console.log('🔍 Sample elements with region:', elements.slice(0, 5).map(e => ({
+        id: e.data.id,
+        region: e.data.region,
+        type: e.data.type
+      })));
 
       // Add edges from API
       data.edges.forEach(edge => {
-        elements.push({
-          data: {
-            id: `${edge.source}-${edge.target}`,
-            source: edge.source,
-            target: edge.target,
-            operation: edge.metadata?.operation_type || 'unknown',
-            pattern: edge.metadata?.call_pattern || 'sync',
-            format: edge.metadata?.data_format || 'json',
-            cardinality: edge.metadata?.cardinality || '1:1',
-          },
-        });
+        const edgeId = `${edge.source}-${edge.target}`;
+        const hasError = errorEdges.has(edgeId);
+        
+        const edgeData: any = {
+          id: edgeId,
+          source: edge.source,
+          target: edge.target,
+          operation: edge.metadata?.operation_type || 'unknown',
+          pattern: edge.metadata?.call_pattern || 'sync',
+          format: edge.metadata?.data_format || 'json',
+          cardinality: edge.metadata?.cardinality || '1:1',
+        };
+        
+        // Only add hasError if true (Cytoscape selectors check for presence)
+        if (hasError) {
+          edgeData.hasError = 'true';
+        }
+        
+        elements.push({ data: edgeData });
       });
 
     // Cytoscape stylesheet
@@ -170,6 +216,20 @@ export default function ArchitectureViewV2() {
       },
       // Node status colors
       {
+        selector: 'node[status = "live"]',
+        style: {
+          'border-color': '#22C55E',
+          'border-width': 4,
+        } as any,
+      },
+      {
+        selector: 'node[status = "stubbed"]',
+        style: {
+          'border-color': '#F59E0B',
+          'border-width': 4,
+        } as any,
+      },
+      {
         selector: 'node[status = "implemented"]',
         style: {
           'border-color': '#22C55E',
@@ -179,7 +239,7 @@ export default function ArchitectureViewV2() {
       {
         selector: 'node[status = "in_progress"]',
         style: {
-          'border-color': '#F59E0B',
+          'border-color': '#3B82F6',
           'border-width': 3,
         } as any,
       },
@@ -190,35 +250,26 @@ export default function ArchitectureViewV2() {
           'border-width': 2,
         } as any,
       },
-      // Node type shapes
+      // Cognitive region colors - 50% opacity via background-opacity
       {
-        selector: 'node[type = "router"]',
+        selector: 'node[region = "core"]',
         style: {
-          'background-color': '#06B6D4',
+          'background-color': '#FFD700',
+          'background-opacity': 0.5,
         } as any,
       },
       {
-        selector: 'node[type = "memory"]',
+        selector: 'node[region = "memory"]',
         style: {
-          'background-color': '#9333EA',
+          'background-color': '#FF1493',
+          'background-opacity': 0.5,
         } as any,
       },
       {
-        selector: 'node[type = "llm"]',
+        selector: 'node[region = "perception"]',
         style: {
-          'background-color': '#EC4899',
-        } as any,
-      },
-      {
-        selector: 'node[type = "database"]',
-        style: {
-          'background-color': '#14B8A6',
-        } as any,
-      },
-      {
-        selector: 'node[type = "tool"]',
-        style: {
-          'background-color': '#8B5CF6',
+          'background-color': '#00CED1',
+          'background-opacity': 0.5,
         } as any,
       },
       // Edges base style
@@ -276,6 +327,16 @@ export default function ArchitectureViewV2() {
           'width': 3,
         } as any,
       },
+      // Error edges (highest priority - red)
+      {
+        selector: 'edge[hasError]',
+        style: {
+          'line-color': '#EF4444',
+          'target-arrow-color': '#EF4444',
+          'width': 3,
+          'line-style': 'solid',
+        } as any,
+      },
       // Selected node highlight
       {
         selector: 'node:selected',
@@ -289,22 +350,61 @@ export default function ArchitectureViewV2() {
     ];
 
     // Initialize Cytoscape
+    const layoutConfig: any = {
+      name: layoutType,
+      animate: true,
+      animationDuration: 500,
+    };
+    
+    // Layout-specific parameters
+    if (layoutType === 'dagre') {
+      layoutConfig.rankDir = 'LR';
+      layoutConfig.nodeSep = 100;
+      layoutConfig.rankSep = 200;
+    } else if (layoutType === 'klay') {
+      layoutConfig.klay = {
+        direction: 'RIGHT',
+        spacing: 100,
+      };
+    } else if (layoutType === 'cola') {
+      // Force-directed layout with better spacing
+      layoutConfig.nodeSpacing = 80;
+      layoutConfig.edgeLength = 120;
+      layoutConfig.edgeSymDiffLength = 60;
+      layoutConfig.edgeJaccardLength = 80;
+      layoutConfig.unconstrIter = 500;
+      layoutConfig.userConstIter = 250;
+      layoutConfig.allConstIter = 250;
+      layoutConfig.infinite = false;
+      layoutConfig.centerGraph = true;
+      layoutConfig.avoidOverlap = true;
+      layoutConfig.fit = true;
+      layoutConfig.padding = 50;
+    }
+    
     const cy = cytoscape({
       container: containerRef.current,
       elements,
       style: stylesheet,
-      layout: {
-        name: layoutType,
-        rankDir: 'LR',
-        nodeSep: 100,
-        rankSep: 200,
-        animate: true,
-        animationDuration: 500,
-      } as any,
+      layout: layoutConfig,
       minZoom: 0.3,
       maxZoom: 3,
       wheelSensitivity: 0.2,
     });
+    
+    // Debug: Check if region data is available in Cytoscape
+    console.log('🎯 Cytoscape nodes with region:', cy.nodes().map(n => ({
+      id: n.id(),
+      region: n.data('region'),
+      bg: n.style('background-color')
+    })).slice(0, 5));
+    
+    // Debug: Test selector matching
+    console.log('🔍 Selector test:');
+    console.log('  Nodes with region="core":', cy.nodes('[region = "core"]').length);
+    console.log('  Nodes with region="memory":', cy.nodes('[region = "memory"]').length);
+    console.log('  Nodes with region="perception":', cy.nodes('[region = "perception"]').length);
+    console.log('  Total nodes:', cy.nodes().length);
 
     // Node click handler
     cy.on('tap', 'node', (evt) => {
@@ -336,6 +436,26 @@ export default function ArchitectureViewV2() {
       setInitError(err instanceof Error ? err.message : 'Failed to initialize graph visualization');
     }
   }, [data, layoutType]);
+  
+  // Update edge styles when error edges change (without full re-render)
+  useEffect(() => {
+    if (!cyRef.current) return;
+    
+    const cy = cyRef.current;
+    
+    // Remove hasError from all edges
+    cy.edges().forEach(edge => {
+      edge.data('hasError', undefined);
+    });
+    
+    // Add hasError to edges with errors
+    errorEdges.forEach(edgeId => {
+      const edge = cy.getElementById(edgeId);
+      if (edge.length > 0) {
+        edge.data('hasError', 'true');
+      }
+    });
+  }, [errorEdges]);
 
   // WebSocket telemetry connection
   useEffect(() => {
@@ -534,7 +654,17 @@ export default function ArchitectureViewV2() {
   const highlightComponent = (componentId: string) => {
     if (!cyRef.current) return;
     
-    const node = cyRef.current.$id(componentId);
+    // Normalize component ID - backend telemetry may use shortened names
+    const normalizeId = (id: string): string => {
+      const idMap: Record<string, string> = {
+        'memory': 'memorymanager',
+        // Add more mappings if needed
+      };
+      return idMap[id] || id;
+    };
+    
+    const normalizedId = normalizeId(componentId);
+    const node = cyRef.current.$id(normalizedId);
     if (node.length > 0) {
       cyRef.current.animate({
         center: { eles: node },
@@ -544,6 +674,8 @@ export default function ArchitectureViewV2() {
       
       node.select();
       setTimeout(() => node.unselect(), 2000);
+    } else {
+      console.warn(`Component not found: ${componentId} (normalized: ${normalizedId})`);
     }
   };
 
@@ -598,9 +730,9 @@ export default function ArchitectureViewV2() {
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() => setShowAnalysis(!showAnalysis)}
+                onClick={() => setShowAnalysis(prev => !prev)}
                 className={`px-3 py-1 text-xs rounded flex items-center gap-1 ${
-                  showAnalysis
+                  showAnalysis && !showMatrix
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                 }`}
@@ -609,7 +741,7 @@ export default function ArchitectureViewV2() {
                 Analysis
               </button>
               <button
-                onClick={() => setShowMatrix(!showMatrix)}
+                onClick={() => setShowMatrix(prev => !prev)}
                 className={`px-3 py-1 text-xs rounded flex items-center gap-1 ${
                   showMatrix
                     ? 'bg-blue-600 text-white'
@@ -620,7 +752,7 @@ export default function ArchitectureViewV2() {
                 Matrix
               </button>
               <button
-                onClick={() => setShowTimeline(!showTimeline)}
+                onClick={() => setShowTimeline(prev => !prev)}
                 className={`px-3 py-1 text-xs rounded flex items-center gap-1 ${
                   showTimeline
                     ? 'bg-blue-600 text-white'
@@ -679,8 +811,8 @@ export default function ArchitectureViewV2() {
         {/* Graph Container */}
         <div 
           ref={containerRef}
-          className={`flex-1 bg-[#1E1E1E] ${showMatrix ? 'hidden' : ''} relative`}
-          style={{ width: '100%', height: '100%' }}
+          className={`${showAnalysis && !showMatrix ? 'flex-1 min-w-0' : 'flex-1'} bg-[#1E1E1E] ${showMatrix ? 'hidden' : ''} relative`}
+          style={{ height: '100%' }}
         >
           {initError && (
             <div className="absolute inset-0 flex items-center justify-center">
@@ -705,7 +837,7 @@ export default function ArchitectureViewV2() {
 
         {/* Analysis Panel */}
         {showAnalysis && !showMatrix && (
-          <div className="w-80 flex-shrink-0">
+          <div key="analysis-panel" className="w-80 flex-shrink-0">
             <AnalysisPanel onHighlightComponent={highlightComponent} />
           </div>
         )}
@@ -728,24 +860,26 @@ export default function ArchitectureViewV2() {
               </div>
 
               {/* Status */}
-              <div className="mb-3">
-                <div className="text-xs text-gray-400 mb-1">Status</div>
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${
-                    selectedNode.status === 'implemented' ? 'bg-green-500' :
-                    selectedNode.status === 'in_progress' ? 'bg-yellow-500' :
-                    'bg-gray-500'
-                  }`} />
-                  <span className="text-sm text-gray-200 capitalize">
-                    {selectedNode.status.replace('_', ' ')}
-                  </span>
-                  {selectedNode.percent_complete !== undefined && (
-                    <span className="text-xs text-gray-400">
-                      ({selectedNode.percent_complete}%)
+              {selectedNode.status && (
+                <div className="mb-3">
+                  <div className="text-xs text-gray-400 mb-1">Status</div>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${
+                      selectedNode.status === 'implemented' ? 'bg-green-500' :
+                      selectedNode.status === 'in_progress' ? 'bg-yellow-500' :
+                      'bg-gray-500'
+                    }`} />
+                    <span className="text-sm text-gray-200 capitalize">
+                      {selectedNode.status.replace('_', ' ')}
                     </span>
-                  )}
+                    {selectedNode.percent_complete !== undefined && (
+                      <span className="text-xs text-gray-400">
+                        ({selectedNode.percent_complete}%)
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Description */}
               {selectedNode.description && (
@@ -766,7 +900,7 @@ export default function ArchitectureViewV2() {
               )}
 
               {/* Dependencies */}
-              {selectedNode.dependencies.length > 0 && (
+              {selectedNode.dependencies && selectedNode.dependencies.length > 0 && (
                 <div>
                   <div className="text-xs text-gray-400 mb-2">Dependencies</div>
                   <div className="space-y-1">
@@ -799,35 +933,68 @@ export default function ArchitectureViewV2() {
       {/* Legend */}
       {!showTimeline && (
         <div className="px-4 py-2 bg-[#252526] border-t border-gray-700">
-        <div className="flex items-center gap-6 text-xs flex-wrap">
-          <div className="font-semibold text-gray-300">Connection Types:</div>
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-0.5 bg-[#0EA5E9]" />
-            <span className="text-gray-400">Read</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-0.5 bg-[#F59E0B]" />
-            <span className="text-gray-400">Write</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-0.5 bg-[#10B981]" />
-            <span className="text-gray-400">Query</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-0.5 bg-[#EC4899]" />
-            <span className="text-gray-400">Execute</span>
-          </div>
-          <div className="border-l border-gray-600 h-4" />
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-0.5 border-t-2 border-dashed border-gray-400" />
-            <span className="text-gray-400">Async</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-0.5 border-t-2 border-dotted border-gray-400" />
-            <span className="text-gray-400">Streaming</span>
+          <div className="space-y-2">
+            {/* Cognitive Regions Row */}
+            <div className="flex items-center gap-6 text-xs flex-wrap">
+              <div className="font-semibold text-gray-300">Cognitive Regions:</div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-[#FFD700] border-2 border-gray-600" />
+                <span className="text-gray-400">Core (Control & Reasoning)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-[#FF1493] border-2 border-gray-600" />
+                <span className="text-gray-400">Memory (Storage & Learning)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded bg-[#00CED1] border-2 border-gray-600" />
+                <span className="text-gray-400">Perception (Tools & Environment)</span>
+              </div>
+            </div>
+            
+            {/* Node Status Row */}
+            <div className="flex items-center gap-6 text-xs flex-wrap">
+              <div className="font-semibold text-gray-300">Node Status:</div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded border-4 border-[#22C55E] bg-[#2D3748]" />
+                <span className="text-gray-400">Live</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-4 rounded border-4 border-[#F59E0B] bg-[#2D3748]" />
+                <span className="text-gray-400">Stubbed</span>
+              </div>
+            </div>
+            
+            {/* Connection Types Row */}
+            <div className="flex items-center gap-6 text-xs flex-wrap">
+              <div className="font-semibold text-gray-300">Connections:</div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-0.5 bg-[#4A5568]" />
+                <span className="text-gray-400">Normal</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-1 bg-[#EF4444]" />
+                <span className="text-gray-400">Error (Recent Failures)</span>
+              </div>
+              <div className="border-l border-gray-600 h-4" />
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-0.5 bg-[#0EA5E9]" />
+                <span className="text-gray-400">Read</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-0.5 bg-[#F59E0B]" />
+                <span className="text-gray-400">Write</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-0.5 bg-[#10B981]" />
+                <span className="text-gray-400">Query</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-0.5 bg-[#EC4899]" />
+                <span className="text-gray-400">Execute</span>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
       )}
     </div>
   );

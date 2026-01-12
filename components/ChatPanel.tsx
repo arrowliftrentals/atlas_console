@@ -1,23 +1,24 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { sendAtlasChat, clearConsoleSession } from "@/lib/atlasConsoleClient";
+import { sendAtlasChat, clearConsoleSession, atlasChatStream } from "@/lib/atlasConsoleClient";
 import { useConsole } from "./ConsoleProvider";
 import { AgentResponsePanel } from "./AgentResponsePanel";
-import ProgressIndicator from "./ProgressIndicator";
+import PermanentProgressBar from "./PermanentProgressBar";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { AgentResponse } from "@/lib/types";
 
 const CHAT_PANEL_WIDTH_KEY = "atlas_console_chat_panel_width";
 const DEFAULT_CHAT_PANEL_WIDTH = 460;
 
 const ChatPanel: React.FC = () => {
-  const { activeSessionId, getMessages, addMessage, clearMessages } = useConsole();
+  const { activeSessionId, getMessages, addMessage, updateLastMessage, clearMessages } = useConsole();
   const messages = activeSessionId ? getMessages(activeSessionId) : [];
   
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showProgress, setShowProgress] = useState(false);
   const [width, setWidth] = useState<number>(DEFAULT_CHAT_PANEL_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
   const [isHealthy, setIsHealthy] = useState<boolean | null>(null); // null = checking, true = healthy, false = unhealthy
@@ -102,13 +103,34 @@ const ChatPanel: React.FC = () => {
     };
   }, [isResizing]);
 
+  const [userHasScrolled, setUserHasScrolled] = useState(false);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Track user scroll to prevent auto-scroll when user is viewing history
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container;
+      const isAtBottom = scrollHeight - scrollTop - clientHeight < 50;
+      setUserHasScrolled(!isAtBottom);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Only auto-scroll if user hasn't manually scrolled up
+  useEffect(() => {
+    if (!userHasScrolled) {
+      scrollToBottom();
+    }
+  }, [messages, userHasScrolled]);
 
   const handleSend = async () => {
     const trimmed = input.trim();
@@ -141,34 +163,51 @@ const ChatPanel: React.FC = () => {
     setLoading(true);
     setError(null);
 
-    // Check if this is a long-running task
-    const longTaskKeywords = [
-      "implement", "create", "build", "develop", "write", "generate",
-      "refactor", "analyze all", "complete", "full", "entire system"
-    ];
-    const isLongTask = longTaskKeywords.some(keyword => 
-      trimmed.toLowerCase().includes(keyword)
-    );
-
-    if (isLongTask) {
-      setShowProgress(true);
-    }
-
     // Add user message
     addMessage(activeSessionId, { type: 'user', content: trimmed });
 
     try {
-      const response = await sendAtlasChat(messageContent, activeSessionId);
-      // Add assistant response
-      addMessage(activeSessionId, { type: 'assistant', content: response.answer, response });
-      // Mark as healthy on successful chat
-      setIsHealthy(true);
+      // Create initial empty assistant message for streaming
+      addMessage(activeSessionId, { type: 'assistant', content: '' });
+      
+      let streamedContent = '';
+
+      // Let ATLAS load conversation history from its memory layers
+      // Session Memory (L1) automatically retrieves prior messages by session_id
+      await atlasChatStream(
+        { 
+          query: messageContent, 
+          session_id: activeSessionId
+        },
+        // onChunk - append to streaming message
+        (chunk: string) => {
+          console.log('[ChatPanel] Received chunk:', chunk);
+          streamedContent += chunk;
+          console.log('[ChatPanel] Total content now:', streamedContent.length, 'chars');
+          updateLastMessage(activeSessionId, streamedContent);
+        },
+        // onToolCall
+        (toolName: string, status: string) => {
+          console.log(`[Stream] Tool: ${toolName} - ${status}`);
+        },
+        // onDone
+        (sessionId: string) => {
+          console.log(`[Stream] Complete, session: ${sessionId}`);
+          setIsHealthy(true);
+          setLoading(false);
+        },
+        // onError
+        (error: string) => {
+          setError(error);
+          console.error("ATLAS streaming error:", error);
+          setIsHealthy(false);
+          setLoading(false);
+        }
+      );
     } catch (err: any) {
       setError(err.message || "Failed to send message");
       console.error("ATLAS chat error:", err);
-      // Mark as unhealthy on chat error
       setIsHealthy(false);
-    } finally {
       setLoading(false);
     }
   };
@@ -279,8 +318,11 @@ const ChatPanel: React.FC = () => {
         </button>
       </div>
 
+      {/* Permanent Progress Bar - Always visible */}
+      <PermanentProgressBar sessionId={activeSessionId} />
+
       {/* Responses */}
-      <div className="flex-1 overflow-y-auto atlas-scrollbar">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto atlas-scrollbar">
         {!activeSessionId ? (
           <div className="flex items-center justify-center h-full text-center text-xs text-[var(--atlas-text-muted)]">
             <div>
@@ -355,32 +397,26 @@ const ChatPanel: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Agent response */}
+                  {/* Agent response with full response object */}
                   {message.response && (
                     <div className="px-3 pb-4">
                       <AgentResponsePanel response={message.response} index={index} />
                     </div>
                   )}
+
+                  {/* Agent message with just content (streaming) - VS Code style with Markdown */}
+                  {message.type === 'assistant' && message.content && !message.response && (
+                    <div className="px-4 pb-3">
+                      <div className="bg-[#1e1e1e] border border-[#3c3c3c] rounded-md p-4 shadow-sm markdown-content">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {message.content}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
-          </div>
-        )}
-        
-        {loading && showProgress && activeSessionId && (
-          <ProgressIndicator 
-            sessionId={activeSessionId}
-            onComplete={() => setShowProgress(false)}
-          />
-        )}
-        
-        {loading && !showProgress && (
-          <div className="flex items-center justify-center py-4">
-            <div className="flex gap-1">
-              <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-              <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-              <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: "300ms" }} />
-            </div>
           </div>
         )}
         

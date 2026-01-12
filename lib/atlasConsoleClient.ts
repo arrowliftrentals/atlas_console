@@ -159,3 +159,106 @@ export async function clearActivityLogs(): Promise<{ status: string; message: st
 
   return res.json();
 }
+
+/**
+ * Send a chat request to ATLAS with streaming response
+ * Calls callbacks as chunks arrive for real-time UI updates
+ */
+export async function atlasChatStream(
+  payload: { query: string; session_id?: string; context?: string },
+  onChunk: (chunk: string) => void,
+  onToolCall?: (toolName: string, status: string) => void,
+  onDone?: (sessionId: string) => void,
+  onError?: (error: string) => void
+): Promise<void> {
+  const streamPayload = {
+    query: payload.query,
+    session_id: payload.session_id,
+    context: payload.context,
+    assumptions: [],
+    override_unresolved_assumptions: true,
+  };
+
+  console.debug('[atlasConsoleClient] Starting SSE stream');
+
+  try {
+    const response = await fetch('/api/atlasChat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(streamPayload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Stream request failed: ${response.status} ${response.statusText}`);
+    }
+
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error('Response body is not readable');
+    }
+
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      
+      // Keep the last incomplete line in the buffer
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const data = JSON.parse(line.slice(6));
+            console.log('[SSE] Received event:', data.type, data);
+            
+            switch (data.type) {
+              case 'connected':
+                console.debug('[SSE] Connected, session:', data.session_id);
+                break;
+              
+              case 'info':
+                console.debug('[SSE] Info:', data.message);
+                break;
+              
+              case 'answer_chunk':
+                console.log('[SSE] Answer chunk received:', data.content.length, 'chars');
+                // Add 40% delay for slower typing effect (simulate 140% of original time)
+                await new Promise(resolve => setTimeout(resolve, data.content.length * 2));
+                onChunk(data.content);
+                break;
+              
+              case 'tool_call':
+                onToolCall?.(data.name, data.status);
+                break;
+              
+              case 'done':
+                console.debug('[SSE] Stream complete');
+                onDone?.(data.session_id);
+                break;
+              
+              case 'error':
+                console.error('[SSE] Error:', data.message);
+                onError?.(data.message);
+                break;
+              
+              default:
+                console.debug('[SSE] Unknown event type:', data.type);
+            }
+          } catch (e) {
+            console.error('[SSE] Failed to parse event data:', line, e);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[SSE] Stream error:', error);
+    onError?.(error instanceof Error ? error.message : String(error));
+    throw error;
+  }
+}

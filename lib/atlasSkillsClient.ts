@@ -38,7 +38,9 @@ export async function fetchSkillExecutions(
         throw new Error(`Failed to fetch skill executions: ${response.statusText}`);
     }
 
-    return response.json();
+    const data = await response.json();
+    // Backend returns {executions: [...]} format
+    return data.executions || [];
 }
 
 /**

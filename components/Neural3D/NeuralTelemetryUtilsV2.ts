@@ -69,6 +69,10 @@ export function computeNodeStateFromEvent(
     const existing = nodes.get(event.source);
     const subsystem = existing?.subsystem || inferSubsystem(event.source);
     
+    if (!existing) {
+      console.log('[UTILS] Creating NEW source node:', event.source, 'subsystem:', subsystem);
+    }
+    
     updates.set(event.source, {
       id: event.source,
       label: existing?.label || event.source,
@@ -87,6 +91,10 @@ export function computeNodeStateFromEvent(
   if (event.target) {
     const existing = nodes.get(event.target);
     const subsystem = existing?.subsystem || inferSubsystem(event.target);
+    
+    if (!existing) {
+      console.log('[UTILS] Creating NEW target node:', event.target, 'subsystem:', subsystem);
+    }
     
     updates.set(event.target, {
       id: event.target,
@@ -114,6 +122,10 @@ export function computeEdgeStateFromEvent(
   const edgeId = `${event.source}->${event.target}`;
   
   const existing = edges.get(edgeId);
+  
+  if (!existing) {
+    console.log('[UTILS] Creating NEW edge:', edgeId, 'type:', event.type);
+  }
   
   updates.set(edgeId, {
     id: edgeId,
