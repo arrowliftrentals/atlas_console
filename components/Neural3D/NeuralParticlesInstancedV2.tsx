@@ -11,6 +11,7 @@ import { EdgeStateV2, NodeStateV2, TelemetryEventV2 } from './NeuralTelemetryTyp
 import { PARTICLE_COLORS_BY_EVENT, NODE_COLORS, REGION_COLORS } from './NeuralVisualEncodingV2';
 import { useNeuralTelemetryStoreV2 } from './NeuralTelemetryStoreV2';
 import { classifyNode } from './NeuralCognitiveLayoutV2';
+import { calculateEdgePath, getPathPosition } from './NeuralPathUtils';
 
 const CORE_RADIUS = 20;
 const MEMORY_RADIUS = 60;
@@ -56,6 +57,8 @@ interface ParticleRuntime {
   // Multi-hop journey (visual only)
   path?: string[];
   currentHopIndex: number;
+  // Bezier curve path for smooth animation
+  curvePath?: Vector3[];
 }
 
 const dummy = new Object3D();
@@ -164,6 +167,11 @@ export function NeuralParticlesInstancedV2({
       p.currentHopIndex = 0;
       p.path = undefined; // No multi-hop tracking
       
+      // Calculate curved path between source and target
+      const sourceVec = new Vector3(...srcNode.position);
+      const targetVec = new Vector3(...dstNode.position);
+      p.curvePath = calculateEdgePath(sourceVec, targetVec, 0.2, 30);
+      
       console.log('[PARTICLE ACTIVATED] edgeId:', edgeId, 'particle index:', spawnIndexRef.current,
         'source:', ev.source, 'has position:', !!srcNode.position, 
         'target:', ev.target, 'has position:', !!dstNode.position);
@@ -261,16 +269,24 @@ export function NeuralParticlesInstancedV2({
         return;
       }
 
-      // Straight line path along edge
-      const [x1, y1, z1] = src.position;
-      const [x2, y2, z2] = dst.position;
+      // Use curved path if available, otherwise straight line
+      let x: number, y: number, z: number;
       
-      const t = p.t;
-      
-      // Simple linear interpolation - straight line
-      let x = x1 + (x2 - x1) * t;
-      let y = y1 + (y2 - y1) * t;
-      let z = z1 + (z2 - z1) * t;
+      if (p.curvePath && p.curvePath.length > 0) {
+        // Animate along bezier curve
+        const position = getPathPosition(p.curvePath, p.t);
+        x = position.x;
+        y = position.y;
+        z = position.z;
+      } else {
+        // Fallback to straight line
+        const [x1, y1, z1] = src.position;
+        const [x2, y2, z2] = dst.position;
+        const t = p.t;
+        x = x1 + (x2 - x1) * t;
+        y = y1 + (y2 - y1) * t;
+        z = z1 + (z2 - z1) * t;
+      }
 
       // Validate computed position
       if (!isFinite(x) || !isFinite(y) || !isFinite(z)) {

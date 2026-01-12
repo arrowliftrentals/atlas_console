@@ -104,7 +104,7 @@ export default function ArchitectureViewV2() {
     try {
       const response = await fetch('http://localhost:8000/v1/telemetry/error-edges');
       const result = await response.json();
-      const errors = new Set(
+      const errors = new Set<string>(
         result.error_edges.map((edge: any) => `${edge.source}-${edge.target}`)
       );
       setErrorEdges(errors);
