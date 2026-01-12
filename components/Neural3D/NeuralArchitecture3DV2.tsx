@@ -123,6 +123,9 @@ export default function NeuralArchitecture3DV2({
   // Track node selector panel visibility
   const [showNodeSelector, setShowNodeSelector] = useState(false);
   
+  // Debug state for visible output
+  const [debugInfo, setDebugInfo] = useState('');
+  
   // Camera focus state
   const [cameraFocus, setCameraFocus] = useState<{ position: Vector3; target: Vector3 } | null>(null);
   const orbitControlsRef = useRef<OrbitControlsType | null>(null);
@@ -626,6 +629,7 @@ export default function NeuralArchitecture3DV2({
             priority: 'high' as const,
             is_parent_trace: true,
             spawn_count: 3, // Multiple particles for memory writes
+            skipParticles: false, // Explicitly allow particles
           });
         }
       });
@@ -717,6 +721,7 @@ export default function NeuralArchitecture3DV2({
             priority: 'normal' as const,
             is_parent_trace: true,
             spawn_count: spawnCount,
+            skipParticles: false, // Explicitly allow particles
           };
           
           console.log('[EVENT PUSHED]', event);
@@ -872,23 +877,32 @@ export default function NeuralArchitecture3DV2({
         />
       )}
       
+      {/* Debug Info Display */}
+      {debugInfo && (
+        <div className="absolute top-4 right-4 bg-black/80 text-white p-4 rounded shadow-lg z-50 max-w-md text-xs font-mono">
+          <pre className="whitespace-pre-wrap">{debugInfo}</pre>
+        </div>
+      )}
+      
       {/* Test Particle Button - bottom-right, above node selector */}
       <button
         onClick={() => {
-          console.log('[TEST] Injecting test particle event');
-          console.log('[TEST] Current nodes:', nodes.size, 'edges:', edges.size);
-          console.log('[TEST] Current particleEvents:', particleEvents.length);
+          const info: string[] = [];
+          info.push(`[TEST] Injecting test particle event`);
+          info.push(`Nodes: ${nodes.size}, Edges: ${edges.size}`);
+          info.push(`ParticleEvents: ${particleEvents.length}`);
           
           // Get first available edge from store
           const firstEdge = Array.from(edges.values())[0];
           if (!firstEdge) {
-            console.error('[TEST] No edges available to spawn particle');
+            info.push('ERROR: No edges available');
+            setDebugInfo(info.join('\n'));
             return;
           }
           
-          console.log('[TEST] Using edge:', firstEdge.sourceId, '->', firstEdge.targetId);
+          info.push(`Using edge: ${firstEdge.sourceId} -> ${firstEdge.targetId}`);
           
-          ingestEvents([{
+          const testEvent = {
             source: firstEdge.sourceId,
             target: firstEdge.targetId,
             type: 'data_transfer' as const,
@@ -898,9 +912,20 @@ export default function NeuralArchitecture3DV2({
             is_parent_trace: true,
             spawn_count: 3,
             skipParticles: false,
-          }]);
+          };
           
-          console.log('[TEST] Event injected, particleEvents length:', particleEvents.length);
+          ingestEvents([testEvent]);
+          
+          // Check after ingestion
+          setTimeout(() => {
+            info.push(`After ingest: particleEvents = ${particleEvents.length}`);
+            info.push('\nWaiting for particles to spawn...');
+            info.push('Check if you see moving dots on edges');
+            setDebugInfo(info.join('\n'));
+            
+            // Clear after 5 seconds
+            setTimeout(() => setDebugInfo(''), 5000);
+          }, 100);
         }}
         className="absolute bottom-20 right-4 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded shadow-lg z-50 transition-colors"
         title="Inject Test Particle"
