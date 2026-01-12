@@ -33,7 +33,22 @@
 - Retrieves `clearParticleEvents` function from store
 - Calls it immediately after processing spawn events in `useFrame`
 
-### 3. Backend Telemetry Stream Requires Activity
+### 3. Permanent Edge Deduplication Blocked Re-spawning (CRITICAL)
+**Problem**: `spawnedEdgesRef` was a persistent `Set<string>` that tracked which edges had spawned particles, but it **never cleared**. Once an edge spawned particles (e.g., `agent_router->llm_gateway`), that edge could never spawn particles again, even on completely new queries.
+
+**Impact**:
+- **First query**: Particles spawned correctly
+- **All subsequent queries**: Edges pulsed (telemetry working), but particles never spawned
+- Line 652 deduplication check blocked all re-spawning: `if (spawnedEdgesRef.current.has(edgeKey)) continue;`
+- User reported: "connections seem to pulse but no particles are visible"
+
+**Fix**: Changed `spawnedEdgesRef` from `Set<string>` to `Map<string, number>` to track spawn timestamps
+- **File**: `components/Neural3D/NeuralArchitecture3DV2.tsx` - lines 560-585
+- Added time-based expiration: 3 second TTL per edge
+- Cleanup interval runs every second, removes expired entries
+- Edges can now re-spawn particles on new queries after expiration
+
+### 4. Backend Telemetry Stream Requires Activity
 **Problem**: The WebSocket connection to `/v1/telemetry/stream` is established, but the backend only sends telemetry events when there's actual Atlas activity (chat queries, tool executions, memory operations).
 
 **Impact**:
