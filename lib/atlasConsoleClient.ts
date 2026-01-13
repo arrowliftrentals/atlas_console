@@ -126,22 +126,34 @@ export async function fetchActivityLogs(
   session_id?: string;
   details?: Record<string, any>;
 }>> {
-  const params = new URLSearchParams({ limit: String(limit) });
-  if (sessionId) {
-    params.append('session_id', sessionId);
+  try {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (sessionId) {
+      params.append('session_id', sessionId);
+    }
+
+    const res = await fetch(`${ATLAS_API_BASE}/logs?${params.toString()}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store',
+    });
+
+    if (!res.ok) {
+      console.warn('[ConsoleClient] Failed to fetch activity logs:', res.status, res.statusText);
+      return []; // Return empty array instead of throwing
+    }
+
+    const data = await res.json();
+    // Validate response is an array
+    if (!Array.isArray(data)) {
+      console.warn('[ConsoleClient] Invalid logs response (not an array):', data);
+      return [];
+    }
+    return data;
+  } catch (err) {
+    console.warn('[ConsoleClient] Error fetching activity logs:', err);
+    return []; // Return empty array on error
   }
-
-  const res = await fetch(`${ATLAS_API_BASE}/logs?${params.toString()}`, {
-    method: 'GET',
-    headers: { 'Content-Type': 'application/json' },
-    cache: 'no-store',
-  });
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch activity logs: ${res.statusText}`);
-  }
-
-  return res.json();
 }
 
 /**

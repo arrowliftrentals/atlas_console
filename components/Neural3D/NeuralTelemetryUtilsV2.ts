@@ -2,6 +2,7 @@
 // Utility functions to update node/edge state from telemetry events
 
 import { TelemetryEventV2, NodeStateV2, EdgeStateV2, NodeSubsystem } from './NeuralTelemetryTypesV2';
+import { formatNodeLabel } from './NeuralCognitiveLayoutV2';
 
 // Infer subsystem from node ID (improved from V1)
 export function inferSubsystem(nodeId: string): NodeSubsystem {
@@ -75,7 +76,7 @@ export function computeNodeStateFromEvent(
     
     updates.set(event.source, {
       id: event.source,
-      label: existing?.label || event.source,
+      label: existing?.label || formatNodeLabel(event.source),
       subsystem,
       position: existing?.position || [0, 0, 0],
       throughput: (existing?.throughput || 0) * 0.9 + (event.bytes || 100) * 0.1,
@@ -98,7 +99,7 @@ export function computeNodeStateFromEvent(
     
     updates.set(event.target, {
       id: event.target,
-      label: existing?.label || event.target,
+      label: existing?.label || formatNodeLabel(event.target),
       subsystem,
       position: existing?.position || [0, 0, 0],
       throughput: (existing?.throughput || 0) * 0.9 + (event.bytes || 100) * 0.1,

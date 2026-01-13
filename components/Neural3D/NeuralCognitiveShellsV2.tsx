@@ -5,6 +5,7 @@
 
 import { useRef } from 'react';
 import { Mesh } from 'three';
+import { REGION_COLORS } from './NeuralVisualEncodingV2';
 
 interface Props {
   visible?: boolean;
@@ -38,7 +39,7 @@ export function NeuralCognitiveShellsV2({
 
   return (
     <group>
-      {/* Core shell - Gold */}
+      {/* Core shell - Dark Orange */}
       <mesh 
         ref={coreMeshRef}
         rotation={[
@@ -49,14 +50,14 @@ export function NeuralCognitiveShellsV2({
       >
         <sphereGeometry args={[CORE_RADIUS, 32, 16]} />
         <meshBasicMaterial
-          color="#FFD700"
+          color={REGION_COLORS.core}
           wireframe
           transparent
           opacity={opacity * 1.2} // Slightly more visible
         />
       </mesh>
 
-      {/* Memory shell - Deep Pink */}
+      {/* Memory shell - Dark Pink */}
       <mesh 
         ref={memoryMeshRef}
         rotation={[
@@ -67,14 +68,14 @@ export function NeuralCognitiveShellsV2({
       >
         <sphereGeometry args={[MEMORY_RADIUS, 48, 24]} />
         <meshBasicMaterial
-          color="#FF1493"
+          color={REGION_COLORS.memory}
           wireframe
           transparent
           opacity={opacity}
         />
       </mesh>
 
-      {/* Perception shell - Dark Turquoise */}
+      {/* Perception shell - Dark Teal */}
       <mesh 
         ref={perceptionMeshRef}
         rotation={[
@@ -85,66 +86,10 @@ export function NeuralCognitiveShellsV2({
       >
         <sphereGeometry args={[PERCEPTION_RADIUS, 64, 32]} />
         <meshBasicMaterial
-          color="#00CED1"
+          color={REGION_COLORS.perception}
           wireframe
           transparent
-          opacity={opacity * 0.4}
-        />
-      </mesh>
-
-      {/* Memory latitude bands (horizontal rings) */}
-      {/* Planning band (North) */}
-      <mesh rotation={[0, 0, 0]} position={[0, MEMORY_RADIUS * 0.75, 0]}>
-        <torusGeometry args={[MEMORY_RADIUS * 0.6, 0.2, 8, 32]} />
-        <meshBasicMaterial color="#FF1493" transparent opacity={opacity * 0.5} />
-      </mesh>
-
-      {/* Declarative band */}
-      <mesh rotation={[0, 0, 0]} position={[0, MEMORY_RADIUS * 0.4, 0]}>
-        <torusGeometry args={[MEMORY_RADIUS * 0.9, 0.2, 8, 32]} />
-        <meshBasicMaterial color="#FF1493" transparent opacity={opacity * 0.5} />
-      </mesh>
-
-      {/* Episodic band (Equator) */}
-      <mesh rotation={[0, 0, 0]} position={[0, 0, 0]}>
-        <torusGeometry args={[MEMORY_RADIUS, 0.2, 8, 32]} />
-        <meshBasicMaterial color="#FF1493" transparent opacity={opacity * 0.5} />
-      </mesh>
-
-      {/* Procedural band */}
-      <mesh rotation={[0, 0, 0]} position={[0, -MEMORY_RADIUS * 0.4, 0]}>
-        <torusGeometry args={[MEMORY_RADIUS * 0.9, 0.2, 8, 32]} />
-        <meshBasicMaterial color="#FF1493" transparent opacity={opacity * 0.5} />
-      </mesh>
-
-      {/* Layered band (South) */}
-      <mesh rotation={[0, 0, 0]} position={[0, -MEMORY_RADIUS * 0.75, 0]}>
-        <torusGeometry args={[MEMORY_RADIUS * 0.6, 0.2, 8, 32]} />
-        <meshBasicMaterial color="#FF1493" transparent opacity={opacity * 0.5} />
-      </mesh>
-
-      {/* Perception longitude sectors (vertical planes) */}
-      {/* Tools sector (0°) */}
-      <mesh rotation={[0, 0, Math.PI / 2]} position={[0, 0, 0]}>
-        <planeGeometry args={[PERCEPTION_RADIUS * 2, PERCEPTION_RADIUS * 2]} />
-        <meshBasicMaterial
-          color="#00CED1"
-          transparent
-          opacity={opacity * 0.3}
-          side={2} // DoubleSide
-          wireframe
-        />
-      </mesh>
-
-      {/* API sector (90°) */}
-      <mesh rotation={[0, Math.PI / 2, Math.PI / 2]} position={[0, 0, 0]}>
-        <planeGeometry args={[PERCEPTION_RADIUS * 2, PERCEPTION_RADIUS * 2]} />
-        <meshBasicMaterial
-          color="#00CED1"
-          transparent
-          opacity={opacity * 0.3}
-          side={2}
-          wireframe
+          opacity={opacity * 0.8}
         />
       </mesh>
     </group>

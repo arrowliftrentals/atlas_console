@@ -42,6 +42,48 @@ export const MEMORY_RADIUS = 60;      // Memory shell
 export const PERCEPTION_RADIUS = 100; // Outer perception shell
 
 /**
+ * Get memory layer label (L1-L10) for a node if it's a memory node
+ */
+export function getMemoryLayerLabel(nodeId: string): string | null {
+  const id = nodeId.toLowerCase();
+  
+  if (id.match(/\bl1\b|working.*memory|active.*memory/i)) return 'L1';
+  if (id.match(/\bl2\b|short.*term.*memory|recent.*memory/i)) return 'L2';
+  if (id.match(/\bl3\b|episodic/i)) return 'L3';
+  if (id.match(/\bl4\b|declarative/i)) return 'L4';
+  if (id.match(/\bl5\b|procedural/i)) return 'L5';
+  if (id.match(/\bl6\b|attention.*memory|focus.*memory/i)) return 'L6';
+  if (id.match(/\bl7\b|world.*state|state.*memory/i)) return 'L7';
+  if (id.match(/\bl8\b|goals.*memory|planning.*memory/i)) return 'L8';
+  if (id.match(/\bl9\b|social.*memory|user.*profile/i)) return 'L9';
+  if (id.match(/\bl10\b|vector.*memory/i)) return 'L10';
+  
+  // Generic patterns for unlabeled memory nodes
+  if (id.includes('session') && (id.includes('store') || id.includes('memory'))) return 'L3';
+  if (id.includes('vector') || id.includes('chroma') || id.includes('pinecone')) return 'L10';
+  
+  return null;
+}
+
+/**
+ * Format node label with memory layer prefix if applicable
+ */
+export function formatNodeLabel(nodeId: string, originalLabel?: string): string {
+  const layerLabel = getMemoryLayerLabel(nodeId);
+  const baseLabel = originalLabel || nodeId;
+  
+  if (layerLabel) {
+    // If label already starts with the layer number, don't duplicate
+    if (baseLabel.match(new RegExp(`^${layerLabel}\\b`, 'i'))) {
+      return baseLabel;
+    }
+    return `${layerLabel}: ${baseLabel}`;
+  }
+  
+  return baseLabel;
+}
+
+/**
  * Classify node into cognitive region based on ID/subsystem
  */
 export function classifyNode(nodeId: string, subsystem?: NodeSubsystem): CognitiveNodeMetadata {
@@ -92,8 +134,18 @@ export function classifyNode(nodeId: string, subsystem?: NodeSubsystem): Cogniti
   
   // ========== MEMORY SYSTEMS ==========
   
-  // Episodic & session memory
-  if (id.includes('sessionstore') || id.includes('session_store')) {
+  // L1 - Working Memory
+  if (id.match(/l1|working.*memory|active.*memory/i)) {
+    return { region: 'memory', memoryType: 'episodic', importance: 0.9 };
+  }
+  
+  // L2 - Short-term Memory
+  if (id.match(/l2|short.*term.*memory|recent.*memory/i)) {
+    return { region: 'memory', memoryType: 'episodic', importance: 0.85 };
+  }
+  
+  // L3 - Episodic Memory
+  if (id.match(/l3|episodic/i) || id.includes('sessionstore') || id.includes('session_store')) {
     return { region: 'memory', memoryType: 'episodic', importance: 0.8 };
   }
   if (id.includes('sessionservice') || id.includes('session_service')) {
@@ -109,8 +161,8 @@ export function classifyNode(nodeId: string, subsystem?: NodeSubsystem): Cogniti
     return { region: 'memory', memoryType: 'episodic', importance: 0.6 };
   }
   
-  // Declarative / semantic memory
-  if (id.includes('declarativefact') || id.includes('declarative_fact')) {
+  // L4 - Declarative Memory
+  if (id.match(/l4|declarative/i) || id.includes('declarativefact') || id.includes('declarative_fact')) {
     return { region: 'memory', memoryType: 'declarative', importance: 0.75 };
   }
   if (id.includes('knowledgechunk') || id.includes('knowledge_chunk')) {
@@ -120,8 +172,8 @@ export function classifyNode(nodeId: string, subsystem?: NodeSubsystem): Cogniti
     return { region: 'memory', memoryType: 'declarative', importance: 0.8 };
   }
   
-  // Procedural / skills
-  if (id.includes('proceduralstore') || id.includes('procedural_store')) {
+  // L5 - Procedural Memory
+  if (id.match(/l5|procedural/i) || id.includes('proceduralstore') || id.includes('procedural_store')) {
     return { region: 'memory', memoryType: 'procedural', importance: 0.8 };
   }
   if (id.includes('proceduralskill') || id.includes('procedural_skill') || id.includes('skill_')) {
@@ -131,8 +183,18 @@ export function classifyNode(nodeId: string, subsystem?: NodeSubsystem): Cogniti
     return { region: 'memory', memoryType: 'procedural', importance: 0.6 };
   }
   
-  // Planning & roadmaps
-  if (id.includes('roadmap') && !id.includes('event')) {
+  // L6 - Attention Memory
+  if (id.match(/l6|attention.*memory|focus.*memory/i)) {
+    return { region: 'memory', memoryType: 'planning', importance: 0.75 };
+  }
+  
+  // L7 - World State Memory
+  if (id.match(/l7|world.*state|state.*memory/i)) {
+    return { region: 'memory', memoryType: 'planning', importance: 0.75 };
+  }
+  
+  // L8 - Goals Memory / Planning & roadmaps
+  if (id.match(/l8|goals.*memory|planning.*memory/i) || id.includes('roadmap') && !id.includes('event')) {
     return { region: 'memory', memoryType: 'planning', importance: 0.8 };
   }
   if (id.includes('roadmapitem') || id.includes('roadmap_item')) {
@@ -145,15 +207,17 @@ export function classifyNode(nodeId: string, subsystem?: NodeSubsystem): Cogniti
     return { region: 'memory', memoryType: 'planning', importance: 0.75 };
   }
   
+  // L9 - Social Memory
+  if (id.match(/l9|social.*memory|user.*profile|interaction/i)) {
+    return { region: 'memory', memoryType: 'planning', importance: 0.75 };
+  }
+  
   // Layered memory abstractions
   if (id.includes('layeredmemory') || id.includes('layered_memory')) {
     return { region: 'memory', memoryType: 'layered', importance: 0.85 };
   }
   if (id.includes('memorylayers') || id.includes('memory_layers')) {
     return { region: 'memory', memoryType: 'layered', importance: 0.8 };
-  }
-  if (id.match(/l[7-9]|l10/i) && (id.includes('layer') || id.includes('world') || id.includes('goal') || id.includes('social') || id.includes('governance'))) {
-    return { region: 'memory', memoryType: 'layered', importance: 0.75 };
   }
   
   // Memory manager and session memory (dynamic runtime nodes)
@@ -164,8 +228,8 @@ export function classifyNode(nodeId: string, subsystem?: NodeSubsystem): Cogniti
     return { region: 'memory', memoryType: 'episodic', importance: 0.8 };
   }
   
-  // Vector stores & databases
-  if (id.includes('vector') || id.includes('pinecone') || id.includes('chroma')) {
+  // L10 - Vector stores & databases
+  if (id.match(/l10|vector.*memory/i) || id.includes('vector') || id.includes('pinecone') || id.includes('chroma')) {
     return { region: 'memory', memoryType: 'vector', importance: 0.75 };
   }
   if (id.includes('database') || id.includes('db_') || id.includes('store')) {

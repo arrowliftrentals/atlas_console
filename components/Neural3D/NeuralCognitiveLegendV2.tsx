@@ -4,6 +4,7 @@
 'use client';
 
 import { useState } from 'react';
+import { REGION_COLORS } from './NeuralVisualEncodingV2';
 
 interface Props {
   nodeStats: {
@@ -82,7 +83,7 @@ export function NeuralCognitiveLegendV2({ nodeStats }: Props) {
               <RegionCard
                 name="Core Control"
                 description="Reasoning & LLM Router"
-                color="#FFD700"
+                color={REGION_COLORS.core}
                 count={nodeStats.core}
                 radius="r = 20"
               />
@@ -91,7 +92,7 @@ export function NeuralCognitiveLegendV2({ nodeStats }: Props) {
               <RegionCard
                 name="Memory Systems"
                 description="Storage & Recall"
-                color="#FF1493"
+                color={REGION_COLORS.memory}
                 count={nodeStats.memory}
                 radius="r = 60"
                 subItems={[
@@ -107,7 +108,7 @@ export function NeuralCognitiveLegendV2({ nodeStats }: Props) {
               <RegionCard
                 name="Perception & Tools"
                 description="Environment Interaction"
-                color="#00CED1"
+                color={REGION_COLORS.perception}
                 count={nodeStats.perception}
                 radius="r = 100"
                 subItems={[
@@ -139,7 +140,7 @@ export function NeuralCognitiveLegendV2({ nodeStats }: Props) {
                 color: '#D1D5DB',
                 lineHeight: '1.4',
               }}>
-                Query → <span style={{ color: '#00CED1' }}>Perception</span> → <span style={{ color: '#FFD700' }}>Core</span> ↔ <span style={{ color: '#FF1493' }}>Memory</span> → <span style={{ color: '#00CED1' }}>Tools</span> → Response
+                Query → <span style={{ color: REGION_COLORS.perception }}>Perception</span> → <span style={{ color: REGION_COLORS.core }}>Core</span> ↔ <span style={{ color: REGION_COLORS.memory }}>Memory</span> → <span style={{ color: REGION_COLORS.perception }}>Tools</span> → Response
               </div>
             </div>
           </div>
@@ -177,7 +178,6 @@ function RegionCard({ name, description, color, count, radius, subItems }: Regio
           height: '18px',
           borderRadius: '50%',
           backgroundColor: color,
-          boxShadow: `0 0 12px ${color}`,
           border: `2px solid ${color}40`,
           flexShrink: 0,
           marginTop: '2px',

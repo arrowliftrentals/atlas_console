@@ -6,9 +6,8 @@ import { X, BarChart3, Grid3x3, Clock, Search } from 'lucide-react';
 import AnalysisPanel from './AnalysisPanel';
 import DependencyMatrix from './DependencyMatrix';
 import Timeline from './Timeline';
-import { classifyNode, CognitiveRegion } from './Neural3D/NeuralCognitiveLayoutV2';
+import { classifyNode, formatNodeLabel, CognitiveRegion } from './Neural3D/NeuralCognitiveLayoutV2';
 import { REGION_COLORS } from './Neural3D/NeuralVisualEncodingV2';
-
 // Import layout plugins dynamically (will be registered in useEffect)
 let layoutsRegistered = false;
 
@@ -72,7 +71,7 @@ export default function ArchitectureViewV2() {
   const [telemetryConnected, setTelemetryConnected] = useState(false);
   const [flowParticles, setFlowParticles] = useState<FlowParticle[]>([]);
   const [layoutType, setLayoutType] = useState<'dagre' | 'klay' | 'cola'>('dagre');
-  const [showAnalysis, setShowAnalysis] = useState(true);
+  const [showAnalysis, setShowAnalysis] = useState(false);
   const [showMatrix, setShowMatrix] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
   const [replayTrace, setReplayTrace] = useState<any>(null);
@@ -173,7 +172,7 @@ export default function ArchitectureViewV2() {
         elements.push({
           data: {
             id: node.id,
-            label: node.label,
+            label: formatNodeLabel(node.id, node.label),
             type: node.type,
             status: node.status,
             percent: node.percent_complete || 0,
@@ -217,14 +216,19 @@ export default function ArchitectureViewV2() {
 
     // Cytoscape stylesheet
     const stylesheet: any[] = [
-      // Nodes base style
+      // Nodes base style with plastic appearance
       {
         selector: 'node',
         style: {
           'background-color': '#2D3748',
           'border-width': 2,
-          'border-color': '#4A5568',
-          'label': 'data(label)',
+          'border-color': '#FFFFFF',
+          'border-opacity': 0.4,
+          'label': (ele: any) => {
+            const label = ele.data('label');
+            const status = ele.data('status');
+            return status === 'stubbed' ? `${label}\nstubbed` : label;
+          },
           'text-valign': 'center',
           'text-halign': 'center',
           'color': '#E2E8F0',
@@ -237,62 +241,38 @@ export default function ArchitectureViewV2() {
           'text-max-width': '110px',
         } as any,
       },
-      // Node status colors
-      {
-        selector: 'node[status = "live"]',
-        style: {
-          'border-color': '#22C55E',
-          'border-width': 4,
-        } as any,
-      },
-      {
-        selector: 'node[status = "stubbed"]',
-        style: {
-          'border-color': '#F59E0B',
-          'border-width': 4,
-        } as any,
-      },
-      {
-        selector: 'node[status = "implemented"]',
-        style: {
-          'border-color': '#22C55E',
-          'border-width': 3,
-        } as any,
-      },
-      {
-        selector: 'node[status = "in_progress"]',
-        style: {
-          'border-color': '#3B82F6',
-          'border-width': 3,
-        } as any,
-      },
-      {
-        selector: 'node[status = "not_started"]',
-        style: {
-          'border-color': '#64748B',
-          'border-width': 2,
-        } as any,
-      },
-      // Cognitive region colors - 50% opacity via background-opacity
+      // Cognitive region colors with full opacity and plastic effect
       {
         selector: 'node[region = "core"]',
         style: {
-          'background-color': '#FFD700',
-          'background-opacity': 0.5,
+          'background-color': '#E67E00',
+          'background-opacity': 1.0,
+          'background-fill': 'linear-gradient',
+          'background-gradient-direction': 'to-bottom',
+          'background-gradient-stop-colors': 'rgba(255,255,255,0.4) #E67E00',
+          'background-gradient-stop-positions': '0% 50%',
         } as any,
       },
       {
         selector: 'node[region = "memory"]',
         style: {
-          'background-color': '#FF1493',
-          'background-opacity': 0.5,
+          'background-color': '#E6127F',
+          'background-opacity': 1.0,
+          'background-fill': 'linear-gradient',
+          'background-gradient-direction': 'to-bottom',
+          'background-gradient-stop-colors': 'rgba(255,255,255,0.4) #E6127F',
+          'background-gradient-stop-positions': '0% 50%',
         } as any,
       },
       {
         selector: 'node[region = "perception"]',
         style: {
-          'background-color': '#00CED1',
-          'background-opacity': 0.5,
+          'background-color': '#008B95',
+          'background-opacity': 1.0,
+          'background-fill': 'linear-gradient',
+          'background-gradient-direction': 'to-bottom',
+          'background-gradient-stop-colors': 'rgba(255,255,255,0.4) #008B95',
+          'background-gradient-stop-positions': '0% 50%',
         } as any,
       },
       // Edges base style
@@ -305,6 +285,8 @@ export default function ArchitectureViewV2() {
           'target-arrow-shape': 'triangle',
           'curve-style': 'bezier',
           'arrow-scale': 1.2,
+          'source-endpoint': '50% 0%',
+          'target-endpoint': 'outside-to-node',
         } as any,
       },
       // Edge operation type colors
@@ -360,55 +342,37 @@ export default function ArchitectureViewV2() {
           'line-style': 'solid',
         } as any,
       },
-      // Selected node highlight - soft glow with region color and scale effect
+      // Selected node highlight - only brighten, no size or border change
       {
         selector: 'node:selected[region = "core"]',
         style: {
-          'width': 140,
-          'height': 70,
-          'border-width': 4,
-          'border-color': '#FFD700',
-          'background-opacity': 0.7,
-          'box-shadow-blur': 50,
-          'box-shadow-spread': 15,
-          'box-shadow-color': '#FFD700',
-          'box-shadow-opacity': 0.9,
-          'transition-property': 'width, height, border-width, box-shadow-blur, box-shadow-spread',
-          'transition-duration': '0.3s',
+          'width': 120,
+          'height': 60,
+          'background-opacity': 1.0,
+          'transition-property': 'background-opacity',
+          'transition-duration': '0.2s',
           'transition-timing-function': 'ease-out',
         } as any,
       },
       {
         selector: 'node:selected[region = "memory"]',
         style: {
-          'width': 140,
-          'height': 70,
-          'border-width': 4,
-          'border-color': '#FF1493',
-          'background-opacity': 0.7,
-          'box-shadow-blur': 50,
-          'box-shadow-spread': 15,
-          'box-shadow-color': '#FF1493',
-          'box-shadow-opacity': 0.9,
-          'transition-property': 'width, height, border-width, box-shadow-blur, box-shadow-spread',
-          'transition-duration': '0.3s',
+          'width': 120,
+          'height': 60,
+          'background-opacity': 1.0,
+          'transition-property': 'background-opacity',
+          'transition-duration': '0.2s',
           'transition-timing-function': 'ease-out',
         } as any,
       },
       {
         selector: 'node:selected[region = "perception"]',
         style: {
-          'width': 140,
-          'height': 70,
-          'border-width': 4,
-          'border-color': '#00CED1',
-          'background-opacity': 0.7,
-          'box-shadow-blur': 50,
-          'box-shadow-spread': 15,
-          'box-shadow-color': '#00CED1',
-          'box-shadow-opacity': 0.9,
-          'transition-property': 'width, height, border-width, box-shadow-blur, box-shadow-spread',
-          'transition-duration': '0.3s',
+          'width': 120,
+          'height': 60,
+          'background-opacity': 1.0,
+          'transition-property': 'background-opacity',
+          'transition-duration': '0.2s',
           'transition-timing-function': 'ease-out',
         } as any,
       },
@@ -470,6 +434,91 @@ export default function ArchitectureViewV2() {
     console.log('  Nodes with region="memory":', cy.nodes('[region = "memory"]').length);
     console.log('  Nodes with region="perception":', cy.nodes('[region = "perception"]').length);
     console.log('  Total nodes:', cy.nodes().length);
+
+    // Create DOM overlay for LED status badges
+    const container = cy.container();
+    if (container) {
+      // Remove existing badge overlay if present
+      const existingOverlay = container.querySelector('.led-badge-overlay');
+      if (existingOverlay) {
+        existingOverlay.remove();
+      }
+      
+      // Ensure container has relative positioning and overflow hidden
+      container.style.position = 'relative';
+      container.style.overflow = 'hidden';
+      
+      // Create badge overlay div
+      const badgeOverlay = document.createElement('div');
+      badgeOverlay.className = 'led-badge-overlay';
+      badgeOverlay.style.position = 'absolute';
+      badgeOverlay.style.top = '0';
+      badgeOverlay.style.left = '0';
+      badgeOverlay.style.width = '100%';
+      badgeOverlay.style.height = '100%';
+      badgeOverlay.style.pointerEvents = 'none';
+      badgeOverlay.style.zIndex = '1';
+      badgeOverlay.style.overflow = 'hidden';
+      container.appendChild(badgeOverlay);
+      
+      // Function to update badge positions
+      const updateBadges = () => {
+        badgeOverlay.innerHTML = '';
+        
+        cy.nodes().forEach(node => {
+          const status = node.data('status');
+          if (!status) return;
+          
+          // Get node position and size in rendered coordinates
+          const pos = node.renderedPosition();
+          const width = node.renderedWidth();
+          const height = node.renderedHeight();
+          
+          // Get zoom level to scale badge size
+          const zoom = cy.zoom();
+          const badgeSize = 8 * zoom; // Scale with zoom
+          const badgeOffset = badgeSize / 2;
+          
+          // LED badge position: upper right corner
+          const badgeX = pos.x + width / 2 - (10 * zoom);
+          const badgeY = pos.y - height / 2 + (10 * zoom);
+          
+          // Determine badge color
+          let badgeColor = '#64748B'; // default gray
+          if (status === 'live' || status === 'implemented') {
+            badgeColor = '#22C55E'; // green
+          } else if (status === 'stubbed') {
+            badgeColor = '#F59E0B'; // orange
+          } else if (status === 'in_progress') {
+            badgeColor = '#3B82F6'; // blue
+          }
+          
+          // Create LED badge element
+          const badge = document.createElement('div');
+          badge.style.position = 'absolute';
+          badge.style.left = `${badgeX}px`;
+          badge.style.top = `${badgeY}px`;
+          badge.style.width = `${badgeSize}px`;
+          badge.style.height = `${badgeSize}px`;
+          badge.style.borderRadius = '50%';
+          badge.style.backgroundColor = badgeColor;
+          badge.style.border = `${1.125 * zoom}px solid rgba(0, 0, 0, 0.5)`;
+          badge.style.transform = 'translate(-50%, -50%)';
+          badge.style.boxShadow = `0 0 ${3 * zoom}px ${badgeColor}`;
+          badgeOverlay.appendChild(badge);
+        });
+      };
+      
+      // Update badges after every Cytoscape render
+      // Using 'render' event ensures badges update in sync with node positions
+      cy.on('render', updateBadges);
+      
+      // Initial update
+      updateBadges();
+      
+      // Store overlay ref for visibility control
+      (cy as any)._badgeOverlay = badgeOverlay;
+    }
 
     // Node click handler
     cy.on('tap', 'node', (evt) => {
@@ -752,6 +801,8 @@ export default function ArchitectureViewV2() {
     const normalizeId = (id: string): string => {
       const idMap: Record<string, string> = {
         'memory': 'memorymanager',
+        'memory_l3_episodic': 'episodicstore',
+        'memory_l6_attention': 'attentionstore',
         // Add more mappings if needed
       };
       return idMap[id] || id;
@@ -811,17 +862,14 @@ export default function ArchitectureViewV2() {
       {/* Header */}
       <div className="px-4 py-3 bg-[#252526] border-b border-gray-700 flex-shrink-0">
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-white">Atlas Architecture - Live View</h2>
-            <p className="text-sm text-gray-400">Interactive component graph with real-time telemetry</p>
+          <div className="flex gap-2">
+            <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${telemetryConnected ? 'bg-green-500' : 'bg-gray-500'}`} title={telemetryConnected ? 'Live' : 'Disconnected'} />
+            <div>
+              <h2 className="text-lg font-semibold text-white whitespace-nowrap">Cognitive Architecture</h2>
+              <p className="text-sm text-gray-400 whitespace-nowrap">Components</p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${telemetryConnected ? 'bg-green-500' : 'bg-gray-500'}`} />
-              <span className="text-xs text-gray-400">
-                {telemetryConnected ? 'Live' : 'Disconnected'}
-              </span>
-            </div>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowAnalysis(prev => !prev)}
@@ -986,6 +1034,14 @@ export default function ArchitectureViewV2() {
                     grouped[metadata.region].push(node);
                   });
                   
+                  // Sort nodes within each region by label with natural sorting (L1, L2, ..., L9, L10)
+                  const naturalSort = (a: ComponentNode, b: ComponentNode) => {
+                    return a.label.localeCompare(b.label, undefined, { numeric: true, sensitivity: 'base' });
+                  };
+                  grouped.core.sort(naturalSort);
+                  grouped.memory.sort(naturalSort);
+                  grouped.perception.sort(naturalSort);
+                  
                   const regionLabels = {
                     core: 'Core Control & Reasoning',
                     memory: 'Memory Systems',
@@ -1027,8 +1083,8 @@ export default function ArchitectureViewV2() {
                                       className="w-2 h-2 rounded-full flex-shrink-0"
                                       style={{ backgroundColor: regionColor }}
                                     />
-                                    <span className="text-sm text-gray-200 font-mono truncate">
-                                      {node.id}
+                                    <span className="text-sm text-gray-200 truncate">
+                                      {node.label}
                                     </span>
                                   </div>
                                 </button>
@@ -1070,12 +1126,31 @@ export default function ArchitectureViewV2() {
 
         {/* Node Details Panel */}
         {selectedNode && (
-          <div className="absolute top-4 right-4 w-96 bg-[#252526] border border-gray-700 rounded-lg shadow-xl">
+          <div className="absolute top-4 right-4 w-96 bg-[#252526] border border-gray-700 rounded-lg shadow-xl z-10">
             <div className="p-4">
               <div className="flex items-start justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-white">{selectedNode.label}</h3>
-                  <span className="text-xs text-gray-400">{selectedNode.type}</span>
+                  <h3 className="text-lg font-semibold text-white">
+                    {selectedNode.label}
+                    <span className="text-xs text-gray-400 ml-2">, {selectedNode.type}</span>
+                  </h3>
+                  {selectedNode.status && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className={`w-2 h-2 rounded-full ${
+                        selectedNode.status === 'live' || selectedNode.status === 'implemented' ? 'bg-green-500' :
+                        selectedNode.status === 'in_progress' || selectedNode.status === 'stubbed' ? 'bg-yellow-500' :
+                        'bg-gray-500'
+                      }`} />
+                      <span className="text-sm text-gray-200 capitalize">
+                        {selectedNode.status.replace('_', ' ')}
+                      </span>
+                      {selectedNode.percent_complete !== undefined && (
+                        <span className="text-xs text-gray-400">
+                          ({selectedNode.percent_complete}%)
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => setSelectedNode(null)}
@@ -1084,28 +1159,6 @@ export default function ArchitectureViewV2() {
                   <X className="w-5 h-5" />
                 </button>
               </div>
-
-              {/* Status */}
-              {selectedNode.status && (
-                <div className="mb-3">
-                  <div className="text-xs text-gray-400 mb-1">Status</div>
-                  <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${
-                      selectedNode.status === 'implemented' ? 'bg-green-500' :
-                      selectedNode.status === 'in_progress' ? 'bg-yellow-500' :
-                      'bg-gray-500'
-                    }`} />
-                    <span className="text-sm text-gray-200 capitalize">
-                      {selectedNode.status.replace('_', ' ')}
-                    </span>
-                    {selectedNode.percent_complete !== undefined && (
-                      <span className="text-xs text-gray-400">
-                        ({selectedNode.percent_complete}%)
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
 
               {/* Description */}
               {selectedNode.description && (
@@ -1164,7 +1217,7 @@ export default function ArchitectureViewV2() {
             <div className="flex items-center gap-6 text-xs flex-wrap">
               <div className="font-semibold text-gray-300">Cognitive Regions:</div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded bg-[#FFD700] border-2 border-gray-600" />
+                <div className="w-4 h-4 rounded bg-[#FF8C00] border-2 border-gray-600" />
                 <span className="text-gray-400">Core (Control & Reasoning)</span>
               </div>
               <div className="flex items-center gap-2">
@@ -1174,19 +1227,6 @@ export default function ArchitectureViewV2() {
               <div className="flex items-center gap-2">
                 <div className="w-4 h-4 rounded bg-[#00CED1] border-2 border-gray-600" />
                 <span className="text-gray-400">Perception (Tools & Environment)</span>
-              </div>
-            </div>
-            
-            {/* Node Status Row */}
-            <div className="flex items-center gap-6 text-xs flex-wrap">
-              <div className="font-semibold text-gray-300">Node Status:</div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded border-4 border-[#22C55E] bg-[#2D3748]" />
-                <span className="text-gray-400">Live</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-4 rounded border-4 border-[#F59E0B] bg-[#2D3748]" />
-                <span className="text-gray-400">Stubbed</span>
               </div>
             </div>
             

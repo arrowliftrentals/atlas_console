@@ -825,16 +825,6 @@ export default function NeuralArchitecture3DV2({
             }}
           />
           
-          {/* Draggable nodes with shell rotation support */}
-          <NeuralDraggableNodes
-            nodes={positionedNodes}
-            edges={edges}
-            timeScale={timeScale}
-            onNodePositionChange={handleNodePositionChange}
-            onDragStateChange={setIsDraggingNode}
-            disabled={!!selectedShellForRotation}
-          />
-          
           {/* Instanced rendering components */}
           <NeuralNodesInstancedV2 nodes={positionedNodes} edges={edges} timeScale={timeScale} />
           <NeuralEdgesInstancedV2 nodes={positionedNodes} edges={edges} timeScale={timeScale} />

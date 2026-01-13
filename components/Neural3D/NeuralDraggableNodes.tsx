@@ -8,6 +8,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { NodeStateV2 } from './NeuralTelemetryTypesV2';
 import { CORE_RADIUS, MEMORY_RADIUS, PERCEPTION_RADIUS } from './NeuralCognitiveLayoutV2';
+import { REGION_COLORS } from './NeuralVisualEncodingV2';
 
 interface Props {
   nodes: Map<string, NodeStateV2>;
@@ -44,15 +45,15 @@ export function NeuralDraggableNodes({
     return arr;
   }, [nodes]);
 
-  // Color by shell region
+  // Color by shell region using REGION_COLORS
   const getNodeColor = (node: NodeStateV2) => {
     if (!node.position) return new THREE.Color('#666666');
     const [x, y, z] = node.position;
     const dist = Math.sqrt(x * x + y * y + z * z);
     
-    if (dist < CORE_RADIUS + 10) return new THREE.Color('#FF6B9D');
-    if (dist < MEMORY_RADIUS + 10) return new THREE.Color('#4ECDC4');
-    return new THREE.Color('#FFD93D');
+    if (dist < CORE_RADIUS + 10) return new THREE.Color(REGION_COLORS.core);
+    if (dist < MEMORY_RADIUS + 10) return new THREE.Color(REGION_COLORS.memory);
+    return new THREE.Color(REGION_COLORS.perception);
   };
 
   // Get shell radius for a node

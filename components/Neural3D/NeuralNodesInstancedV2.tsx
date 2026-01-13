@@ -23,13 +23,9 @@ export function NeuralNodesInstancedV2({ nodes, edges, timeScale }: Props) {
   const meshRef = useRef<InstancedMesh>(null!);
   const nodeArray = useMemo(() => Array.from(nodes.values()), [nodes]);
   
-  // Material with reduced metalness/roughness to show colors more vividly
+  // Use MeshBasicMaterial to avoid lighting effects that change colors
   const nodeMaterial = useMemo(() => {
-    return new THREE.MeshStandardMaterial({
-      metalness: 0.1,
-      roughness: 0.3,
-      // No emissive - will use instance colors directly with brighter intensity
-    });
+    return new THREE.MeshBasicMaterial();
   }, []);
   
   // Count connections per node
@@ -61,8 +57,6 @@ export function NeuralNodesInstancedV2({ nodes, edges, timeScale }: Props) {
       const metadata = classifyNode(node.id, node.subsystem);
       const regionColor = REGION_COLORS[metadata.region];
       const color = new Color(regionColor);
-      // Brighten the color by 50% to make it more visible against dark background
-      color.multiplyScalar(1.5);
       meshRef.current.setColorAt(i, color);
     });
     
@@ -86,9 +80,9 @@ export function NeuralNodesInstancedV2({ nodes, edges, timeScale }: Props) {
         return;
       }
       
-      // Simple fixed scale
+      // Scale based on connection count with very large range
       const connectionCount = connectionCounts.get(node.id) || 0;
-      const scale = 0.5 + (connectionCount * 0.1);
+      const scale = 0.2 + (connectionCount * 0.35);
 
       // Set position and scale
       dummy.position.set(x, y, z);

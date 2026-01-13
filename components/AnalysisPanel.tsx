@@ -5,6 +5,62 @@ import { X, AlertTriangle, TrendingUp, Activity } from 'lucide-react';
 import { classifyNode, CognitiveRegion } from './Neural3D/NeuralCognitiveLayoutV2';
 import { REGION_COLORS } from './Neural3D/NeuralVisualEncodingV2';
 
+/**
+ * Normalize component ID - backend telemetry may use shortened names
+ * that differ from actual node IDs in the architecture graph
+ */
+const normalizeComponentId = (id: string): string => {
+  const idMap: Record<string, string> = {
+    'memory': 'memorymanager',
+    'memory_l3_episodic': 'episodicstore',
+    'memory_l6_attention': 'attentionstore',
+    'memory_l4_declarative': 'declarativestore',
+    'memory_l5_procedural': 'proceduralstore',
+    'session_memory': 'sessionstore',
+    'l1_working': 'workingmemory',
+    'l2_shortterm': 'shorttermstore',
+    'l7_worldstate': 'worldstatestore',
+    'l8_goals': 'goalsstore',
+    'l9_social': 'socialstore',
+    'l10_vector': 'vectorstore',
+  };
+  return idMap[id] || id;
+};
+
+/**
+ * Get display name for component - converts node IDs to human-readable names
+ */
+const getDisplayName = (id: string): string => {
+  const displayMap: Record<string, string> = {
+    'episodicstore': 'Episodic Store (L3)',
+    'attentionstore': 'Attention Store (L6)',
+    'declarativestore': 'Declarative Store (L4)',
+    'proceduralstore': 'Procedural Store (L5)',
+    'memorymanager': 'Memory Manager',
+    'sessionstore': 'Session Store (L3)',
+    'workingmemory': 'Working Memory (L1)',
+    'shorttermstore': 'Short-term Store (L2)',
+    'worldstatestore': 'World State (L7)',
+    'goalsstore': 'Goals Store (L8)',
+    'socialstore': 'Social Memory (L9)',
+    'vectorstore': 'Vector Store (L10)',
+    'coreloop': 'Core Loop',
+    'reasoningservice': 'Reasoning Service',
+    'agentrouter': 'Agent Router',
+    'llmclient': 'LLM Client',
+    'openaiclient': 'OpenAI Client',
+    'ollamaclient': 'Ollama Client',
+    'fileops': 'File Operations',
+    'execute_python': 'Python Executor',
+    'execute_shell': 'Shell Executor',
+    'apply_patch': 'Patch Applicator',
+    'list_files': 'File Lister',
+    'read_file': 'File Reader',
+    'write_file': 'File Writer',
+  };
+  return displayMap[id] || id;
+};
+
 interface Bottleneck {
   component: string;
   avg_time_ms: number;
@@ -105,17 +161,30 @@ export default function AnalysisPanel({ onHighlightComponent }: AnalysisPanelPro
   };
 
   const getRegionColor = (componentId: string): { bg: string; border: string; text: string; region: CognitiveRegion } => {
-    const metadata = classifyNode(componentId);
+    const normalizedId = normalizeComponentId(componentId);
+    const metadata = classifyNode(normalizedId);
     const hexColor = REGION_COLORS[metadata.region];
     
-    // Convert hex to Tailwind-compatible classes with opacity
-    const colorMap: Record<CognitiveRegion, { bg: string; border: string; text: string }> = {
-      core: { bg: 'bg-yellow-500/10', border: 'border-yellow-500/40', text: 'text-yellow-400' },
-      memory: { bg: 'bg-pink-500/10', border: 'border-pink-500/40', text: 'text-pink-400' },
-      perception: { bg: 'bg-cyan-500/10', border: 'border-cyan-500/40', text: 'text-cyan-400' },
+    // Use exact colors from REGION_COLORS with rgba for opacity control
+    const colorStyles: Record<CognitiveRegion, { bg: string; border: string; text: string }> = {
+      core: { 
+        bg: 'bg-[#FFA500]/20', 
+        border: 'border-[#FFA500]/70', 
+        text: 'text-[#FFA500]' 
+      },
+      memory: { 
+        bg: 'bg-[#FF1493]/20', 
+        border: 'border-[#FF1493]/70', 
+        text: 'text-[#FF1493]' 
+      },
+      perception: { 
+        bg: 'bg-[#00CED1]/20', 
+        border: 'border-[#00CED1]/70', 
+        text: 'text-[#00CED1]' 
+      },
     };
     
-    return { ...colorMap[metadata.region], region: metadata.region };
+    return { ...colorStyles[metadata.region], region: metadata.region };
   };
   
   const getItemRecommendations = (type: string, index: number) => {
@@ -291,16 +360,18 @@ export default function AnalysisPanel({ onHighlightComponent }: AnalysisPanelPro
             ) : (
               bottlenecks.map((bottleneck, idx) => {
                 const severity = bottleneck.avg_time_ms > 100 ? 'critical' : bottleneck.avg_time_ms > 50 ? 'high' : 'medium';
+                const normalizedId = normalizeComponentId(bottleneck.component);
                 const regionColors = getRegionColor(bottleneck.component);
+                const displayName = getDisplayName(normalizedId);
                 return (
                   <div
                     key={idx}
-                    className={`p-3 rounded-lg border ${regionColors.bg} ${regionColors.border} cursor-pointer hover:opacity-80 transition-all ${
+                    className={`rounded-lg ${regionColors.bg} cursor-pointer transition-all flex overflow-hidden ${
                       selectedItem?.type === 'bottleneck' && selectedItem?.index === idx ? 'ring-2' : ''
                     }`}
                     style={{
                       ...(selectedItem?.type === 'bottleneck' && selectedItem?.index === idx ? {
-                        '--tw-ring-color': regionColors.region === 'core' ? '#FFD700' : regionColors.region === 'memory' ? '#FF1493' : '#00CED1'
+                        '--tw-ring-color': regionColors.region === 'core' ? '#FF8C00' : regionColors.region === 'memory' ? '#FF1493' : '#00CED1'
                       } as any : {})
                     }}
                     onClick={() => {
@@ -309,29 +380,33 @@ export default function AnalysisPanel({ onHighlightComponent }: AnalysisPanelPro
                       } else {
                         setSelectedItem({ type: 'bottleneck', index: idx });
                       }
-                      onHighlightComponent?.(bottleneck.component);
+                      onHighlightComponent?.(normalizedId);
                     }}
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4" />
-                        <span className={`font-mono text-sm font-medium ${regionColors.text}`}>
-                          {bottleneck.component}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] uppercase font-semibold text-gray-400">
-                          {regionColors.region}
-                        </span>
-                        <span className={`text-xs uppercase font-semibold px-2 py-0.5 rounded ${
-                          severity === 'critical' ? 'bg-red-500 text-white' :
-                          severity === 'high' ? 'bg-yellow-500 text-black' :
-                          'bg-gray-600 text-gray-200'
-                        }`}>
-                          {severity}
-                        </span>
-                      </div>
+                    {/* Vertical severity strip */}
+                    <div className={`flex items-center justify-center w-6 flex-shrink-0 ${
+                      severity === 'critical' ? 'bg-[#8B0000]' :
+                      severity === 'high' ? 'bg-[#FF8C00]' :
+                      'bg-gray-600'
+                    }`}>
+                      <span 
+                        className="text-[10px] font-bold text-white uppercase tracking-wider"
+                        style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+                      >
+                        {severity}
+                      </span>
                     </div>
+                    
+                    {/* Content */}
+                    <div className="flex-1 p-3">
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4" />
+                          <span className={`text-sm font-medium ${regionColors.text}`}>
+                            {displayName}
+                          </span>
+                        </div>
+                      </div>
                     <div className="space-y-1 text-xs text-gray-300">
                       <div>Avg Time: <span className="text-white">{bottleneck.avg_time_ms.toFixed(2)}ms</span></div>
                       <div>Max Time: <span className="text-white">{bottleneck.max_time_ms.toFixed(2)}ms</span></div>
@@ -360,6 +435,7 @@ export default function AnalysisPanel({ onHighlightComponent }: AnalysisPanelPro
                         ))}
                       </div>
                     )}
+                    </div>
                   </div>
                 );
               })
@@ -375,17 +451,21 @@ export default function AnalysisPanel({ onHighlightComponent }: AnalysisPanelPro
               </div>
             ) : (
               criticalPaths.map((path, idx) => {
+                const normalizedSource = normalizeComponentId(path.source);
+                const normalizedTarget = normalizeComponentId(path.target);
                 const sourceColors = getRegionColor(path.source);
                 const targetColors = getRegionColor(path.target);
+                const sourceDisplayName = getDisplayName(normalizedSource);
+                const targetDisplayName = getDisplayName(normalizedTarget);
                 return (
                   <div
                     key={idx}
-                    className={`p-3 rounded-lg border border-gray-700 bg-[#252526] cursor-pointer hover:bg-[#2d2d2d] transition-all ${
+                    className={`p-3 rounded-lg bg-[#252526] cursor-pointer transition-all ${
                       selectedItem?.type === 'path' && selectedItem?.index === idx ? 'ring-2' : ''
                     }`}
                     style={{
                       ...(selectedItem?.type === 'path' && selectedItem?.index === idx ? {
-                        '--tw-ring-color': sourceColors.region === 'core' ? '#FFD700' : sourceColors.region === 'memory' ? '#FF1493' : '#00CED1'
+                        '--tw-ring-color': sourceColors.region === 'core' ? '#FF8C00' : sourceColors.region === 'memory' ? '#FF1493' : '#00CED1'
                       } as any : {})
                     }}
                     onClick={() => {
@@ -403,19 +483,25 @@ export default function AnalysisPanel({ onHighlightComponent }: AnalysisPanelPro
                       </span>
                     </div>
                     <div className="space-y-2">
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1 flex-wrap">
                         <span
-                          className={`text-xs px-2 py-1 rounded font-mono ${sourceColors.bg} ${sourceColors.border} ${sourceColors.text} border cursor-pointer hover:opacity-80`}
-                          onClick={() => onHighlightComponent?.(path.source)}
+                          className={`text-xs px-2 py-1 rounded ${sourceColors.bg} ${sourceColors.text} cursor-pointer`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onHighlightComponent?.(normalizedSource);
+                          }}
                         >
-                          {path.source}
+                          {sourceDisplayName}
                         </span>
                         <span className="text-gray-600">→</span>
                         <span
-                          className={`text-xs px-2 py-1 rounded font-mono ${targetColors.bg} ${targetColors.border} ${targetColors.text} border cursor-pointer hover:opacity-80`}
-                          onClick={() => onHighlightComponent?.(path.target)}
+                          className={`text-xs px-2 py-1 rounded ${targetColors.bg} ${targetColors.text} cursor-pointer`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onHighlightComponent?.(normalizedTarget);
+                          }}
                         >
-                          {path.target}
+                          {targetDisplayName}
                         </span>
                       </div>
                     <div className="text-xs text-gray-400 space-y-1">
@@ -461,17 +547,21 @@ export default function AnalysisPanel({ onHighlightComponent }: AnalysisPanelPro
               </div>
             ) : (
               hotPaths.map((path, idx) => {
+                const normalizedSource = normalizeComponentId(path.source);
+                const normalizedTarget = normalizeComponentId(path.target);
                 const sourceColors = getRegionColor(path.source);
                 const targetColors = getRegionColor(path.target);
+                const sourceDisplayName = getDisplayName(normalizedSource);
+                const targetDisplayName = getDisplayName(normalizedTarget);
                 return (
                   <div
                     key={idx}
-                    className={`p-3 rounded-lg border border-gray-700 bg-[#252526] cursor-pointer hover:bg-[#2d2d2d] transition-all ${
+                    className={`p-3 rounded-lg bg-[#252526] cursor-pointer transition-all ${
                       selectedItem?.type === 'hot' && selectedItem?.index === idx ? 'ring-2' : ''
                     }`}
                     style={{
                       ...(selectedItem?.type === 'hot' && selectedItem?.index === idx ? {
-                        '--tw-ring-color': sourceColors.region === 'core' ? '#FFD700' : sourceColors.region === 'memory' ? '#FF1493' : '#00CED1'
+                        '--tw-ring-color': sourceColors.region === 'core' ? '#FF8C00' : sourceColors.region === 'memory' ? '#FF1493' : '#00CED1'
                       } as any : {})
                     }}
                     onClick={() => {
@@ -489,25 +579,25 @@ export default function AnalysisPanel({ onHighlightComponent }: AnalysisPanelPro
                         {path.count} calls
                       </span>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 flex-wrap">
                       <span
-                        className={`text-xs px-2 py-1 rounded font-mono ${sourceColors.bg} ${sourceColors.border} ${sourceColors.text} border cursor-pointer hover:opacity-80`}
+                        className={`text-xs px-2 py-1 rounded ${sourceColors.bg} ${sourceColors.text} cursor-pointer`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          onHighlightComponent?.(path.source);
+                          onHighlightComponent?.(normalizedSource);
                         }}
                       >
-                        {path.source}
+                        {sourceDisplayName}
                       </span>
                       <span className="text-gray-600">→</span>
                       <span
-                        className={`text-xs px-2 py-1 rounded font-mono ${targetColors.bg} ${targetColors.border} ${targetColors.text} border cursor-pointer hover:opacity-80`}
+                        className={`text-xs px-2 py-1 rounded ${targetColors.bg} ${targetColors.text} cursor-pointer`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          onHighlightComponent?.(path.target);
+                          onHighlightComponent?.(normalizedTarget);
                         }}
                       >
-                        {path.target}
+                        {targetDisplayName}
                       </span>
                     </div>
                     
@@ -550,18 +640,22 @@ export default function AnalysisPanel({ onHighlightComponent }: AnalysisPanelPro
                 {flows
                   .slice(0, 20)
                   .map((flow, idx) => {
+                    const normalizedSource = normalizeComponentId(flow.source);
+                    const normalizedTarget = normalizeComponentId(flow.target);
                     const sourceColors = getRegionColor(flow.source);
                     const targetColors = getRegionColor(flow.target);
+                    const sourceDisplayName = getDisplayName(normalizedSource);
+                    const targetDisplayName = getDisplayName(normalizedTarget);
                     return (
                       <div
                         key={idx}
-                        className="p-2 rounded border border-gray-700 bg-[#252526] hover:bg-[#2d2d2d] transition-colors"
+                        className="p-2 rounded bg-[#252526]"
                       >
                         <div className="flex items-center justify-between gap-2 text-xs">
                           <div className="flex items-center gap-1 flex-1 min-w-0">
-                            <span className={`font-mono truncate ${sourceColors.text}`}>{flow.source}</span>
+                            <span className={`truncate ${sourceColors.text}`}>{sourceDisplayName}</span>
                             <span className="text-gray-600">→</span>
-                            <span className={`font-mono truncate ${targetColors.text}`}>{flow.target}</span>
+                            <span className={`truncate ${targetColors.text}`}>{targetDisplayName}</span>
                           </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <span className={`font-semibold ${flow.success ? 'text-green-500' : 'text-red-500'}`}>

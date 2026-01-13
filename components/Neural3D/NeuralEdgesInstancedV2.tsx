@@ -211,24 +211,12 @@ export function NeuralEdgesInstancedV2({ nodes, edges, timeScale }: Props) {
     if (!groupRef.current) return;
 
     edgeMeshes.forEach(({ mesh, edge }) => {
-      // Color based on event type
+      // Color based on event type only - no effects
       const baseColor = new Color(
         edge.lastEventType
           ? EDGE_COLORS_BY_EVENT[edge.lastEventType]
           : '#555555'
       );
-      
-      // Activity pulse (brighten for recent events)
-      const age = Date.now() - edge.lastEventTs;
-      if (age < 500) {
-        const boost = 1 + (500 - age) / 500;
-        baseColor.multiplyScalar(boost);
-      }
-      
-      // Highlight effect
-      if (edge.isHighlighted) {
-        baseColor.multiplyScalar(1.5);
-      }
       
       (mesh.material as MeshBasicMaterial).color = baseColor;
     });

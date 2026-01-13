@@ -41,7 +41,7 @@ export function NeuralLabelsV2({ nodes, edges }: Props) {
             >
               <Text
                 position={[0, -2.0 * nodeScale, 0]}
-                fontSize={0.6}
+                fontSize={1.2}
                 color="white"
                 anchorX="center"
                 anchorY="middle"

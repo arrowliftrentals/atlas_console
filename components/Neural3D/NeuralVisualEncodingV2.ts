@@ -5,10 +5,11 @@ import { NodeSubsystem, TelemetryEventType } from './NeuralTelemetryTypesV2';
 import { CognitiveRegion } from './NeuralCognitiveLayoutV2';
 
 // Cognitive region colors (base tints for the three shells)
+// Updated to match architecture graph node colors
 export const REGION_COLORS: Record<CognitiveRegion, string> = {
-  core: '#FFD700',       // Gold - brightest, central control
-  memory: '#FF1493',     // Deep pink - memory systems
-  perception: '#00CED1', // Dark turquoise - perception/tools
+  core: '#E67E00',       // Darker orange - central control
+  memory: '#E6127F',     // Darker pink - memory systems
+  perception: '#008B95', // Darker teal - perception/tools
 };
 
 // Node colors by subsystem (enhanced with cognitive regions)

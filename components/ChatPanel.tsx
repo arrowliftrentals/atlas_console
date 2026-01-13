@@ -10,7 +10,9 @@ import remarkGfm from 'remark-gfm';
 import type { AgentResponse } from "@/lib/types";
 
 const CHAT_PANEL_WIDTH_KEY = "atlas_console_chat_panel_width";
+const CHAT_PANEL_COLLAPSED_KEY = "atlas_console_chat_panel_collapsed";
 const DEFAULT_CHAT_PANEL_WIDTH = 460;
+const COLLAPSED_CHAT_PANEL_WIDTH = 48;
 
 const ChatPanel: React.FC = () => {
   const { activeSessionId, getMessages, addMessage, updateLastMessage, clearMessages } = useConsole();
@@ -21,33 +23,54 @@ const ChatPanel: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [width, setWidth] = useState<number>(DEFAULT_CHAT_PANEL_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isHealthy, setIsHealthy] = useState<boolean | null>(null); // null = checking, true = healthy, false = unhealthy
   const [attachments, setAttachments] = useState<Array<{name: string, type: string, content: string, size?: number}>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Load initial width from localStorage on mount
+  // Load initial width and collapsed state from localStorage on mount
   useEffect(() => {
     if (typeof window === "undefined") return;
+    
+    // Load collapse state
+    const collapsedStored = window.localStorage.getItem(CHAT_PANEL_COLLAPSED_KEY);
+    const collapsed = collapsedStored === "true";
+    setIsCollapsed(collapsed);
+    
+    // Load width
     const stored = window.localStorage.getItem(CHAT_PANEL_WIDTH_KEY);
     if (stored) {
       const parsed = parseInt(stored, 10);
       if (!Number.isNaN(parsed) && parsed > 200 && parsed < 1000) {
         setWidth(parsed);
-        document.documentElement.style.setProperty("--chat-panel-width", `${parsed}px`);
+        const actualWidth = collapsed ? COLLAPSED_CHAT_PANEL_WIDTH : parsed;
+        document.documentElement.style.setProperty("--chat-panel-width", `${actualWidth}px`);
       }
     } else {
-      document.documentElement.style.setProperty("--chat-panel-width", `${DEFAULT_CHAT_PANEL_WIDTH}px`);
+      const actualWidth = collapsed ? COLLAPSED_CHAT_PANEL_WIDTH : DEFAULT_CHAT_PANEL_WIDTH;
+      document.documentElement.style.setProperty("--chat-panel-width", `${actualWidth}px`);
     }
   }, []);
 
-  // Keep CSS variable in sync when width changes
+  // Keep CSS variable in sync when width or collapsed state changes
   useEffect(() => {
     if (typeof window === "undefined") return;
-    document.documentElement.style.setProperty("--chat-panel-width", `${width}px`);
+    const actualWidth = isCollapsed ? COLLAPSED_CHAT_PANEL_WIDTH : width;
+    document.documentElement.style.setProperty("--chat-panel-width", `${actualWidth}px`);
     window.localStorage.setItem(CHAT_PANEL_WIDTH_KEY, String(width));
-  }, [width]);
+  }, [width, isCollapsed]);
+  
+  // Save collapsed state to localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(CHAT_PANEL_COLLAPSED_KEY, String(isCollapsed));
+  }, [isCollapsed]);
+  
+  const toggleCollapse = () => {
+    setIsCollapsed(!isCollapsed);
+  };
 
   // Health check - poll backend immediately and every 30 seconds
   useEffect(() => {
@@ -296,27 +319,42 @@ const ChatPanel: React.FC = () => {
       
       {/* Chat Panel Content */}
       <div className="h-full w-full flex flex-col bg-black border-l border-[var(--atlas-border-subtle)]">
-      {/* Header */}
-      <div className="px-3 py-2 border-b border-[var(--atlas-border-subtle)] flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {/* Status Indicator - Green for operational, Red for not, Yellow for checking */}
-          <div className="relative">
-            <div className={`w-2 h-2 rounded-full ${
-              isHealthy === null ? 'bg-yellow-500' : 
-              isHealthy ? 'bg-green-500' : 'bg-red-500'
-            } animate-pulse`}></div>
+      {!isCollapsed ? (
+        <>
+        {/* Header */}
+        <div className="px-3 py-2 border-b border-[var(--atlas-border-subtle)] bg-[#252526]">
+          <div className="flex items-center gap-2 mb-2">
+            <button
+              onClick={toggleCollapse}
+              className="text-gray-400 hover:text-gray-200 text-xs"
+              title="Collapse chat panel"
+            >
+              ▶
+            </button>
+            <span className="text-xs text-gray-300 font-medium">ATLAS Chat</span>
           </div>
-          {/* ATLAS Badge */}
-          <span className="text-sm font-semibold text-[var(--atlas-text-primary)]">ATLAS</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {/* Status Indicator - Green for operational, Red for not, Yellow for checking */}
+              <div className="relative">
+                <div className={`w-2 h-2 rounded-full ${
+                  isHealthy === null ? 'bg-yellow-500' : 
+                  isHealthy ? 'bg-green-500' : 'bg-red-500'
+                } animate-pulse`}></div>
+              </div>
+              {/* ATLAS Badge */}
+              <span className="text-sm font-semibold text-[var(--atlas-text-primary)]">ATLAS</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleClear}
+              className="text-xs text-[var(--atlas-text-muted)] hover:text-[var(--atlas-text-secondary)] transition-colors"
+              aria-label="Clear conversation"
+            >
+              Clear
+            </button>
+          </div>
         </div>
-        <button
-          onClick={handleClear}
-          className="text-xs text-[var(--atlas-text-muted)] hover:text-[var(--atlas-text-secondary)] transition-colors"
-          aria-label="Clear conversation"
-        >
-          Clear
-        </button>
-      </div>
 
       {/* Permanent Progress Bar - Always visible */}
       <PermanentProgressBar sessionId={activeSessionId} />
@@ -407,7 +445,7 @@ const ChatPanel: React.FC = () => {
                   {/* Agent message with just content (streaming) - VS Code style with Markdown */}
                   {message.type === 'assistant' && message.content && !message.response && (
                     <div className="px-4 pb-3">
-                      <div className="bg-[#1e1e1e] border border-[#3c3c3c] rounded-md p-4 shadow-sm markdown-content">
+                      <div className="bg-[#1e1e1e] rounded-lg px-4 py-2 text-sm inline-block max-w-[90%]">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
                           {message.content}
                         </ReactMarkdown>
@@ -445,6 +483,7 @@ const ChatPanel: React.FC = () => {
           {/* Attachment toolbar */}
           <div className="flex items-center gap-2 text-xs">
             <button
+              type="button"
               onClick={handleFileAttach}
               disabled={!activeSessionId}
               className="flex items-center gap-1 px-2 py-1 rounded hover:bg-[var(--atlas-bg-hover)] text-[var(--atlas-text-muted)] hover:text-[var(--atlas-text-primary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -504,6 +543,7 @@ const ChatPanel: React.FC = () => {
           />
           <div className="flex gap-2">
             <button
+              type="button"
               onClick={handleSend}
               disabled={!input.trim() || loading || !activeSessionId}
               className="flex-1 atlas-btn-primary text-xs py-1.5"
@@ -513,6 +553,20 @@ const ChatPanel: React.FC = () => {
           </div>
         </div>
       </div>
+      </>
+      ) : (
+        <div className="flex flex-col h-full">
+          <div className="px-3 py-2 bg-[#252526] border-b border-gray-700 flex items-center justify-center">
+            <button
+              onClick={toggleCollapse}
+              className="text-gray-400 hover:text-gray-200 text-xs"
+              title="Expand chat panel"
+            >
+              ◀
+            </button>
+          </div>
+        </div>
+      )}
     </div>
     </>
   );
