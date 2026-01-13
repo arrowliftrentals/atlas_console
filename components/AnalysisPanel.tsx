@@ -48,6 +48,7 @@ export default function AnalysisPanel({ onHighlightComponent }: AnalysisPanelPro
   const [hotPaths, setHotPaths] = useState<HotPath[]>([]);
   const [flows, setFlows] = useState<DependencyFlow[]>([]);
   const [activeTab, setActiveTab] = useState<'bottlenecks' | 'paths' | 'flows' | 'hot'>('bottlenecks');
+  const [selectedItem, setSelectedItem] = useState<{ type: string; index: number } | null>(null);
 
   useEffect(() => {
     fetchAnalysisData();
@@ -115,6 +116,114 @@ export default function AnalysisPanel({ onHighlightComponent }: AnalysisPanelPro
     };
     
     return { ...colorMap[metadata.region], region: metadata.region };
+  };
+  
+  const getItemRecommendations = (type: string, index: number) => {
+    const recommendations: { type: 'critical' | 'warning' | 'info'; message: string }[] = [];
+    
+    if (type === 'bottleneck') {
+      const bottleneck = bottlenecks[index];
+      if (!bottleneck) return [];
+      
+      const severity = bottleneck.avg_time_ms > 100 ? 'critical' : bottleneck.avg_time_ms > 50 ? 'high' : 'medium';
+      
+      if (severity === 'critical') {
+        recommendations.push({
+          type: 'critical',
+          message: 'Critical slowdown detected. This component is blocking operations.'
+        });
+        recommendations.push({
+          type: 'warning',
+          message: 'Consider: Move to async/background processing, add caching layer, or optimize database queries.'
+        });
+      } else if (severity === 'high') {
+        recommendations.push({
+          type: 'warning',
+          message: 'Moderate slowdown. Monitor for degradation over time.'
+        });
+        recommendations.push({
+          type: 'info',
+          message: 'Consider: Profile the component to find hotspots, add metrics, or implement lazy loading.'
+        });
+      } else {
+        recommendations.push({
+          type: 'info',
+          message: 'Performance is acceptable but could be optimized further.'
+        });
+      }
+      
+      if (bottleneck.max_time_ms > bottleneck.avg_time_ms * 3) {
+        recommendations.push({
+          type: 'warning',
+          message: `High variance detected (max ${bottleneck.max_time_ms.toFixed(0)}ms vs avg ${bottleneck.avg_time_ms.toFixed(0)}ms). Add timeouts and handle edge cases.`
+        });
+      }
+    }
+    
+    if (type === 'path') {
+      const path = criticalPaths[index];
+      if (!path) return [];
+      
+      if (path.failures > 0) {
+        recommendations.push({
+          type: 'critical',
+          message: `${path.failures} failure(s) detected on this path.`
+        });
+        recommendations.push({
+          type: 'warning',
+          message: 'Add: Retry logic with exponential backoff, circuit breaker pattern, or fallback handlers.'
+        });
+      }
+      
+      if (path.avg_time_ms > 100) {
+        recommendations.push({
+          type: 'warning',
+          message: 'Slow path detected. This impacts user experience.'
+        });
+        recommendations.push({
+          type: 'info',
+          message: 'Consider: Parallel execution, request batching, or breaking into smaller async operations.'
+        });
+      }
+      
+      if (path.criticality_score > 8) {
+        recommendations.push({
+          type: 'critical',
+          message: 'High criticality score indicates this path is essential and fragile.'
+        });
+        recommendations.push({
+          type: 'info',
+          message: 'Priority: Add monitoring, alerts, redundancy, and comprehensive error handling.'
+        });
+      }
+    }
+    
+    if (type === 'hot') {
+      const path = hotPaths[index];
+      if (!path) return [];
+      
+      if (path.count > 1000) {
+        recommendations.push({
+          type: 'warning',
+          message: 'Very high traffic path. Heavy load on these components.'
+        });
+        recommendations.push({
+          type: 'info',
+          message: 'Consider: Response caching, connection pooling, rate limiting, or CDN for static data.'
+        });
+      } else if (path.count > 100) {
+        recommendations.push({
+          type: 'info',
+          message: 'Frequently used path. Good candidate for optimization.'
+        });
+        recommendations.push({
+          type: 'info',
+          message: 'Consider: Memoization, request deduplication, or pre-computation of common results.'
+        });
+      }
+    }
+    
+    return recommendations;
   };
 
   return (
@@ -186,8 +295,22 @@ export default function AnalysisPanel({ onHighlightComponent }: AnalysisPanelPro
                 return (
                   <div
                     key={idx}
-                    className={`p-3 rounded-lg border ${regionColors.bg} ${regionColors.border} cursor-pointer hover:opacity-80 transition-opacity`}
-                    onClick={() => onHighlightComponent?.(bottleneck.component)}
+                    className={`p-3 rounded-lg border ${regionColors.bg} ${regionColors.border} cursor-pointer hover:opacity-80 transition-all ${
+                      selectedItem?.type === 'bottleneck' && selectedItem?.index === idx ? 'ring-2' : ''
+                    }`}
+                    style={{
+                      ...(selectedItem?.type === 'bottleneck' && selectedItem?.index === idx ? {
+                        '--tw-ring-color': regionColors.region === 'core' ? '#FFD700' : regionColors.region === 'memory' ? '#FF1493' : '#00CED1'
+                      } as any : {})
+                    }}
+                    onClick={() => {
+                      if (selectedItem?.type === 'bottleneck' && selectedItem?.index === idx) {
+                        setSelectedItem(null);
+                      } else {
+                        setSelectedItem({ type: 'bottleneck', index: idx });
+                      }
+                      onHighlightComponent?.(bottleneck.component);
+                    }}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
@@ -200,7 +323,11 @@ export default function AnalysisPanel({ onHighlightComponent }: AnalysisPanelPro
                         <span className="text-[10px] uppercase font-semibold text-gray-400">
                           {regionColors.region}
                         </span>
-                        <span className="text-xs uppercase font-semibold px-2 py-0.5 rounded bg-gray-700 text-gray-300">
+                        <span className={`text-xs uppercase font-semibold px-2 py-0.5 rounded ${
+                          severity === 'critical' ? 'bg-red-500 text-white' :
+                          severity === 'high' ? 'bg-yellow-500 text-black' :
+                          'bg-gray-600 text-gray-200'
+                        }`}>
                           {severity}
                         </span>
                       </div>
@@ -211,6 +338,28 @@ export default function AnalysisPanel({ onHighlightComponent }: AnalysisPanelPro
                       <div>P95 Time: <span className="text-white">{bottleneck.p95_time_ms.toFixed(2)}ms</span></div>
                       <div>Samples: <span className="text-white">{bottleneck.sample_count}</span></div>
                     </div>
+                    
+                    {/* Expanded Recommendations */}
+                    {selectedItem?.type === 'bottleneck' && selectedItem?.index === idx && (
+                      <div className="mt-3 pt-3 border-t border-gray-700 space-y-2">
+                        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Recommendations</div>
+                        {getItemRecommendations('bottleneck', idx).map((rec, recIdx) => (
+                          <div
+                            key={recIdx}
+                            className={`flex items-start gap-2 p-2 rounded text-xs ${
+                              rec.type === 'critical' ? 'bg-red-500/10 border border-red-500/30 text-red-300' :
+                              rec.type === 'warning' ? 'bg-yellow-500/10 border border-yellow-500/30 text-yellow-300' :
+                              'bg-blue-500/10 border border-blue-500/30 text-blue-300'
+                            }`}
+                          >
+                            <span className="font-bold mt-0.5">
+                              {rec.type === 'critical' ? '⚠️' : rec.type === 'warning' ? '⚡' : '💡'}
+                            </span>
+                            <span className="flex-1">{rec.message}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })
@@ -231,7 +380,21 @@ export default function AnalysisPanel({ onHighlightComponent }: AnalysisPanelPro
                 return (
                   <div
                     key={idx}
-                    className="p-3 rounded-lg border border-gray-700 bg-[#252526]"
+                    className={`p-3 rounded-lg border border-gray-700 bg-[#252526] cursor-pointer hover:bg-[#2d2d2d] transition-all ${
+                      selectedItem?.type === 'path' && selectedItem?.index === idx ? 'ring-2' : ''
+                    }`}
+                    style={{
+                      ...(selectedItem?.type === 'path' && selectedItem?.index === idx ? {
+                        '--tw-ring-color': sourceColors.region === 'core' ? '#FFD700' : sourceColors.region === 'memory' ? '#FF1493' : '#00CED1'
+                      } as any : {})
+                    }}
+                    onClick={() => {
+                      if (selectedItem?.type === 'path' && selectedItem?.index === idx) {
+                        setSelectedItem(null);
+                      } else {
+                        setSelectedItem({ type: 'path', index: idx });
+                      }
+                    }}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <span className="text-xs text-gray-400">Path {idx + 1}</span>
@@ -260,6 +423,28 @@ export default function AnalysisPanel({ onHighlightComponent }: AnalysisPanelPro
                       <div>Avg Time: <span className="text-white">{path.avg_time_ms.toFixed(2)}ms</span></div>
                       <div>Failures: <span className="text-red-400">{path.failures}</span></div>
                     </div>
+                    
+                    {/* Expanded Recommendations */}
+                    {selectedItem?.type === 'path' && selectedItem?.index === idx && (
+                      <div className="mt-3 pt-3 border-t border-gray-700 space-y-2">
+                        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Recommendations</div>
+                        {getItemRecommendations('path', idx).map((rec, recIdx) => (
+                          <div
+                            key={recIdx}
+                            className={`flex items-start gap-2 p-2 rounded text-xs ${
+                              rec.type === 'critical' ? 'bg-red-500/10 border border-red-500/30 text-red-300' :
+                              rec.type === 'warning' ? 'bg-yellow-500/10 border border-yellow-500/30 text-yellow-300' :
+                              'bg-blue-500/10 border border-blue-500/30 text-blue-300'
+                            }`}
+                          >
+                            <span className="font-bold mt-0.5">
+                              {rec.type === 'critical' ? '⚠️' : rec.type === 'warning' ? '⚡' : '💡'}
+                            </span>
+                            <span className="flex-1">{rec.message}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
                 );
@@ -281,7 +466,21 @@ export default function AnalysisPanel({ onHighlightComponent }: AnalysisPanelPro
                 return (
                   <div
                     key={idx}
-                    className="p-3 rounded-lg border border-gray-700 bg-[#252526]"
+                    className={`p-3 rounded-lg border border-gray-700 bg-[#252526] cursor-pointer hover:bg-[#2d2d2d] transition-all ${
+                      selectedItem?.type === 'hot' && selectedItem?.index === idx ? 'ring-2' : ''
+                    }`}
+                    style={{
+                      ...(selectedItem?.type === 'hot' && selectedItem?.index === idx ? {
+                        '--tw-ring-color': sourceColors.region === 'core' ? '#FFD700' : sourceColors.region === 'memory' ? '#FF1493' : '#00CED1'
+                      } as any : {})
+                    }}
+                    onClick={() => {
+                      if (selectedItem?.type === 'hot' && selectedItem?.index === idx) {
+                        setSelectedItem(null);
+                      } else {
+                        setSelectedItem({ type: 'hot', index: idx });
+                      }
+                    }}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <span className="text-xs text-gray-400">Path {idx + 1}</span>
@@ -293,18 +492,46 @@ export default function AnalysisPanel({ onHighlightComponent }: AnalysisPanelPro
                     <div className="flex items-center gap-1">
                       <span
                         className={`text-xs px-2 py-1 rounded font-mono ${sourceColors.bg} ${sourceColors.border} ${sourceColors.text} border cursor-pointer hover:opacity-80`}
-                        onClick={() => onHighlightComponent?.(path.source)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onHighlightComponent?.(path.source);
+                        }}
                       >
                         {path.source}
                       </span>
                       <span className="text-gray-600">→</span>
                       <span
                         className={`text-xs px-2 py-1 rounded font-mono ${targetColors.bg} ${targetColors.border} ${targetColors.text} border cursor-pointer hover:opacity-80`}
-                        onClick={() => onHighlightComponent?.(path.target)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onHighlightComponent?.(path.target);
+                        }}
                       >
                         {path.target}
                       </span>
                     </div>
+                    
+                    {/* Expanded Recommendations */}
+                    {selectedItem?.type === 'hot' && selectedItem?.index === idx && (
+                      <div className="mt-3 pt-3 border-t border-gray-700 space-y-2">
+                        <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Recommendations</div>
+                        {getItemRecommendations('hot', idx).map((rec, recIdx) => (
+                          <div
+                            key={recIdx}
+                            className={`flex items-start gap-2 p-2 rounded text-xs ${
+                              rec.type === 'critical' ? 'bg-red-500/10 border border-red-500/30 text-red-300' :
+                              rec.type === 'warning' ? 'bg-yellow-500/10 border border-yellow-500/30 text-yellow-300' :
+                              'bg-blue-500/10 border border-blue-500/30 text-blue-300'
+                            }`}
+                          >
+                            <span className="font-bold mt-0.5">
+                              {rec.type === 'critical' ? '⚠️' : rec.type === 'warning' ? '⚡' : '💡'}
+                            </span>
+                            <span className="flex-1">{rec.message}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 );
               })

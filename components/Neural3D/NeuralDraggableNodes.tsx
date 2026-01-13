@@ -214,14 +214,15 @@ export function NeuralDraggableNodes({
     };
   }, [camera, gl, raycaster, pointer, nodeArray, onNodePositionChange, disabled]);
 
+  // Create geometry and material once
+  const nodeGeometry = useMemo(() => new THREE.SphereGeometry(1, 16, 16), []);
+  const nodeMaterial = useMemo(() => new THREE.MeshStandardMaterial(), []);
+  
   return (
     <instancedMesh
       ref={meshRef}
-      args={[undefined, undefined, nodeArray.length]}
+      args={[nodeGeometry, nodeMaterial, nodeArray.length]}
       frustumCulled={false}
-    >
-      <sphereGeometry args={[1, 16, 16]} />
-      <meshStandardMaterial />
-    </instancedMesh>
+    />
   );
 }

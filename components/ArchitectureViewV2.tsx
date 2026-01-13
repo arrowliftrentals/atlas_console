@@ -65,6 +65,7 @@ export default function ArchitectureViewV2() {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const nodeSelectorRef = useRef<HTMLDivElement>(null);
   
   const [data, setData] = useState<ArchitectureData | null>(null);
   const [selectedNode, setSelectedNode] = useState<ComponentNode | null>(null);
@@ -80,6 +81,26 @@ export default function ArchitectureViewV2() {
   const [showNodeSelector, setShowNodeSelector] = useState(false);
   const [nodeSelectorSearch, setNodeSelectorSearch] = useState('');
 
+  // Callback ref to disable Cytoscape zoom when hovering over node selector
+  const handleNodeSelectorRef = React.useCallback((element: HTMLDivElement | null) => {
+    if (!element) return;
+    
+    const handleMouseEnter = () => {
+      if (cyRef.current) {
+        cyRef.current.userZoomingEnabled(false);
+      }
+    };
+    
+    const handleMouseLeave = () => {
+      if (cyRef.current) {
+        cyRef.current.userZoomingEnabled(true);
+      }
+    };
+    
+    element.addEventListener('mouseenter', handleMouseEnter);
+    element.addEventListener('mouseleave', handleMouseLeave);
+  }, []);
+  
   // Fetch architecture data and error edges
   useEffect(() => {
     fetchArchitectureData();
@@ -339,14 +360,56 @@ export default function ArchitectureViewV2() {
           'line-style': 'solid',
         } as any,
       },
-      // Selected node highlight
+      // Selected node highlight - soft glow with region color and scale effect
       {
-        selector: 'node:selected',
+        selector: 'node:selected[region = "core"]',
         style: {
+          'width': 140,
+          'height': 70,
           'border-width': 4,
-          'border-color': '#3B82F6',
-          'overlay-opacity': 0.2,
-          'overlay-color': '#3B82F6',
+          'border-color': '#FFD700',
+          'background-opacity': 0.7,
+          'box-shadow-blur': 50,
+          'box-shadow-spread': 15,
+          'box-shadow-color': '#FFD700',
+          'box-shadow-opacity': 0.9,
+          'transition-property': 'width, height, border-width, box-shadow-blur, box-shadow-spread',
+          'transition-duration': '0.3s',
+          'transition-timing-function': 'ease-out',
+        } as any,
+      },
+      {
+        selector: 'node:selected[region = "memory"]',
+        style: {
+          'width': 140,
+          'height': 70,
+          'border-width': 4,
+          'border-color': '#FF1493',
+          'background-opacity': 0.7,
+          'box-shadow-blur': 50,
+          'box-shadow-spread': 15,
+          'box-shadow-color': '#FF1493',
+          'box-shadow-opacity': 0.9,
+          'transition-property': 'width, height, border-width, box-shadow-blur, box-shadow-spread',
+          'transition-duration': '0.3s',
+          'transition-timing-function': 'ease-out',
+        } as any,
+      },
+      {
+        selector: 'node:selected[region = "perception"]',
+        style: {
+          'width': 140,
+          'height': 70,
+          'border-width': 4,
+          'border-color': '#00CED1',
+          'background-opacity': 0.7,
+          'box-shadow-blur': 50,
+          'box-shadow-spread': 15,
+          'box-shadow-color': '#00CED1',
+          'box-shadow-opacity': 0.9,
+          'transition-property': 'width, height, border-width, box-shadow-blur, box-shadow-spread',
+          'transition-duration': '0.3s',
+          'transition-timing-function': 'ease-out',
         } as any,
       },
     ];
@@ -441,7 +504,7 @@ export default function ArchitectureViewV2() {
       console.error('Failed to initialize Cytoscape:', err);
       setInitError(err instanceof Error ? err.message : 'Failed to initialize graph visualization');
     }
-  }, [data, errorEdges]);
+  }, [data, layoutType]);
   
   // Update edge styles when error edges change (without full re-render)
   useEffect(() => {
@@ -744,9 +807,9 @@ export default function ArchitectureViewV2() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#1E1E1E]">
+    <div className="h-full flex flex-col bg-[#1E1E1E] overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 bg-[#252526] border-b border-gray-700">
+      <div className="px-4 py-3 bg-[#252526] border-b border-gray-700 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-white">Atlas Architecture - Live View</h2>
@@ -842,7 +905,7 @@ export default function ArchitectureViewV2() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex relative">
+      <div className="flex-1 flex relative overflow-hidden" style={{ minHeight: 0 }}>
         {/* Matrix View (Full Screen) */}
         {showMatrix && (
           <div className="absolute inset-0 z-30 bg-[#1E1E1E]">
@@ -878,7 +941,10 @@ export default function ArchitectureViewV2() {
           
           {/* Node Selector Panel */}
           {showNodeSelector && data && !showMatrix && (
-            <div className="absolute bottom-4 right-4 w-80 bg-[#252526] border border-gray-700 rounded-lg shadow-xl z-50 max-h-[70vh] flex flex-col">
+            <div 
+              ref={handleNodeSelectorRef}
+              className="absolute bottom-4 right-4 w-80 bg-[#252526] border border-gray-700 rounded-lg shadow-xl z-50 max-h-[70vh] flex flex-col"
+            >
               {/* Header */}
               <div className="p-3 border-b border-gray-700 flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-white">Node Navigator</h3>

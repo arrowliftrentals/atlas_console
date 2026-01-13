@@ -376,33 +376,35 @@ export function NeuralParticlesInstancedV2({
     }
   });
 
+  // Create geometries once and reuse (prevent remount issues)
+  const coreGeometry = useMemo(() => new THREE.SphereGeometry(0.8, 16, 16), []);
+  const glowGeometry = useMemo(() => new THREE.SphereGeometry(2.0, 16, 16), []);
+  const glowMaterial = useMemo(() => {
+    return new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.6,
+      depthTest: true,
+      depthWrite: false,
+      toneMapped: false,
+    });
+  }, []);
+
   return (
     <>
       {/* Core bright white center */}
       <instancedMesh
         ref={meshRef}
-        args={[undefined as any, particleMaterial, maxParticles]}
+        args={[coreGeometry, particleMaterial, maxParticles]}
         renderOrder={999}
-      >
-        <sphereGeometry args={[0.8, 16, 16]} />
-      </instancedMesh>
+      />
       
       {/* Outer colored glow shell */}
       <instancedMesh
         ref={glowRef}
-        args={[undefined as any, undefined as any, maxParticles]}
+        args={[glowGeometry, glowMaterial, maxParticles]}
         renderOrder={998}
-      >
-        <sphereGeometry args={[2.0, 16, 16]} />
-        <meshBasicMaterial
-          vertexColors
-          transparent
-          opacity={0.6}
-          depthTest={true}
-          depthWrite={false}
-          toneMapped={false}
-        />
-      </instancedMesh>
+      />
     </>
   );
 }

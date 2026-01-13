@@ -71,7 +71,10 @@ export function NodeSelectorPanel({ nodes, onNodeSelect, onClose }: NodeSelector
   };
   
   return (
-    <div className="absolute bottom-16 right-4 w-80 bg-[#252526] border border-gray-700 rounded-lg shadow-xl z-50 max-h-[70vh] flex flex-col">
+    <div 
+      className="absolute bottom-16 right-4 w-80 bg-[#252526] border border-gray-700 rounded-lg shadow-xl z-50 max-h-[70vh] flex flex-col"
+      onWheel={(e) => e.stopPropagation()}
+    >
       {/* Header */}
       <div className="p-3 border-b border-gray-700 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-white">Node Navigator</h3>

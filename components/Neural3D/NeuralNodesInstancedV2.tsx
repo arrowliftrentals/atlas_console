@@ -100,12 +100,13 @@ export function NeuralNodesInstancedV2({ nodes, edges, timeScale }: Props) {
     meshRef.current.instanceMatrix.needsUpdate = true;
   });
 
+  // Create geometry once
+  const nodeGeometry = useMemo(() => new THREE.SphereGeometry(1, 16, 16), []);
+  
   return (
     <instancedMesh
       ref={meshRef}
-      args={[undefined as any, nodeMaterial, nodeArray.length]}
-    >
-      <sphereGeometry args={[1, 16, 16]} />
-    </instancedMesh>
+      args={[nodeGeometry, nodeMaterial, nodeArray.length]}
+    />
   );
 }
