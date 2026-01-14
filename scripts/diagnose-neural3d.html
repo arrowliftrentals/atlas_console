@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Neural 3D Diagnostic</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1e1e1e; color: #fff; }
+    .log { margin: 5px 0; padding: 5px; background: #2d2d2d; }
+    .success { color: #22c55e; }
+    .error { color: #ef4444; }
+    .info { color: #3b82f6; }
+  </style>
+</head>
+<body>
+  <h1>Neural 3D Telemetry Diagnostic</h1>
+  <div id="output"></div>
+  <button onclick="downloadLogs()">Download Logs</button>
+
+  <script>
+    const logs = [];
+    const output = document.getElementById('output');
+
+    function log(message, type = 'info') {
+      const timestamp = new Date().toISOString();
+      const entry = `[${timestamp}] ${message}`;
+      logs.push(entry);
+      
+      const div = document.createElement('div');
+      div.className = `log ${type}`;
+      div.textContent = entry;
+      output.appendChild(div);
+      console.log(entry);
+    }
+
+    function downloadLogs() {
+      const blob = new Blob([logs.join('\n')], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'neural3d-diagnostic.log';
+      a.click();
+    }
+
+    // Test 1: Check if backend is running
+    log('=== DIAGNOSTIC START ===', 'info');
+    log('Test 1: Checking backend health...', 'info');
+    
+    fetch('http://localhost:8000/health')
+      .then(res => res.json())
+      .then(data => {
+        log('✅ Backend is running: ' + JSON.stringify(data), 'success');
+        startTelemetryTest();
+      })
+      .catch(err => {
+        log('❌ Backend not reachable: ' + err.message, 'error');
+      });
+
+    function startTelemetryTest() {
+      log('\nTest 2: Connecting to telemetry WebSocket...', 'info');
+      
+      const ws = new WebSocket('ws://localhost:8000/v1/telemetry/stream');
+      let messageCount = 0;
+      let executionFlowCount = 0;
+      let batchCount = 0;
+
+      ws.onopen = () => {
+        log('✅ WebSocket connected', 'success');
+        
+        // Send a test query to generate telemetry
+        log('\nTest 3: Triggering backend query to generate telemetry...', 'info');
+        fetch('http://localhost:8000/v1/atlas/agent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: 'test', session_id: null })
+        }).then(() => {
+          log('✅ Query sent to backend', 'success');
+        });
+      };
+
+      ws.onmessage = (event) => {
+        messageCount++;
+        try {
+          const data = JSON.parse(event.data);
+          log(`\n📨 Message ${messageCount}: type=${data.type}`, 'info');
+          
+          if (data.type === 'execution_flow') {
+            executionFlowCount++;
+            log(`  ✅ execution_flow: ${data.source} → ${data.target}`, 'success');
+          } else if (data.type === 'batch') {
+            batchCount++;
+            log(`  ✅ batch: ${data.events?.length || 0} events`, 'success');
+            if (data.events && data.events.length > 0) {
+              log(`    First: ${data.events[0].source} → ${data.events[0].target}`, 'info');
+            }
+          } else if (data.type === 'connected') {
+            log('  ✅ Connected confirmation', 'success');
+          } else {
+            log(`  ⚠️  Unknown type: ${data.type}`, 'error');
+            log(`     Keys: ${Object.keys(data).join(', ')}`, 'info');
+          }
+        } catch (err) {
+          log(`  ❌ Parse error: ${err.message}`, 'error');
+        }
+      };
+
+      ws.onerror = (error) => {
+        log('❌ WebSocket error: ' + error, 'error');
+      };
+
+      ws.onclose = () => {
+        log('\n=== DIAGNOSTIC COMPLETE ===', 'info');
+        log(`Summary:`, 'info');
+        log(`  Total messages: ${messageCount}`, 'info');
+        log(`  execution_flow events: ${executionFlowCount}`, executionFlowCount > 0 ? 'success' : 'error');
+        log(`  batch events: ${batchCount}`, batchCount > 0 ? 'success' : 'error');
+        
+        if (executionFlowCount === 0 && batchCount === 0) {
+          log('\n❌ PROBLEM: No execution_flow or batch events received!', 'error');
+          log('   Backend is sending telemetry in a format the console cannot process.', 'error');
+        } else {
+          log('\n✅ Telemetry is working correctly!', 'success');
+          log('   If particles still don\'t appear, the issue is in the rendering code.', 'info');
+        }
+      };
+
+      // Close after 15 seconds
+      setTimeout(() => {
+        log('\n⏱️  15 seconds elapsed, closing connection...', 'info');
+        ws.close();
+      }, 15000);
+    }
+  </script>
+</body>
+</html>
