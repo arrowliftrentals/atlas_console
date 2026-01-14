@@ -7,6 +7,7 @@ import StatusBar from "@/components/StatusBar";
 import TerminalPanel from "@/components/TerminalPanel";
 import { ConsoleProvider } from "@/components/ConsoleProvider";
 import { ConsoleLogInterceptor } from "@/components/ConsoleLogInterceptor";
+import { HealthProvider } from "@/contexts/HealthContext";
 
 export const metadata = {
   title: "ATLAS Web Console",
@@ -19,9 +20,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body className="h-screen w-screen bg-[#1e1e1e] text-gray-100">
-        <ConsoleProvider>
-          {/* <ConsoleLogInterceptor /> */}
-          <div className="flex flex-col h-full w-full">
+        <HealthProvider>
+          <ConsoleProvider>
+            {/* <ConsoleLogInterceptor /> */}
+            <div className="flex flex-col h-full w-full">
             <div className="flex flex-1 overflow-hidden">
               {/* Sidebar + resize handle */}
               <div className="flex border-r border-gray-700 bg-[#252526]" style={{ width: "var(--sidebar-width, 256px)" }}>
@@ -47,8 +49,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
             {/* Status bar */}
             <StatusBar />
-          </div>
-        </ConsoleProvider>
+            </div>
+          </ConsoleProvider>
+        </HealthProvider>
       </body>
     </html>
   );

@@ -39,7 +39,24 @@ export default function DependencyMatrix() {
       const response = await fetch('http://localhost:8000/v1/telemetry/flows');
       if (response.ok) {
         const data = await response.json();
-        const flowData = data.flows || [];
+        const traces = data.traces || [];
+        
+        // Extract all spans from traces and convert to flow format
+        const flowData: DependencyFlow[] = [];
+        traces.forEach((trace: any) => {
+          trace.spans?.forEach((span: any) => {
+            flowData.push({
+              timestamp: span.start_time,
+              conversation_id: trace.trace_id,
+              intent_type: trace.intent_type || 'unknown',
+              source: span.source,
+              target: span.target,
+              duration_ms: span.duration_ms,
+              success: span.success,
+            });
+          });
+        });
+        
         setFlows(flowData);
         
         // Extract unique components
@@ -54,11 +71,18 @@ export default function DependencyMatrix() {
         // Build matrix - count occurrences of each source->target pair
         const matrixMap = new Map<string, MatrixCell>();
         const callCounts = new Map<string, number>();
+        const latencies = new Map<string, number[]>();
         
         flowData.forEach((f: DependencyFlow) => {
           const key = `${f.source}-${f.target}`;
           const current = callCounts.get(key) || 0;
           callCounts.set(key, current + 1);
+          
+          // Track latencies for averaging
+          if (!latencies.has(key)) {
+            latencies.set(key, []);
+          }
+          latencies.get(key)!.push(f.duration_ms);
         });
         
         const maxCalls = Math.max(...Array.from(callCounts.values()), 1);
@@ -70,13 +94,17 @@ export default function DependencyMatrix() {
             f.source === source && f.target === target
           );
           
+          // Calculate average latency
+          const latencyArray = latencies.get(key);
+          const avgLatency = latencyArray ? latencyArray.reduce((a, b) => a + b, 0) / latencyArray.length : 0;
+          
           matrixMap.set(key, {
             source,
             target,
             intensity: count / maxCalls,
             health: recentFlow?.success ? 1.0 : 0.5,
             callCount: count,
-            latency: recentFlow?.duration_ms || 0,
+            latency: avgLatency || 0,
           });
         });
         

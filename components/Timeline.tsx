@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Clock } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Clock, Trash2 } from 'lucide-react';
+import { classifyNode } from './Neural3D/NeuralCognitiveLayoutV2';
+import { REGION_COLORS } from './Neural3D/NeuralVisualEncodingV2';
 
 interface Span {
   component_id: string;
@@ -20,9 +22,10 @@ interface Trace {
 interface TimelineProps {
   onTraceSelect?: (trace: Trace) => void;
   onPlaybackSpeed?: (speed: number) => void;
+  onComponentClick?: (componentId: string) => void;
 }
 
-export default function Timeline({ onTraceSelect, onPlaybackSpeed }: TimelineProps) {
+export default function Timeline({ onTraceSelect, onPlaybackSpeed, onComponentClick }: TimelineProps) {
   const [traces, setTraces] = useState<Trace[]>([]);
   const [selectedTrace, setSelectedTrace] = useState<Trace | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -38,7 +41,7 @@ export default function Timeline({ onTraceSelect, onPlaybackSpeed }: TimelinePro
 
   const fetchTraces = async () => {
     try {
-      const response = await fetch('http://localhost:8000/v1/telemetry/traces/recent?limit=100');
+      const response = await fetch('http://localhost:8000/v1/telemetry/traces/recent?limit=1000');
       if (response.ok) {
         const data = await response.json();
         const traceData = data.traces || [];
@@ -107,6 +110,31 @@ export default function Timeline({ onTraceSelect, onPlaybackSpeed }: TimelinePro
     setPlaybackSpeed(speed);
     onPlaybackSpeed?.(speed);
   };
+  
+  const handleClearHistory = async () => {
+    if (!confirm('Clear all telemetry history? This cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      const response = await fetch('http://localhost:8000/v1/telemetry/clear', {
+        method: 'POST',
+      });
+      
+      if (response.ok) {
+        // Clear local state
+        setTraces([]);
+        setSelectedTrace(null);
+        setCurrentIndex(0);
+        setIsPlaying(false);
+        setTimeRange(null);
+      } else {
+        console.error('Failed to clear telemetry');
+      }
+    } catch (error) {
+      console.error('Error clearing telemetry:', error);
+    }
+  };
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const index = parseInt(e.target.value);
@@ -141,9 +169,63 @@ export default function Timeline({ onTraceSelect, onPlaybackSpeed }: TimelinePro
     );
     return sorted.map(s => s.component_id);
   };
+  
+  const getRegionColor = (componentId: string): string => {
+    const metadata = classifyNode(componentId);
+    return REGION_COLORS[metadata.region];
+  };
 
   return (
     <div className="bg-[#252526] border-t border-gray-700 p-3 relative z-50">
+      {/* Current Trace Info */}
+      {selectedTrace && (
+        <div className="flex items-center gap-3 px-3 py-2 bg-[#1E1E1E] rounded border border-gray-700 mb-3">
+          <div className="text-xs">
+            <span className="text-gray-400">Time:</span>{' '}
+            <span className="text-white font-mono">{formatTime(selectedTrace.start_time)}</span>
+          </div>
+          <div className="text-xs">
+            <span className="text-gray-400">Duration:</span>{' '}
+            <span className={`font-mono ${
+              selectedTrace.duration_ms > 1000 ? 'text-red-400' :
+              selectedTrace.duration_ms > 500 ? 'text-yellow-400' :
+              'text-green-400'
+            }`}>
+              {formatDuration(selectedTrace.duration_ms)}
+            </span>
+          </div>
+          <div className="text-xs flex items-start gap-1 flex-1 min-w-0">
+            <span className="text-gray-400 whitespace-nowrap">Path:</span>
+            <span className="font-mono flex flex-wrap items-center gap-1 overflow-hidden">
+              {getComponentPath(selectedTrace).length > 0 ? (
+                getComponentPath(selectedTrace).map((comp, idx, arr) => (
+                  <React.Fragment key={idx}>
+                    <span 
+                      style={{ color: getRegionColor(comp) }}
+                      className="cursor-pointer hover:underline"
+                      onClick={() => onComponentClick?.(comp)}
+                    >
+                      {comp}
+                    </span>
+                    {idx < arr.length - 1 && <span className="text-gray-500">→</span>}
+                  </React.Fragment>
+                ))
+              ) : (
+                <span className="text-gray-500">N/A</span>
+              )}
+            </span>
+          </div>
+          <div className="text-xs">
+            <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
+              selectedTrace.status === 'ok' || selectedTrace.status === 'success' ? 'bg-green-500/20 text-green-400' :
+              'bg-red-500/20 text-red-400'
+            }`}>
+              {selectedTrace.status.toUpperCase()}
+            </span>
+          </div>
+        </div>
+      )}
+      
       <div className="flex items-center gap-4">
         {/* Playback Controls */}
         <div className="flex items-center gap-2">
@@ -214,54 +296,26 @@ export default function Timeline({ onTraceSelect, onPlaybackSpeed }: TimelinePro
             className="flex-1 h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
             disabled={traces.length === 0}
           />
-          <span className="text-xs text-gray-400 font-mono min-w-[100px]">
-            {currentIndex + 1} / {traces.length}
-          </span>
-        </div>
-
-        {/* Current Trace Info */}
-        {selectedTrace && (
-          <div className="flex items-center gap-3 px-3 py-1 bg-[#1E1E1E] rounded border border-gray-700">
-            <div className="text-xs">
-              <span className="text-gray-400">Time:</span>{' '}
-              <span className="text-white font-mono">{formatTime(selectedTrace.start_time)}</span>
-            </div>
-            <div className="text-xs">
-              <span className="text-gray-400">Duration:</span>{' '}
-              <span className={`font-mono ${
-                selectedTrace.duration_ms > 1000 ? 'text-red-400' :
-                selectedTrace.duration_ms > 500 ? 'text-yellow-400' :
-                'text-green-400'
-              }`}>
-                {formatDuration(selectedTrace.duration_ms)}
+          <div className="flex flex-col items-end gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400 font-mono">
+                {currentIndex + 1} / {traces.length}
               </span>
+              <button
+                onClick={handleClearHistory}
+                className="px-2 py-1 rounded bg-red-600 hover:bg-red-700 text-white text-xs transition-colors whitespace-nowrap"
+                title="Clear all telemetry history"
+              >
+                Clear
+              </button>
             </div>
-            <div className="text-xs">
-              <span className="text-gray-400">Path:</span>{' '}
-              <span className="text-blue-400 font-mono">
-                {getComponentPath(selectedTrace).join(' → ') || 'N/A'}
-              </span>
-            </div>
-            <div className="text-xs">
-              <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                selectedTrace.status === 'ok' ? 'bg-green-500/20 text-green-400' :
-                'bg-red-500/20 text-red-400'
-              }`}>
-                {selectedTrace.status.toUpperCase()}
-              </span>
-            </div>
+            {timeRange && (
+              <span className="text-xs text-gray-500">Historical Traces (Last 1000)</span>
+            )}
           </div>
-        )}
+        </div>
       </div>
 
-      {/* Time Range Display */}
-      {timeRange && (
-        <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-          <span>{formatTime(timeRange.start.toISOString())}</span>
-          <span>Historical Traces (Last 100)</span>
-          <span>{formatTime(timeRange.end.toISOString())}</span>
-        </div>
-      )}
     </div>
   );
 }

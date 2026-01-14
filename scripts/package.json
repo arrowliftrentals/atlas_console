@@ -1,0 +1,15 @@
+{
+  "name": "atlas-console-verification-scripts",
+  "version": "1.0.0",
+  "description": "Verification and diagnostic scripts for ATLAS Console",
+  "private": true,
+  "scripts": {
+    "verify-telemetry": "node verify-telemetry-flow.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

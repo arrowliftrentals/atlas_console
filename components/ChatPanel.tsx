@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { sendAtlasChat, clearConsoleSession, atlasChatStream } from "@/lib/atlasConsoleClient";
 import { useConsole } from "./ConsoleProvider";
 import { AgentResponsePanel } from "./AgentResponsePanel";
+import { useHealth } from "@/contexts/HealthContext";
 import PermanentProgressBar from "./PermanentProgressBar";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -17,6 +18,7 @@ const COLLAPSED_CHAT_PANEL_WIDTH = 48;
 const ChatPanel: React.FC = () => {
   const { activeSessionId, getMessages, addMessage, updateLastMessage, clearMessages } = useConsole();
   const messages = activeSessionId ? getMessages(activeSessionId) : [];
+  const { health } = useHealth();
   
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,7 +26,6 @@ const ChatPanel: React.FC = () => {
   const [width, setWidth] = useState<number>(DEFAULT_CHAT_PANEL_WIDTH);
   const [isResizing, setIsResizing] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isHealthy, setIsHealthy] = useState<boolean | null>(null); // null = checking, true = healthy, false = unhealthy
   const [attachments, setAttachments] = useState<Array<{name: string, type: string, content: string, size?: number}>>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -72,30 +73,6 @@ const ChatPanel: React.FC = () => {
     setIsCollapsed(!isCollapsed);
   };
 
-  // Health check - poll backend immediately and every 30 seconds
-  useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        // Check both health endpoint and try a simple chat endpoint verification
-        const healthResponse = await fetch('http://localhost:8000/health');
-        if (healthResponse.ok) {
-          setIsHealthy(true);
-        } else {
-          setIsHealthy(false);
-        }
-      } catch (err) {
-        setIsHealthy(false);
-      }
-    };
-
-    // Check immediately on mount
-    checkHealth();
-
-    // Then check every 30 seconds
-    const interval = setInterval(checkHealth, 30000);
-
-    return () => clearInterval(interval);
-  }, []);
 
   // Resize handlers
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -216,21 +193,18 @@ const ChatPanel: React.FC = () => {
         // onDone
         (sessionId: string) => {
           console.log(`[Stream] Complete, session: ${sessionId}`);
-          setIsHealthy(true);
           setLoading(false);
         },
         // onError
         (error: string) => {
           setError(error);
           console.error("ATLAS streaming error:", error);
-          setIsHealthy(false);
           setLoading(false);
         }
       );
     } catch (err: any) {
       setError(err.message || "Failed to send message");
       console.error("ATLAS chat error:", err);
-      setIsHealthy(false);
       setLoading(false);
     }
   };
@@ -335,12 +309,31 @@ const ChatPanel: React.FC = () => {
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {/* Status Indicator - Green for operational, Red for not, Yellow for checking */}
-              <div className="relative">
-                <div className={`w-2 h-2 rounded-full ${
-                  isHealthy === null ? 'bg-yellow-500' : 
-                  isHealthy ? 'bg-green-500' : 'bg-red-500'
-                } animate-pulse`}></div>
+              {/* Status Indicator - Green=connected, Gray=disconnected, Red=error */}
+              <div className="relative" title={
+                health.chat === 'connected' ? 'ATLAS Chat Connected' :
+                health.chat === 'disconnected' ? 'ATLAS Chat Disconnected' :
+                'ATLAS Chat Error'
+              }>
+                <div 
+                  className={`w-2 h-2 rounded-full ${
+                    health.chat === 'connected' ? 'bg-green-500' :
+                    health.chat === 'disconnected' ? 'bg-gray-600' :
+                    'bg-red-500'
+                  }`}
+                  style={{
+                    boxShadow: health.chat === 'connected' 
+                      ? '0 0 6px rgba(34, 197, 94, 0.8)' 
+                      : health.chat === 'error'
+                      ? '0 0 6px rgba(239, 68, 68, 0.8)'
+                      : 'none',
+                    border: health.chat === 'connected'
+                      ? '1.5px solid rgba(34, 197, 94, 0.9)'
+                      : health.chat === 'error'
+                      ? '1.5px solid rgba(239, 68, 68, 0.9)'
+                      : '1.5px solid rgba(75, 85, 99, 0.6)'
+                  }}
+                ></div>
               </div>
               {/* ATLAS Badge */}
               <span className="text-sm font-semibold text-[var(--atlas-text-primary)]">ATLAS</span>

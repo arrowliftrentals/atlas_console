@@ -45,9 +45,26 @@ interface ArchitectureData {
 
 interface TelemetryData {
   type: string;
-  timestamp: string;
+  timestamp: string | number;
+  // Legacy format (not used by current backend)
   active_traces?: any[];
   metrics?: Record<string, any>;
+  // Actual backend format
+  source?: string;
+  target?: string;
+  conversation_id?: string;
+  intent_type?: string;
+  duration_ms?: number;
+  success?: boolean;
+  events?: Array<{
+    timestamp: string;
+    conversation_id: string;
+    intent_type: string;
+    source: string;
+    target: string;
+    duration_ms: number;
+    success: boolean;
+  }>;
 }
 
 interface FlowParticle {
@@ -281,12 +298,12 @@ export default function ArchitectureViewV2() {
         style: {
           'width': 2,
           'line-color': '#4A5568',
+          'source-arrow-color': '#4A5568',
+          'source-arrow-shape': 'triangle',
           'target-arrow-color': '#4A5568',
           'target-arrow-shape': 'triangle',
           'curve-style': 'bezier',
           'arrow-scale': 1.2,
-          'source-endpoint': '50% 0%',
-          'target-endpoint': 'outside-to-node',
         } as any,
       },
       // Edge operation type colors
@@ -294,6 +311,7 @@ export default function ArchitectureViewV2() {
         selector: 'edge[operation = "read"]',
         style: {
           'line-color': '#0EA5E9',
+          'source-arrow-color': '#0EA5E9',
           'target-arrow-color': '#0EA5E9',
         } as any,
       },
@@ -301,6 +319,7 @@ export default function ArchitectureViewV2() {
         selector: 'edge[operation = "write"]',
         style: {
           'line-color': '#F59E0B',
+          'source-arrow-color': '#F59E0B',
           'target-arrow-color': '#F59E0B',
         } as any,
       },
@@ -308,6 +327,7 @@ export default function ArchitectureViewV2() {
         selector: 'edge[operation = "query"]',
         style: {
           'line-color': '#10B981',
+          'source-arrow-color': '#10B981',
           'target-arrow-color': '#10B981',
         } as any,
       },
@@ -315,6 +335,7 @@ export default function ArchitectureViewV2() {
         selector: 'edge[operation = "execute"]',
         style: {
           'line-color': '#EC4899',
+          'source-arrow-color': '#EC4899',
           'target-arrow-color': '#EC4899',
         } as any,
       },
@@ -337,6 +358,7 @@ export default function ArchitectureViewV2() {
         selector: 'edge[hasError]',
         style: {
           'line-color': '#EF4444',
+          'source-arrow-color': '#EF4444',
           'target-arrow-color': '#EF4444',
           'width': 3,
           'line-style': 'solid',
@@ -417,7 +439,7 @@ export default function ArchitectureViewV2() {
       style: stylesheet,
       layout: layoutConfig,
       minZoom: 0.3,
-      maxZoom: 3,
+      maxZoom: 8,
       wheelSensitivity: 0.2,
     });
     
@@ -465,6 +487,30 @@ export default function ArchitectureViewV2() {
       const updateBadges = () => {
         badgeOverlay.innerHTML = '';
         
+        // LED Settings
+        const settings = {
+          badgeSize: 9.1,
+          greenCircleDiameter: 100,
+          badgeGreenGlow: 1.4,
+          badgeOrangeGlow: 1.4,
+          badgeBlueGlow: 1.4,
+          badgeGrayGlow: 1.4,
+          innerGlowSize: 2,
+          innerGlowIntensity: 0.4,
+          innerGlowOpacity: 1,
+          outerGlowSize: 9,
+          outerGlowIntensity: 0.3,
+          outerGlowOpacity: 1,
+          outlineThickness: 0.6,
+          outlineOpacity: 0.45,
+          reflectionSize: 120,
+          reflectionLeft: -11,
+          reflectionTop: -10,
+          reflectionCenterOpacity: 0.5,
+          reflectionMidOpacity: 0.15,
+          reflectionEdgeOpacity: 0.2,
+        };
+        
         cy.nodes().forEach(node => {
           const status = node.data('status');
           if (!status) return;
@@ -476,21 +522,34 @@ export default function ArchitectureViewV2() {
           
           // Get zoom level to scale badge size
           const zoom = cy.zoom();
-          const badgeSize = 8 * zoom; // Scale with zoom
-          const badgeOffset = badgeSize / 2;
+          const badgeSize = settings.badgeSize * zoom;
+          const greenCircleSize = badgeSize * (settings.greenCircleDiameter / 100);
           
           // LED badge position: upper right corner
           const badgeX = pos.x + width / 2 - (10 * zoom);
           const badgeY = pos.y - height / 2 + (10 * zoom);
           
-          // Determine badge color
+          // Determine badge color and glow intensity
           let badgeColor = '#64748B'; // default gray
+          let glowIntensity = settings.badgeGrayGlow;
+          let glowColorRGB = '100, 116, 139';
+          let borderColor = 'rgba(75, 85, 99, 0.6)';
+          
           if (status === 'live' || status === 'implemented') {
             badgeColor = '#22C55E'; // green
+            glowIntensity = settings.badgeGreenGlow;
+            glowColorRGB = '34, 197, 94';
+            borderColor = 'rgba(34, 197, 94, 0.9)';
           } else if (status === 'stubbed') {
             badgeColor = '#F59E0B'; // orange
+            glowIntensity = settings.badgeOrangeGlow;
+            glowColorRGB = '245, 158, 11';
+            borderColor = 'rgba(245, 158, 11, 0.8)';
           } else if (status === 'in_progress') {
             badgeColor = '#3B82F6'; // blue
+            glowIntensity = settings.badgeBlueGlow;
+            glowColorRGB = '59, 130, 246';
+            borderColor = 'rgba(59, 130, 246, 0.8)';
           }
           
           // Create LED badge element
@@ -498,13 +557,31 @@ export default function ArchitectureViewV2() {
           badge.style.position = 'absolute';
           badge.style.left = `${badgeX}px`;
           badge.style.top = `${badgeY}px`;
-          badge.style.width = `${badgeSize}px`;
-          badge.style.height = `${badgeSize}px`;
+          badge.style.width = `${greenCircleSize}px`;
+          badge.style.height = `${greenCircleSize}px`;
           badge.style.borderRadius = '50%';
           badge.style.backgroundColor = badgeColor;
-          badge.style.border = `${1.125 * zoom}px solid rgba(0, 0, 0, 0.5)`;
+          badge.style.border = `${1.5 * zoom}px solid ${borderColor}`;
           badge.style.transform = 'translate(-50%, -50%)';
-          badge.style.boxShadow = `0 0 ${3 * zoom}px ${badgeColor}`;
+          
+          // Build box shadow with inner and outer glow
+          const innerGlow = `0 0 ${settings.innerGlowSize * zoom * settings.innerGlowIntensity * glowIntensity}px rgba(${glowColorRGB}, ${settings.innerGlowOpacity})`;
+          const outerGlow = `0 0 ${settings.outerGlowSize * zoom * settings.outerGlowIntensity * glowIntensity}px rgba(${glowColorRGB}, ${settings.outerGlowOpacity})`;
+          const outline = `0 0 0 ${settings.outlineThickness * zoom}px rgba(0, 0, 0, ${settings.outlineOpacity})`;
+          badge.style.boxShadow = `${innerGlow}, ${outerGlow}, ${outline}`;
+          
+          // Add white reflection
+          const reflection = document.createElement('div');
+          reflection.style.position = 'absolute';
+          reflection.style.left = `${settings.reflectionLeft}%`;
+          reflection.style.top = `${settings.reflectionTop}%`;
+          reflection.style.width = `${settings.reflectionSize}%`;
+          reflection.style.height = `${settings.reflectionSize}%`;
+          reflection.style.borderRadius = '50%';
+          reflection.style.background = `radial-gradient(circle, rgba(255, 255, 255, ${settings.reflectionCenterOpacity}) 0%, rgba(255, 255, 255, ${settings.reflectionMidOpacity}) 50%, rgba(255, 255, 255, ${settings.reflectionEdgeOpacity}) 100%)`;
+          reflection.style.pointerEvents = 'none';
+          badge.appendChild(reflection);
+          
           badgeOverlay.appendChild(badge);
         });
       };
@@ -553,7 +630,7 @@ export default function ArchitectureViewV2() {
       console.error('Failed to initialize Cytoscape:', err);
       setInitError(err instanceof Error ? err.message : 'Failed to initialize graph visualization');
     }
-  }, [data, layoutType]);
+  }, [data]);
   
   // Update edge styles when error edges change (without full re-render)
   useEffect(() => {
@@ -607,10 +684,18 @@ export default function ArchitectureViewV2() {
           if (isUnmounted) return;
           try {
             const data: TelemetryData = JSON.parse(event.data);
-            console.log('📊 Telemetry data received:', data.type, {
-              traces: data.active_traces?.length || 0,
-              metrics: Object.keys(data.metrics || {}).length,
-            });
+            
+            // Log telemetry based on type
+            if (data.type === 'execution_flow') {
+              console.log(`📊 Telemetry: ${data.source} → ${data.target}`);
+            } else if (data.type === 'batch') {
+              console.log(`📊 Telemetry batch: ${data.events?.length || 0} flows`);
+            } else if (data.type === 'connected') {
+              console.log('📊 Telemetry stream connected');
+            } else {
+              console.log('📊 Telemetry:', data.type);
+            }
+            
             handleTelemetryUpdate(data);
           } catch (err) {
             console.warn('⚠️ Failed to parse telemetry data:', err);
@@ -655,47 +740,58 @@ export default function ArchitectureViewV2() {
   }, []);
 
   const handleTelemetryUpdate = (data: TelemetryData) => {
-    // Handle updates with active traces
-    if ((data.type === 'update' || data.type === 'initial_state') && cyRef.current) {
+    if (!cyRef.current) return;
+    
+    // Handle individual execution_flow events (ACTUAL BACKEND FORMAT)
+    if (data.type === 'execution_flow' && data.source && data.target) {
+      console.log(`🔄 Flow: ${data.source} → ${data.target} (${data.duration_ms?.toFixed(2)}ms)`);
+      animateFlow(data.source, data.target);
+      return;
+    }
+    
+    // Handle batch events (ACTUAL BACKEND FORMAT)
+    if (data.type === 'batch' && data.events && data.events.length > 0) {
+      console.log(`🔄 Processing batch of ${data.events.length} flows`);
+      data.events.forEach(event => {
+        console.log(`  ${event.source} → ${event.target}`);
+        animateFlow(event.source, event.target);
+      });
+      return;
+    }
+    
+    // Legacy format support (for backwards compatibility if backend changes)
+    if ((data.type === 'update' || data.type === 'initial_state') && data.active_traces) {
       const traces = data.active_traces || [];
+      console.log('🔄 Processing', traces.length, 'traces (legacy format)');
       
-      console.log('🔄 Processing', traces.length, 'traces');
-      
-      // Animate flow for active traces
       traces.forEach((trace: any) => {
-        console.log('  Trace:', trace.trace_id, 'spans:', trace.spans?.length);
         if (trace.spans && trace.spans.length > 1) {
-          // Sort spans by start_time to get correct order
           const sorted = [...trace.spans].sort((a: any, b: any) => 
             new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
           );
           const path = sorted.map((s: any) => s.component_id);
           
-          console.log('  🎬 Animating flow:', path.join(' → '));
-          
-          // Animate flow along the path
           for (let i = 0; i < path.length - 1; i++) {
             animateFlow(path[i], path[i + 1]);
           }
         }
       });
-      
-      // Update node activity based on metrics
-      if (data.metrics && cyRef.current) {
-        Object.entries(data.metrics).forEach(([componentId, metrics]: [string, any]) => {
-          const node = cyRef.current?.$id(componentId);
-          if (node && node.length > 0 && metrics.request_count > 0) {
-            // Pulse node on activity
-            node.animate({
-              style: { 'border-width': 4, 'border-color': '#3B82F6' },
-              duration: 300,
-            }).delay(300).animate({
-              style: { 'border-width': 3 },
-              duration: 300,
-            });
-          }
-        });
-      }
+    }
+    
+    // Handle metrics-based node activity
+    if (data.metrics) {
+      Object.entries(data.metrics).forEach(([componentId, metrics]: [string, any]) => {
+        const node = cyRef.current?.$id(componentId);
+        if (node && node.length > 0 && metrics.request_count > 0) {
+          node.animate({
+            style: { 'border-width': 4, 'border-color': '#3B82F6' },
+            duration: 300,
+          }).delay(300).animate({
+            style: { 'border-width': 3 },
+            duration: 300,
+          });
+        }
+      });
     }
   };
 
@@ -827,7 +923,7 @@ export default function ArchitectureViewV2() {
   const handleTraceReplay = (trace: any) => {
     setReplayTrace(trace);
     
-    // Animate the trace path
+    // Animate the trace path using actual flow animations
     if (cyRef.current && trace.spans) {
       // Compute component path from spans
       const sorted = [...trace.spans].sort((a: any, b: any) => 
@@ -835,25 +931,16 @@ export default function ArchitectureViewV2() {
       );
       const path = sorted.map((s: any) => s.component_id);
       
-      // Highlight all nodes in path
-      path.forEach((compId: string, index: number) => {
+      console.log('🎬 Replaying trace with', path.length - 1, 'flows:', path.join(' → '));
+      
+      // Animate each flow sequentially (source → target)
+      // Each flow takes ~800ms (same as real-time), stagger by 900ms for clear visualization
+      for (let i = 0; i < path.length - 1; i++) {
         setTimeout(() => {
-          const node = cyRef.current!.$id(compId);
-          if (node.length > 0) {
-            node.animate({
-              style: { 'border-width': 6, 'border-color': '#3B82F6' },
-              duration: 300,
-            });
-            
-            setTimeout(() => {
-              node.animate({
-                style: { 'border-width': 3 },
-                duration: 300,
-              });
-            }, 300);
-          }
-        }, index * 200);
-      });
+          console.log(`  Step ${i + 1}: ${path[i]} → ${path[i + 1]}`);
+          animateFlow(path[i], path[i + 1]);
+        }, i * 900);
+      }
     }
   };
 
@@ -869,84 +956,130 @@ export default function ArchitectureViewV2() {
               <p className="text-sm text-gray-400 whitespace-nowrap">Components</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowAnalysis(prev => !prev)}
-                className={`px-3 py-1 text-xs rounded flex items-center gap-1 ${
-                  showAnalysis && !showMatrix
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-              >
-                <BarChart3 className="w-3 h-3" />
-                Analysis
-              </button>
-              <button
-                onClick={() => setShowMatrix(prev => !prev)}
-                className={`px-3 py-1 text-xs rounded flex items-center gap-1 ${
-                  showMatrix
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-              >
-                <Grid3x3 className="w-3 h-3" />
-                Matrix
-              </button>
-              <button
-                onClick={() => setShowTimeline(prev => !prev)}
-                className={`px-3 py-1 text-xs rounded flex items-center gap-1 ${
-                  showTimeline
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-              >
-                <Clock className="w-3 h-3" />
-                Timeline
-              </button>
+          <div className="flex items-end gap-4">
+            {/* Detail Category */}
+            <div className="flex flex-col items-center gap-1">
+              <div className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Detail</div>
+              <div className="bg-[#1E1E1E] rounded-lg px-3 py-2 border border-gray-700">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (!showMatrix) {
+                        if (showAnalysis) {
+                          setShowAnalysis(false);
+                        } else {
+                          setShowNodeSelector(false);
+                          setShowAnalysis(true);
+                        }
+                      }
+                    }}
+                    disabled={showMatrix}
+                    className={`px-3 py-1 text-xs rounded flex items-center gap-1 ${
+                      showMatrix
+                        ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                        : showAnalysis
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    <BarChart3 className="w-3 h-3" />
+                    Analysis
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!showMatrix) {
+                        if (showNodeSelector) {
+                          setShowNodeSelector(false);
+                        } else {
+                          setShowAnalysis(false);
+                          setShowNodeSelector(true);
+                        }
+                      }
+                    }}
+                    disabled={showMatrix}
+                    className={`px-3 py-1 text-xs rounded flex items-center gap-1 ${
+                      showMatrix
+                        ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                        : showNodeSelector
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    <Search className="w-3 h-3" />
+                    Nodes
+                  </button>
+                  <button
+                    onClick={() => setShowTimeline(prev => !prev)}
+                    className={`px-3 py-1 text-xs rounded flex items-center gap-1 ${
+                      showTimeline
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    <Clock className="w-3 h-3" />
+                    Timeline
+                  </button>
+                </div>
+              </div>
             </div>
-            <button
-              onClick={() => setShowNodeSelector(prev => !prev)}
-              className={`px-3 py-1 text-xs rounded flex items-center gap-1 ${
-                showNodeSelector
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-              }`}
-            >
-              <Search className="w-3 h-3" />
-              Nodes
-            </button>
-            <div className="flex gap-2">
-              <button
-                onClick={() => changeLayout('dagre')}
-                className={`px-3 py-1 text-xs rounded ${
-                  layoutType === 'dagre'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-              >
-                Hierarchical
-              </button>
-              <button
-                onClick={() => changeLayout('klay')}
-                className={`px-3 py-1 text-xs rounded ${
-                  layoutType === 'klay'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-              >
-                Layered
-              </button>
-              <button
-                onClick={() => changeLayout('cola')}
-                className={`px-3 py-1 text-xs rounded ${
-                  layoutType === 'cola'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                }`}
-              >
-                Force
-              </button>
+            
+            {/* View Category */}
+            <div className="flex flex-col items-center gap-1">
+              <div className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">View</div>
+              <div className="bg-[#1E1E1E] rounded-lg px-3 py-2 border border-gray-700">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowMatrix(prev => !prev)}
+                    className={`px-3 py-1 text-xs rounded flex items-center gap-1 ${
+                      showMatrix
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    <Grid3x3 className="w-3 h-3" />
+                    Matrix
+                  </button>
+                  <button
+                    onClick={() => !showMatrix && changeLayout('dagre')}
+                    disabled={showMatrix}
+                    className={`px-3 py-1 text-xs rounded ${
+                      showMatrix
+                        ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                        : layoutType === 'dagre'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    Hierarchical
+                  </button>
+                  <button
+                    onClick={() => !showMatrix && changeLayout('klay')}
+                    disabled={showMatrix}
+                    className={`px-3 py-1 text-xs rounded ${
+                      showMatrix
+                        ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                        : layoutType === 'klay'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    Layered
+                  </button>
+                  <button
+                    onClick={() => !showMatrix && changeLayout('cola')}
+                    disabled={showMatrix}
+                    className={`px-3 py-1 text-xs rounded ${
+                      showMatrix
+                        ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                        : layoutType === 'cola'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                  >
+                    Force
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -964,7 +1097,7 @@ export default function ArchitectureViewV2() {
         {/* Graph Container */}
         <div 
           ref={containerRef}
-          className={`${showAnalysis && !showMatrix ? 'flex-1 min-w-0' : 'flex-1'} bg-[#1E1E1E] ${showMatrix ? 'hidden' : ''} relative`}
+          className={`flex-1 bg-[#1E1E1E] ${showMatrix ? 'hidden' : ''} relative`}
           style={{ height: '100%' }}
         >
           {initError && (
@@ -991,7 +1124,7 @@ export default function ArchitectureViewV2() {
           {showNodeSelector && data && !showMatrix && (
             <div 
               ref={handleNodeSelectorRef}
-              className="absolute bottom-4 right-4 w-80 bg-[#252526] border border-gray-700 rounded-lg shadow-xl z-50 max-h-[70vh] flex flex-col"
+              className="absolute top-4 bottom-4 right-4 w-80 bg-[#252526] border border-gray-700 rounded-lg shadow-xl z-50 flex flex-col"
             >
               {/* Header */}
               <div className="p-3 border-b border-gray-700 flex items-center justify-between">
@@ -1117,12 +1250,12 @@ export default function ArchitectureViewV2() {
           )}
         </div>
 
-        {/* Analysis Panel */}
-        {showAnalysis && !showMatrix && (
-          <div key="analysis-panel" className="w-80 flex-shrink-0">
-            <AnalysisPanel onHighlightComponent={highlightComponent} />
-          </div>
-        )}
+          {/* Analysis Panel */}
+          {showAnalysis && !showMatrix && (
+            <div className="absolute top-4 right-4 bottom-4 w-80 bg-[#252526] border border-gray-700 rounded-lg shadow-xl z-40 overflow-hidden">
+              <AnalysisPanel onHighlightComponent={highlightComponent} />
+            </div>
+          )}
 
         {/* Node Details Panel */}
         {selectedNode && (
@@ -1205,6 +1338,7 @@ export default function ArchitectureViewV2() {
           <Timeline
             onTraceSelect={handleTraceReplay}
             onPlaybackSpeed={(speed) => console.log('Playback speed:', speed)}
+            onComponentClick={highlightComponent}
           />
         </div>
       )}

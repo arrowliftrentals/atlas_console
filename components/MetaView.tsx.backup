@@ -1,0 +1,279 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
+import type { AtlasChatRequest } from "@/lib/types";
+import { useHealth } from "@/contexts/HealthContext";
+
+interface MetaAssessment {
+    generated_at: string;
+    system_info: {
+        version: string;
+        phase: string;
+        attempt: string;
+        python_version: string;
+        platform: string;
+        project_name: string;
+    };
+    capability_inventory: {
+        functional: Record<string, any>;
+        not_yet_functional: Record<string, string>;
+        functionality_rate: string;
+    };
+    memory_architecture: any;
+    architectural_maturity: any;
+    jarvis_gap_analysis: {
+        benchmark: string;
+        target_capabilities: string[];
+        current_status: Record<string, any>;
+        overall_maturity: string;
+        honest_assessment: string;
+    };
+    reliability_metrics: any;
+    known_limitations: Record<string, string[]>;
+}
+
+const MetaView: React.FC = () => {
+    const { health } = useHealth();
+    const [assessment, setAssessment] = useState<MetaAssessment | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [activeSection, setActiveSection] = useState<string | null>("capability_inventory");
+
+    const fetchMeta = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            const response = await fetch("http://localhost:8000/v1/meta/assess");
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            const data = await response.json();
+            setAssessment(data);
+        } catch (e: any) {
+            console.error("Meta-assessment fetch error:", e);
+            setError(`Failed to load meta-assessment: ${e.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchMeta();
+    }, []);
+
+    const renderSection = (title: string, content: any) => {
+        if (typeof content === "string") {
+            return <p className="text-gray-300 text-xs leading-relaxed">{content}</p>;
+        }
+
+        if (Array.isArray(content)) {
+            return (
+                <ul className="list-disc list-inside space-y-1 text-xs text-gray-300">
+                    {content.map((item, i) => (
+                        <li key={i} className="leading-relaxed">{typeof item === "string" ? item : JSON.stringify(item)}</li>
+                    ))}
+                </ul>
+            );
+        }
+
+        if (typeof content === "object" && content !== null) {
+            return (
+                <div className="space-y-2">
+                    {Object.entries(content).map(([key, value]) => (
+                        <div key={key} className="border-l-2 border-gray-700 pl-3">
+                            <p className="text-xs font-semibold text-gray-400 mb-1">
+                                {key.replace(/_/g, " ").toUpperCase()}
+                            </p>
+                            {renderSection(key, value)}
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        return <p className="text-xs text-gray-400">{String(content)}</p>;
+    };
+
+    const sections = [
+        { id: "capability_inventory", label: "Capability Inventory" },
+        { id: "jarvis_gap_analysis", label: "Jarvis Gap Analysis" },
+        { id: "known_limitations", label: "Known Limitations" },
+        { id: "memory_architecture", label: "Memory Architecture" },
+        { id: "architectural_maturity", label: "Architectural Maturity" },
+        { id: "reliability_metrics", label: "Reliability Metrics" },
+    ];
+
+    return (
+        <div className="h-full w-full flex flex-col bg-[#1e1e1e]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
+                <div className="flex items-center gap-2">
+                    <h1 className="text-base font-semibold text-gray-100">Meta Assessment</h1>
+                    {/* Health Indicator */}
+                    <div
+                        className="relative"
+                        title={`Meta endpoint: ${health.meta}`}
+                    >
+                        <div className={`w-2 h-2 rounded-full ${
+                            health.meta === 'connected' ? 'bg-green-500' :
+                            health.meta === 'error' ? 'bg-red-500' :
+                            'bg-gray-600'
+                        }`}
+                        style={{
+                            boxShadow: health.meta === 'connected' 
+                                ? '0 0 6px rgba(34, 197, 94, 0.8)' 
+                                : health.meta === 'error'
+                                ? '0 0 6px rgba(239, 68, 68, 0.8)'
+                                : 'none',
+                            border: health.meta === 'connected'
+                                ? '1.5px solid rgba(34, 197, 94, 0.9)'
+                                : health.meta === 'error'
+                                ? '1.5px solid rgba(239, 68, 68, 0.9)'
+                                : '1.5px solid rgba(75, 85, 99, 0.6)'
+                        }}
+                        />
+                    </div>
+                    {assessment && (
+                        <p className="text-xs text-gray-400">
+                            Generated: {new Date(assessment.generated_at).toLocaleString()}
+                        </p>
+                    )}
+                </div>
+                <button
+                    className="bg-gray-700 hover:bg-gray-600 text-xs px-3 py-1.5 rounded transition-colors"
+                    onClick={fetchMeta}
+                    disabled={loading}
+                >
+                    {loading ? "Refreshing..." : "Refresh"}
+                </button>
+            </div>
+
+            {/* Error State */}
+            {error && (
+                <div className="p-4">
+                    <div className="text-red-400 text-xs bg-red-900/20 border border-red-900 rounded p-3">
+                        {error}
+                    </div>
+                </div>
+            )}
+
+            {/* Loading State */}
+            {loading && !assessment && (
+                <div className="flex-1 flex items-center justify-center">
+                    <p className="text-sm text-gray-400">Loading meta-assessment...</p>
+                </div>
+            )}
+
+            {/* Main Content */}
+            {!error && assessment && (
+                <div className="flex-1 flex overflow-hidden">
+                    {/* Section Navigation */}
+                    <div className="w-56 border-r border-gray-700 overflow-y-auto bg-[#252526]">
+                        <div className="p-2 space-y-1">
+                            {sections.map((section) => (
+                                <button
+                                    key={section.id}
+                                    onClick={() => setActiveSection(section.id)}
+                                    className={`w-full text-left px-3 py-2 text-xs rounded transition-colors ${
+                                        activeSection === section.id
+                                            ? "bg-gray-700 text-gray-100"
+                                            : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+                                    }`}
+                                >
+                                    {section.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Content Area */}
+                    <div className="flex-1 overflow-y-auto p-4">
+                        {activeSection === "capability_inventory" && (
+                            <div className="space-y-4">
+                                <h2 className="text-sm font-semibold text-gray-100 border-b border-gray-700 pb-2">
+                                    Capability Inventory
+                                </h2>
+                                <div className="text-xs text-gray-400 mb-3">
+                                    {assessment.capability_inventory.functionality_rate}
+                                </div>
+                                <div className="space-y-4">
+                                    <div>
+                                        <h3 className="text-xs font-semibold text-green-400 mb-2">✓ Functional Capabilities</h3>
+                                        {renderSection("functional", assessment.capability_inventory.functional)}
+                                    </div>
+                                    <div>
+                                        <h3 className="text-xs font-semibold text-yellow-400 mb-2">⚠ Not Yet Functional</h3>
+                                        {renderSection("not_functional", assessment.capability_inventory.not_yet_functional)}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeSection === "jarvis_gap_analysis" && (
+                            <div className="space-y-4">
+                                <h2 className="text-sm font-semibold text-gray-100 border-b border-gray-700 pb-2">
+                                    Jarvis Gap Analysis
+                                </h2>
+                                <div className="space-y-3">
+                                    <div className="bg-gray-800/50 p-3 rounded border border-gray-700">
+                                        <p className="text-xs text-gray-300 mb-2">
+                                            <span className="font-semibold text-gray-100">Benchmark:</span> {assessment.jarvis_gap_analysis.benchmark}
+                                        </p>
+                                        <p className="text-xs text-gray-300 mb-2">
+                                            <span className="font-semibold text-gray-100">Overall Maturity:</span> {assessment.jarvis_gap_analysis.overall_maturity}
+                                        </p>
+                                        <p className="text-xs text-gray-300 italic">
+                                            {assessment.jarvis_gap_analysis.honest_assessment}
+                                        </p>
+                                    </div>
+                                    {renderSection("status", assessment.jarvis_gap_analysis.current_status)}
+                                </div>
+                            </div>
+                        )}
+
+                        {activeSection === "known_limitations" && (
+                            <div className="space-y-4">
+                                <h2 className="text-sm font-semibold text-gray-100 border-b border-gray-700 pb-2">
+                                    Known Limitations
+                                </h2>
+                                <p className="text-xs text-red-400 italic mb-3">
+                                    This section provides brutal honesty about what doesn't work or isn't implemented.
+                                </p>
+                                {renderSection("limitations", assessment.known_limitations)}
+                            </div>
+                        )}
+
+                        {activeSection === "memory_architecture" && (
+                            <div className="space-y-4">
+                                <h2 className="text-sm font-semibold text-gray-100 border-b border-gray-700 pb-2">
+                                    Memory Architecture (L1-L10)
+                                </h2>
+                                {renderSection("memory", assessment.memory_architecture)}
+                            </div>
+                        )}
+
+                        {activeSection === "architectural_maturity" && (
+                            <div className="space-y-4">
+                                <h2 className="text-sm font-semibold text-gray-100 border-b border-gray-700 pb-2">
+                                    Architectural Maturity
+                                </h2>
+                                {renderSection("architecture", assessment.architectural_maturity)}
+                            </div>
+                        )}
+
+                        {activeSection === "reliability_metrics" && (
+                            <div className="space-y-4">
+                                <h2 className="text-sm font-semibold text-gray-100 border-b border-gray-700 pb-2">
+                                    Reliability Metrics
+                                </h2>
+                                {renderSection("reliability", assessment.reliability_metrics)}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default MetaView;

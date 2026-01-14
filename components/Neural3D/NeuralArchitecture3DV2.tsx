@@ -23,6 +23,7 @@ import { NeuralDraggableNodes } from './NeuralDraggableNodes';
 import { NeuralShellDragRotation } from './NeuralShellDragRotation';
 import { NeuralShellRotationHandles } from './NeuralShellRotationHandles';
 import { NodeSelectorPanel } from './NodeSelectorPanel';
+import { useHealth } from '@/contexts/HealthContext';
 
 import { TelemetryEventV2, NodeStateV2 } from './NeuralTelemetryTypesV2';
 import { convertV1ToV2, inferSubsystem } from './NeuralTelemetryUtilsV2';
@@ -493,6 +494,12 @@ export default function NeuralArchitecture3DV2({
           if (isUnmounted) return;
           setTelemetryConnected(true);
           console.log('[V2] Telemetry connected');
+          // Store state on window for health checks
+          if (typeof window !== 'undefined') {
+            (window as any).__atlasWebSocketState = { connected: true, error: false };
+          }
+          // Dispatch telemetry status event
+          window.dispatchEvent(new CustomEvent('telemetry-status', { detail: { connected: true } }));
         };
 
         ws.onmessage = (event) => {
@@ -522,12 +529,24 @@ export default function NeuralArchitecture3DV2({
           if (isUnmounted) return;
           console.error('[V2] WebSocket error:', error);
           setTelemetryConnected(false);
+          // Store state on window for health checks
+          if (typeof window !== 'undefined') {
+            (window as any).__atlasWebSocketState = { connected: false, error: true };
+          }
+          // Dispatch telemetry status event
+          window.dispatchEvent(new CustomEvent('telemetry-status', { detail: { connected: false } }));
         };
 
         ws.onclose = () => {
           if (isUnmounted) return;
           setTelemetryConnected(false);
           console.log('[V2] Telemetry disconnected, reconnecting...');
+          // Store state on window for health checks
+          if (typeof window !== 'undefined') {
+            (window as any).__atlasWebSocketState = { connected: false, error: false };
+          }
+          // Dispatch telemetry status event
+          window.dispatchEvent(new CustomEvent('telemetry-status', { detail: { connected: false } }));
 
           reconnectTimeout = setTimeout(() => {
             connect();
