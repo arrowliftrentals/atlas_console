@@ -608,56 +608,69 @@ export default function NeuralArchitecture3DV2({
 
   // Process telemetry data with debouncing to prevent UI freezing
   const handleTelemetryUpdate = (data: any) => {
-    console.log('[handleTelemetryUpdate] Called with data:', JSON.stringify(data).substring(0, 200));
+    console.log('[Neural3D handleTelemetryUpdate] type:', data.type);
     
     // Defer processing to next frame to prevent blocking render
     requestAnimationFrame(() => {
-      const memoryEvents: TelemetryEventV2[] = [];
+      const events: TelemetryEventV2[] = [];
       
-      // Handle TWO formats:
-      // 1. Single event object: {type: 'memory_write', sourceId: 'X', targetId: 'Y'}
-      // 2. Events array: {events: [{type: 'memory_write', ...}, ...]}
+      // Handle ACTUAL BACKEND FORMATS:
+      // 1. execution_flow: {type: 'execution_flow', source: 'X', target: 'Y'}
+      // 2. batch: {type: 'batch', events: [{source: 'X', target: 'Y'}, ...]}
+      // 3. Legacy memory_write: {type: 'memory_write', sourceId: 'X', targetId: 'Y'}
       
-      let eventsToProcess: any[] = [];
-      
-      if (data.type === 'memory_write' && data.sourceId && data.targetId) {
-        // Single event format from WebSocket
-        console.log('[handleTelemetryUpdate] Single memory_write event:', data.sourceId, '→', data.targetId);
-        eventsToProcess = [data];
-      } else if (data.events && Array.isArray(data.events)) {
-        // Events array format
-        console.log('[handleTelemetryUpdate] Found events array with', data.events.length, 'items');
-        eventsToProcess = data.events;
-      } else {
-        console.log('[handleTelemetryUpdate] Unrecognized format, keys:', Object.keys(data).join(', '));
-        return;
+      if (data.type === 'execution_flow' && data.source && data.target) {
+        // ACTUAL BACKEND FORMAT - Single execution flow
+        console.log('[Neural3D] execution_flow:', data.source, '→', data.target);
+        events.push({
+          source: data.source,
+          target: data.target,
+          type: 'data_transfer' as const,
+          timestamp: Date.now(),
+          bytes: 1024,
+          priority: 'normal' as const,
+          is_parent_trace: true,
+          spawn_count: 2,
+          skipParticles: false,
+        });
+      } else if (data.type === 'batch' && data.events && Array.isArray(data.events)) {
+        // ACTUAL BACKEND FORMAT - Batch of flows
+        console.log('[Neural3D] batch with', data.events.length, 'flows');
+        data.events.forEach((evt: any) => {
+          if (evt.source && evt.target) {
+            console.log('  ', evt.source, '→', evt.target);
+            events.push({
+              source: evt.source,
+              target: evt.target,
+              type: 'data_transfer' as const,
+              timestamp: Date.now(),
+              bytes: 1024,
+              priority: 'normal' as const,
+              is_parent_trace: true,
+              spawn_count: 2,
+              skipParticles: false,
+            });
+          }
+        });
+      } else if (data.type === 'memory_write' && data.sourceId && data.targetId) {
+        // Legacy format support
+        console.log('[Neural3D] memory_write (legacy):', data.sourceId, '→', data.targetId);
+        events.push({
+          source: data.sourceId,
+          target: data.targetId,
+          type: 'data_transfer' as const,
+          timestamp: Date.now(),
+          bytes: 1024,
+          priority: 'high' as const,
+          is_parent_trace: true,
+          spawn_count: 3,
+          skipParticles: false,
+        });
       }
       
-      // Process all events
-      eventsToProcess.forEach((evt: any) => {
-        console.log('[handleTelemetryUpdate] Processing event:', evt.type, evt.sourceId, evt.targetId);
-        if (evt.type === 'memory_write' && evt.sourceId && evt.targetId) {
-          console.log(`[MEMORY_WRITE] ${evt.sourceId} → ${evt.targetId} (${evt.layer || 'unknown'})`);
-          
-          memoryEvents.push({
-            source: evt.sourceId,
-            target: evt.targetId,
-            type: 'data_transfer' as const,
-            timestamp: Date.now(),
-            bytes: 1024,
-            priority: 'high' as const,
-            is_parent_trace: true,
-            spawn_count: 3, // Multiple particles for memory writes
-            skipParticles: false, // Explicitly allow particles
-          });
-        }
-      });
-      
-      if (memoryEvents.length > 0) {
-        console.log('[V2] Processing', memoryEvents.length, 'memory_write events - calling ingestEvents');
-        ingestEvents(memoryEvents);
-      } else {
-        console.log('[V2] No memory_write events to process');
+      if (events.length > 0) {
+        console.log('[Neural3D] Spawning particles for', events.length, 'flows');
+        ingestEvents(events);
       }
       
       if (data.type === 'update' || data.type === 'initial_state') {
