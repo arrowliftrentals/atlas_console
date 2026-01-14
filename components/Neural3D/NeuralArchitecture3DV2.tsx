@@ -507,21 +507,22 @@ export default function NeuralArchitecture3DV2({
           
           try {
             const data = JSON.parse(event.data);
-            console.log('[V2] Telemetry message received:', Object.keys(data));
+            console.log('[Neural3D WebSocket] Message type:', data.type, 'Keys:', Object.keys(data));
             
-            // DEBUG: Log events array details
-            if (data.events) {
-              console.log('[V2] Events array length:', data.events.length);
-              if (data.events.length > 0) {
-                console.log('[V2] First event:', JSON.stringify(data.events[0]));
-              }
+            // Log what we received
+            if (data.type === 'execution_flow') {
+              console.log('[Neural3D WebSocket] ✅ execution_flow:', data.source, '→', data.target);
+            } else if (data.type === 'batch') {
+              console.log('[Neural3D WebSocket] ✅ batch with', data.events?.length, 'events');
+            } else if (data.type === 'connected') {
+              console.log('[Neural3D WebSocket] ✅ Connected message');
             } else {
-              console.log('[V2] NO events array in message');
+              console.log('[Neural3D WebSocket] ⚠️ Unknown type:', data.type);
             }
             
             handleTelemetryUpdate(data);
           } catch (err) {
-            console.warn('[V2] Failed to parse telemetry:', err);
+            console.warn('[Neural3D WebSocket] Parse error:', err);
           }
         };
 
