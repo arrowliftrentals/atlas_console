@@ -522,10 +522,45 @@ const MetaView: React.FC = () => {
                         </div>
                         <div className="text-right">
                             <p className="text-4xl font-bold text-purple-400">{overallScore}</p>
-                            <p className="text-xs text-gray-400">Overall Jarvis Score</p>
+                            <p className="text-xs text-gray-400">toward Jarvis-level</p>
+                            <p className="text-xs text-gray-500 mt-1">Scale: 0-100 (100 = Fictional Jarvis)</p>
                         </div>
                     </div>
                 </div>
+
+                {/* Scale Definition Card */}
+                {jarvisBenchmark.scale_definition && (
+                    <div className="bg-gray-800/30 border border-gray-700/50 rounded-lg p-4">
+                        <h4 className="text-xs font-bold text-gray-300 uppercase tracking-wider mb-3">Score Scale Reference</h4>
+                        <div className="grid grid-cols-5 gap-2 text-xs">
+                            <div className="bg-green-900/20 border border-green-700/30 rounded p-2">
+                                <p className="font-semibold text-green-400 mb-1">90-100</p>
+                                <p className="text-gray-400 text-[10px]">Jarvis-level</p>
+                            </div>
+                            <div className="bg-blue-900/20 border border-blue-700/30 rounded p-2">
+                                <p className="font-semibold text-blue-400 mb-1">70-89</p>
+                                <p className="text-gray-400 text-[10px]">Adult stage</p>
+                            </div>
+                            <div className="bg-yellow-900/20 border border-yellow-700/30 rounded p-2">
+                                <p className="font-semibold text-yellow-400 mb-1">50-69</p>
+                                <p className="text-gray-400 text-[10px]">Adolescent</p>
+                            </div>
+                            <div className="bg-orange-900/20 border border-orange-700/30 rounded p-2">
+                                <p className="font-semibold text-orange-400 mb-1">30-49</p>
+                                <p className="text-gray-400 text-[10px]">Child stage</p>
+                            </div>
+                            <div className="bg-red-900/20 border border-red-700/30 rounded p-2">
+                                <p className="font-semibold text-red-400 mb-1">0-29</p>
+                                <p className="text-gray-400 text-[10px]">Infant stage</p>
+                            </div>
+                        </div>
+                        {jarvisBenchmark.scale_definition.important_note && (
+                            <p className="text-xs text-gray-500 mt-3 italic border-l-2 border-gray-600 pl-3">
+                                {jarvisBenchmark.scale_definition.important_note}
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 {/* Dimensions Grid */}
                 <div className="space-y-4">
@@ -575,7 +610,7 @@ const MetaView: React.FC = () => {
                                                 score >= 50 ? "text-blue-400" :
                                                 score >= 30 ? "text-yellow-400" :
                                                 "text-red-400"
-                                            }`}>{score}</span>
+                                            }`}>{score}<span className="text-xs text-gray-500 ml-1">/100</span></span>
                                         </div>
                                     </div>
                                 </div>
