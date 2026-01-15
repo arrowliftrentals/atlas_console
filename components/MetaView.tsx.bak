@@ -410,23 +410,11 @@ const MetaView: React.FC = () => {
                             const percentage = score / 100;
                             const targetSection = dimensionToSection[key] || key;
                             
-                            const dimensionTooltips: Record<string, string> = {
-                                'system_identity': 'Core system metadata: name, version, architecture philosophy, and development stage.',
-                                'codebase_health': 'Code quality metrics: modules, LOC, classes, functions, documentation coverage, and technical debt.',
-                                'test_coverage': 'Test suite completeness: total tests, pass rate, and memory layer coverage.',
-                                'memory_architecture': '10-layer cognitive memory system: L1-L10 implementation, data flow, and integration maturity.',
-                                'capability_breadth': 'Implemented capabilities: reasoning, memory, tools, planning, learning, and UI services.',
-                                'jarvis_readiness': 'Gap analysis across 8 AI dimensions: reasoning, autonomy, learning, multimodality, context, tools, planning, NLU.',
-                                'architectural_maturity': 'Architecture quality: modularity, extensibility, maintainability, testability, observability.',
-                                'reliability': 'Runtime stability: operation success rates, error handling, and system uptime.'
-                            };
-                            
                             return (
                                 <button 
                                     key={key} 
                                     onClick={() => setActiveSection(targetSection)}
                                     className="bg-gray-800/70 rounded-lg p-4 border border-gray-700/50 hover:border-gray-600 transition-colors cursor-pointer text-left"
-                                    title={dimensionTooltips[key] || label}
                                 >
                                     <div className="flex items-center justify-between mb-2">
                                         <p className="text-xs font-semibold text-gray-300">{label}</p>
@@ -539,24 +527,9 @@ const MetaView: React.FC = () => {
                                           score >= 50 ? "bg-blue-500" :
                                           score >= 30 ? "bg-yellow-500" :
                                           "bg-red-500";
-                        
-                        const jarvisTooltips: Record<string, string> = {
-                            'reasoning': 'Logical inference, problem-solving, causal understanding, and multi-step reasoning capabilities.',
-                            'autonomy': 'Self-directed behavior, goal management, proactive decision-making without constant human guidance.',
-                            'learning': 'Adaptive learning from experience, pattern recognition, and knowledge integration over time.',
-                            'multimodality': 'Processing and integrating multiple input types: text, code, images, audio, structured data.',
-                            'context_awareness': 'Understanding situational context, user intent, conversation history, and environmental state.',
-                            'tool_use': 'Ability to discover, select, compose, and execute external tools to accomplish goals.',
-                            'planning': 'Strategic goal decomposition, task sequencing, resource allocation, and long-horizon planning.',
-                            'natural_language_understanding': 'Semantic comprehension, intent parsing, entity extraction, and pragmatic understanding.'
-                        };
 
                         return (
-                            <div 
-                                key={dimKey} 
-                                className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50 cursor-default"
-                                title={jarvisTooltips[dimKey] || label}
-                            >
+                            <div key={dimKey} className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
                                 <div className="flex items-start justify-between mb-3">
                                     <div className="flex-1">
                                         <div className="flex items-center gap-3 mb-2">
@@ -892,28 +865,28 @@ const MetaView: React.FC = () => {
             <div className="space-y-6 max-w-5xl">
                 <div className="grid grid-cols-4 gap-4">
                     <div 
-                        className="bg-gradient-to-br from-purple-900/30 to-blue-900/30 rounded-lg p-4 text-center border border-purple-700/30 cursor-default"
+                        className="bg-gradient-to-br from-purple-900/30 to-blue-900/30 rounded-lg p-4 text-center border border-purple-700/30 cursor-help"
                         title="Total number of Python modules (.py files) in the ATLAS codebase. Indicates system scale and architectural complexity."
                     >
                         <p className="text-3xl font-bold text-purple-400">{content.total_modules}</p>
                         <p className="text-xs text-gray-400 mt-1">Total Modules</p>
                     </div>
                     <div 
-                        className="bg-gradient-to-br from-blue-900/30 to-cyan-900/30 rounded-lg p-4 text-center border border-blue-700/30 cursor-default"
+                        className="bg-gradient-to-br from-blue-900/30 to-cyan-900/30 rounded-lg p-4 text-center border border-blue-700/30 cursor-help"
                         title="Total lines of code excluding comments and blank lines. Represents the raw size and complexity of the implementation."
                     >
                         <p className="text-3xl font-bold text-blue-400">{content.total_lines?.toLocaleString()}</p>
                         <p className="text-xs text-gray-400 mt-1">Lines of Code</p>
                     </div>
                     <div 
-                        className="bg-gradient-to-br from-cyan-900/30 to-teal-900/30 rounded-lg p-4 text-center border border-cyan-700/30 cursor-default"
+                        className="bg-gradient-to-br from-cyan-900/30 to-teal-900/30 rounded-lg p-4 text-center border border-cyan-700/30 cursor-help"
                         title="Number of class definitions across all modules. Classes encapsulate behavior and state, forming the core building blocks of ATLAS's object-oriented architecture."
                     >
                         <p className="text-3xl font-bold text-cyan-400">{content.total_classes}</p>
                         <p className="text-xs text-gray-400 mt-1">Classes</p>
                     </div>
                     <div 
-                        className="bg-gradient-to-br from-teal-900/30 to-green-900/30 rounded-lg p-4 text-center border border-teal-700/30 cursor-default"
+                        className="bg-gradient-to-br from-teal-900/30 to-green-900/30 rounded-lg p-4 text-center border border-teal-700/30 cursor-help"
                         title="Total function definitions including both standalone functions and class methods. Functions are the operational units that execute ATLAS's cognitive processes."
                     >
                         <p className="text-3xl font-bold text-teal-400">{content.total_functions}</p>
@@ -949,21 +922,21 @@ const MetaView: React.FC = () => {
                         <h4 className="text-xs font-bold text-blue-400 uppercase mb-3">Code Quality Indicators</h4>
                         <div className="grid grid-cols-3 gap-4 text-sm">
                             <div 
-                                className="cursor-default group relative"
+                                className="cursor-help group relative"
                                 title="Percentage of modules with docstrings. Measures code documentation quality and maintainability. Higher coverage indicates better self-documenting code."
                             >
                                 <p className="text-gray-400 group-hover:text-gray-300 transition-colors">Docstring Coverage</p>
                                 <p className="text-xl font-bold text-blue-400">{content.quality_indicators.docstring_coverage_percent}%</p>
                             </div>
                             <div 
-                                className="cursor-default group relative"
+                                className="cursor-help group relative"
                                 title="Count of TODO, FIXME, and HACK comments in the codebase. Indicates areas needing attention or temporary solutions that should be addressed."
                             >
                                 <p className="text-gray-400 group-hover:text-gray-300 transition-colors">Technical Debt Markers</p>
                                 <p className="text-xl font-bold text-yellow-400">{content.quality_indicators.technical_debt_markers}</p>
                             </div>
                             <div 
-                                className="cursor-default group relative"
+                                className="cursor-help group relative"
                                 title="Number of modules containing docstrings. Essential for understanding module purpose, API contracts, and enabling effective collaboration."
                             >
                                 <p className="text-gray-400 group-hover:text-gray-300 transition-colors">Modules with Docs</p>
@@ -984,19 +957,19 @@ const MetaView: React.FC = () => {
             <div className="space-y-6 max-w-5xl">
                 <div className="bg-gradient-to-br from-green-900/30 to-emerald-900/30 border-2 border-green-600/50 rounded-xl p-6">
                     <div className="grid grid-cols-4 gap-6 text-center">
-                        <div className="cursor-default" title="Complete test suite count. Comprehensive test coverage validates system behavior and enables confident refactoring.">
+                        <div className="cursor-help" title="Complete test suite count. Comprehensive test coverage validates system behavior and enables confident refactoring.">
                             <p className="text-xs text-gray-400 mb-2">Total Tests</p>
                             <p className="text-4xl font-bold text-green-400">{results.total || 0}</p>
                         </div>
-                        <div className="cursor-default" title="Number of tests passing successfully. Indicates verified functionality working as expected.">
+                        <div className="cursor-help" title="Number of tests passing successfully. Indicates verified functionality working as expected.">
                             <p className="text-xs text-gray-400 mb-2">Passed</p>
                             <p className="text-4xl font-bold text-emerald-400">{results.passed || 0}</p>
                         </div>
-                        <div className="cursor-default" title="Tests currently failing. Represents known issues, regressions, or areas under active development requiring attention.">
+                        <div className="cursor-help" title="Tests currently failing. Represents known issues, regressions, or areas under active development requiring attention.">
                             <p className="text-xs text-gray-400 mb-2">Failed</p>
                             <p className="text-4xl font-bold text-red-400">{results.failed || 0}</p>
                         </div>
-                        <div className="cursor-default" title="Percentage of tests passing. Primary indicator of system stability and code quality. Target: >95% for production readiness.">
+                        <div className="cursor-help" title="Percentage of tests passing. Primary indicator of system stability and code quality. Target: >95% for production readiness.">
                             <p className="text-xs text-gray-400 mb-2">Pass Rate</p>
                             <p className="text-4xl font-bold text-cyan-400">{results.pass_rate || 0}%</p>
                         </div>
@@ -1025,7 +998,7 @@ const MetaView: React.FC = () => {
                                     return (
                                         <div 
                                             key={i} 
-                                            className={`px-3 py-2 rounded text-sm font-semibold cursor-default ${
+                                            className={`px-3 py-2 rounded text-sm font-semibold cursor-help ${
                                                 tested ? 'bg-green-900/50 text-green-400 border border-green-700' : 'bg-gray-700/50 text-gray-500 border border-gray-600'
                                             }`}
                                             title={layerDescriptions[i]}
@@ -1046,48 +1019,30 @@ const MetaView: React.FC = () => {
     };
 
     const renderCapabilityInventory = (content: any) => {
-        const capabilityTooltips: Record<string, string> = {
-            'core_loop': 'Main execution engine coordinating all cognitive processes and system orchestration.',
-            'memory_system': 'L1-L10 hierarchical memory architecture managing information storage and retrieval.',
-            'reasoning_service': 'Symbolic and LLM-based reasoning capabilities for problem-solving and inference.',
-            'tool_execution': 'Runtime for discovering, validating, and executing external tools and APIs.',
-            'planning_system': 'Goal decomposition, task sequencing, and strategic execution planning.',
-            'learning_mechanisms': 'Adaptive learning from interaction history and experience accumulation.',
-            'api_service': 'FastAPI REST endpoints exposing ATLAS capabilities to external clients.',
-            'console_ui': 'Web-based visualization and interaction interface for system monitoring.',
-        };
-        
         return (
             <div className="space-y-4 max-w-5xl">
-                {Object.entries(content).map(([name, data]: [string, any]) => {
-                    const displayName = name.replace(/_/g, ' ').split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-                    return (
-                        <div 
-                            key={name} 
-                            className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 hover:border-gray-600 transition-colors cursor-default"
-                            title={capabilityTooltips[name] || data.purpose}
-                        >
-                            <div className="flex items-center justify-between mb-2">
-                                <h4 className="text-sm font-bold text-gray-200">{displayName}</h4>
-                                <span className={`text-xs px-2 py-1 rounded ${
-                                    data.status === 'implemented' ? 'bg-green-900/30 text-green-400' :
-                                    data.status === 'functional' ? 'bg-blue-900/30 text-blue-400' :
-                                    'bg-gray-700 text-gray-400'
-                                }`}>
-                                    {data.status}
-                                </span>
-                            </div>
-                            {data.purpose && <p className="text-xs text-gray-400 mb-2">{data.purpose}</p>}
-                            {data.lines_of_code && (
-                                <div className="flex gap-4 text-xs text-gray-500">
-                                    <span>{data.modules} modules</span>
-                                    <span>{data.lines_of_code.toLocaleString()} lines</span>
-                                    <span>{data.components} components</span>
-                                </div>
-                            )}
+                {Object.entries(content).map(([name, data]: [string, any]) => (
+                    <div key={name} className="bg-gray-800/50 border border-gray-700 rounded-lg p-4 hover:border-gray-600 transition-colors">
+                        <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-bold text-gray-200">{name.replace(/_/g, ' ').split(' ').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</h4>
+                            <span className={`text-xs px-2 py-1 rounded ${
+                                data.status === 'implemented' ? 'bg-green-900/30 text-green-400' :
+                                data.status === 'functional' ? 'bg-blue-900/30 text-blue-400' :
+                                'bg-gray-700 text-gray-400'
+                            }`}>
+                                {data.status}
+                            </span>
                         </div>
-                    );
-                })}
+                        {data.purpose && <p className="text-xs text-gray-400 mb-2">{data.purpose}</p>}
+                        {data.lines_of_code && (
+                            <div className="flex gap-4 text-xs text-gray-500">
+                                <span>{data.modules} modules</span>
+                                <span>{data.lines_of_code.toLocaleString()} lines</span>
+                                <span>{data.components} components</span>
+                            </div>
+                        )}
+                    </div>
+                ))}
             </div>
         );
     };
@@ -1125,7 +1080,7 @@ const MetaView: React.FC = () => {
                         return (
                             <div 
                                 key={dim} 
-                                className="bg-gray-800/50 rounded-lg p-4 border border-gray-700 cursor-default"
+                                className="bg-gray-800/50 rounded-lg p-4 border border-gray-700 cursor-help"
                                 title={dimensionDescriptions[dim]}
                             >
                                 <div className="flex items-center justify-between mb-2">
@@ -1154,15 +1109,15 @@ const MetaView: React.FC = () => {
                     <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-4">
                         <h4 className="text-xs font-bold text-yellow-400 uppercase mb-3">Technical Debt</h4>
                         <div className="grid grid-cols-3 gap-4 text-sm">
-                            <div className="cursor-default" title="TODO comments marking planned improvements or incomplete features. Indicates future work that's been deferred but acknowledged.">
+                            <div className="cursor-help" title="TODO comments marking planned improvements or incomplete features. Indicates future work that's been deferred but acknowledged.">
                                 <p className="text-gray-400">TODOs</p>
                                 <p className="text-2xl font-bold text-yellow-400">{content.technical_debt.todos}</p>
                             </div>
-                            <div className="cursor-default" title="FIXME comments indicating known bugs or issues requiring correction. Higher priority than TODOs as they represent broken functionality.">
+                            <div className="cursor-help" title="FIXME comments indicating known bugs or issues requiring correction. Higher priority than TODOs as they represent broken functionality.">
                                 <p className="text-gray-400">FIXMEs</p>
                                 <p className="text-2xl font-bold text-orange-400">{content.technical_debt.fixmes}</p>
                             </div>
-                            <div className="cursor-default" title="HACK comments marking suboptimal solutions or workarounds. Technical debt that should be refactored for long-term sustainability.">
+                            <div className="cursor-help" title="HACK comments marking suboptimal solutions or workarounds. Technical debt that should be refactored for long-term sustainability.">
                                 <p className="text-gray-400">HACKs</p>
                                 <p className="text-2xl font-bold text-red-400">{content.technical_debt.hacks}</p>
                             </div>
@@ -1188,15 +1143,15 @@ const MetaView: React.FC = () => {
 
                 {content.total_operations && (
                     <div className="grid grid-cols-3 gap-4">
-                        <div className="bg-gray-800/50 rounded-lg p-4 text-center cursor-default" title="Total operations executed by ATLAS since deployment. Reflects system usage and activity volume.">
+                        <div className="bg-gray-800/50 rounded-lg p-4 text-center cursor-help" title="Total operations executed by ATLAS since deployment. Reflects system usage and activity volume.">
                             <p className="text-xs text-gray-400 mb-1">Total Operations</p>
                             <p className="text-3xl font-bold text-blue-400">{content.total_operations}</p>
                         </div>
-                        <div className="bg-gray-800/50 rounded-lg p-4 text-center cursor-default" title="Operations completed successfully without errors. High success rate indicates stable, reliable operation.">
+                        <div className="bg-gray-800/50 rounded-lg p-4 text-center cursor-help" title="Operations completed successfully without errors. High success rate indicates stable, reliable operation.">
                             <p className="text-xs text-gray-400 mb-1">Successful</p>
                             <p className="text-3xl font-bold text-green-400">{content.successful_operations}</p>
                         </div>
-                        <div className="bg-gray-800/50 rounded-lg p-4 text-center cursor-default" title="Operations that encountered errors or exceptions. Analyzed to identify failure patterns and improve robustness.">
+                        <div className="bg-gray-800/50 rounded-lg p-4 text-center cursor-help" title="Operations that encountered errors or exceptions. Analyzed to identify failure patterns and improve robustness.">
                             <p className="text-xs text-gray-400 mb-1">Failed</p>
                             <p className="text-3xl font-bold text-red-400">{content.failed_operations}</p>
                         </div>
@@ -1225,21 +1180,21 @@ const MetaView: React.FC = () => {
 
                 {/* Sub-scores */}
                 <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700 cursor-default" title="Percentage of L1-L10 layers that have been implemented with classes, methods, and data structures.">
+                    <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
                         <p className="text-xs text-gray-400 mb-2">Implementation</p>
                         <p className="text-3xl font-bold text-blue-400">{scores.implementation_completeness || 0}</p>
                         <div className="w-full bg-gray-700 rounded-full h-1.5 mt-2">
                             <div className="bg-blue-500 h-full rounded-full" style={{ width: `${scores.implementation_completeness || 0}%` }} />
                         </div>
                     </div>
-                    <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700 cursor-default" title="Verified data movement between memory layers. Tests cross-layer reads, writes, and information flow.">
+                    <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
                         <p className="text-xs text-gray-400 mb-2">Data Flow</p>
                         <p className="text-3xl font-bold text-purple-400">{scores.data_flow_verification || 0}</p>
                         <div className="w-full bg-gray-700 rounded-full h-1.5 mt-2">
                             <div className="bg-purple-500 h-full rounded-full" style={{ width: `${scores.data_flow_verification || 0}%` }} />
                         </div>
                     </div>
-                    <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700 cursor-default" title="How well memory layers integrate with CoreLoop, ReasoningService, and tool execution systems.">
+                    <div className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
                         <p className="text-xs text-gray-400 mb-2">Integration</p>
                         <p className="text-3xl font-bold text-cyan-400">{scores.integration_maturity || 0}</p>
                         <div className="w-full bg-gray-700 rounded-full h-1.5 mt-2">
@@ -1259,29 +1214,12 @@ const MetaView: React.FC = () => {
                             const isActive = layerData.status === 'active';
                             const isImplemented = layerData.status === 'implemented' || isActive;
                             
-                            const layerTooltips: Record<string, string> = {
-                                'L1': 'Sensory Buffer: Immediate perception processing and input buffering. Holds raw stimuli before cognitive processing.',
-                                'L2': 'Working Memory: Active cognitive workspace for current tasks. Limited capacity, high-speed access.',
-                                'L3': 'Short-term Memory: Recent context retention (minutes to hours). Supports conversational coherence.',
-                                'L4': 'Episodic Memory: Event sequences and experiences. Autobiographical memory of system interactions.',
-                                'L5': 'Semantic Memory: Facts, concepts, and declarative knowledge. Long-term factual information store.',
-                                'L6': 'Procedural Memory: Skills, behaviors, and learned processes. How-to knowledge and action sequences.',
-                                'L7': 'Long-term Storage: Persistent knowledge base. Archives consolidated information for retrieval.',
-                                'L8': 'Meta-Memory: Memory about memory. Tracks what is known, confidence levels, and information sources.',
-                                'L9': 'Associative Network: Concept relationships and semantic links. Enables analogical reasoning.',
-                                'L10': 'Deep Archive: Historical system state and deprecated information. Cold storage for old data.'
-                            };
-                            
                             return (
-                                <div 
-                                    key={layerName} 
-                                    className={`rounded-lg p-4 border cursor-default ${
-                                        isActive ? 'bg-green-900/20 border-green-700/50' :
-                                        isImplemented ? 'bg-blue-900/20 border-blue-700/50' :
-                                        'bg-gray-800/30 border-gray-700'
-                                    }`}
-                                    title={layerTooltips[layerName] || layerData.purpose}
-                                >
+                                <div key={layerName} className={`rounded-lg p-4 border ${
+                                    isActive ? 'bg-green-900/20 border-green-700/50' :
+                                    isImplemented ? 'bg-blue-900/20 border-blue-700/50' :
+                                    'bg-gray-800/30 border-gray-700'
+                                }`}>
                                     <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-3">
                                             <span className={`text-sm font-bold px-2 py-1 rounded ${

@@ -163,18 +163,8 @@ export function NeuralEdgesInstancedV2({ nodes, edges, timeScale }: Props) {
       const startVec = new Vector3(x1, y1, z1);
       const endVec = new Vector3(x2, y2, z2);
       
-      // Determine shell and use appropriate path algorithm
-      const startRadius = Math.sqrt(x1*x1 + y1*y1 + z1*z1);
-      const endRadius = Math.sqrt(x2*x2 + y2*y2 + z2*z2);
-      
-      let pathPoints: Vector3[];
-      if (Math.abs(startRadius - endRadius) < 10) {
-        // Same shell - use convex arch
-        pathPoints = createHelicalRibbonPath(startVec, endVec, (startRadius + endRadius) / 2);
-      } else {
-        // Cross-shell - use cross-shell path
-        pathPoints = createCrossShellHelicalPath(startVec, endVec, startRadius, endRadius);
-      }
+      // Use straight line path for verification
+      const pathPoints: Vector3[] = [startVec, endVec];
       
       // Create tube geometry along straight path
       let geometry: TubeGeometry;

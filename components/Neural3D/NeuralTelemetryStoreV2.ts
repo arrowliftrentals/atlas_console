@@ -39,34 +39,21 @@ export const useNeuralTelemetryStoreV2 = create<NeuralTelemetryStoreState>((set,
     const edges = new Map(get().edges);
     const particleEvents = get().particleEvents.slice();
 
-    console.log('[STORE] ingestEvents called with', events.length, 'events');
-    console.log('[STORE] Before:', nodes.size, 'nodes,', edges.size, 'edges');
-
     for (const ev of events) {
       const nodeUpdates = computeNodeStateFromEvent(nodes, ev);
       const edgeUpdates = computeEdgeStateFromEvent(edges, ev);
       
-      nodeUpdates.forEach((v, k) => {
-        nodes.set(k, v);
-        console.log('[STORE] Added/updated node:', k, 'subsystem:', v.subsystem);
-      });
+      nodeUpdates.forEach((v, k) => nodes.set(k, v));
       edgeUpdates.forEach((v, k) => edges.set(k, v));
 
       // Queue for particle emission (cap at 1000 to prevent memory issues)
       // Skip events marked for architecture loading only
       const shouldAddParticle = !ev.skipParticles && particleEvents.length < 1000;
-      console.log('[STORE] Event skipParticles:', ev.skipParticles, 'shouldAdd:', shouldAddParticle, 'queueLength:', particleEvents.length);
       
       if (shouldAddParticle) {
         particleEvents.push(ev);
-        console.log('[STORE] ✓ Added to particleEvents, new length:', particleEvents.length);
-      } else {
-        console.log('[STORE] ✗ Skipped particle event, skipParticles:', ev.skipParticles, 'queueFull:', particleEvents.length >= 1000);
       }
     }
-
-    console.log('[STORE] After:', nodes.size, 'nodes,', edges.size, 'edges');
-    console.log('[STORE] Node IDs:', Array.from(nodes.keys()).join(', '));
 
     set({
       nodes,
@@ -112,8 +99,6 @@ export const useNeuralTelemetryStoreV2 = create<NeuralTelemetryStoreState>((set,
   clearParticleEvents: () => {
     const currentEvents = get().particleEvents.length;
     if (currentEvents === 0) return;
-    
-    console.log('[STORE] Clearing', currentEvents, 'particle events');
     
     // Just clear events - keep all edges (they represent the architecture)
     set({ particleEvents: [] });

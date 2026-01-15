@@ -950,7 +950,18 @@ export default function ArchitectureViewV2() {
       <div className="px-4 py-3 bg-[#252526] border-b border-gray-700 flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex gap-2">
-            <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${telemetryConnected ? 'bg-green-500' : 'bg-gray-500'}`} title={telemetryConnected ? 'Live' : 'Disconnected'} />
+            <div 
+              className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${telemetryConnected ? 'bg-green-500' : 'bg-gray-600'}`}
+              style={{
+                boxShadow: telemetryConnected 
+                  ? '0 0 6px rgba(34, 197, 94, 0.8)' 
+                  : 'none',
+                border: telemetryConnected
+                  ? '1.5px solid rgba(34, 197, 94, 0.9)'
+                  : '1.5px solid rgba(75, 85, 99, 0.6)'
+              }}
+              title={telemetryConnected ? 'Live' : 'Disconnected'}
+            />
             <div>
               <h2 className="text-lg font-semibold text-white whitespace-nowrap">Cognitive Architecture</h2>
               <p className="text-sm text-gray-400 whitespace-nowrap">Components</p>

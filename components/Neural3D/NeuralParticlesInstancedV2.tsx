@@ -73,7 +73,6 @@ export function NeuralParticlesInstancedV2({
   onActiveCountChange,
 }: Props) {
   const meshRef = useRef<InstancedMesh>(null!);
-  const glowRef = useRef<InstancedMesh>(null!);
   const updateParticleProgress = useNeuralTelemetryStoreV2((s) => s.updateParticleProgress);
   const clearParticleEvents = useNeuralTelemetryStoreV2((s) => s.clearParticleEvents);
   
@@ -92,10 +91,11 @@ export function NeuralParticlesInstancedV2({
     [maxParticles]
   );
 
-  // Simple material with vertex colors
+  // Single color material
   const particleMaterial = useMemo(() => {
     return new THREE.MeshBasicMaterial({
-      vertexColors: true,
+      color: 0x00FFFF, // Bright cyan
+      toneMapped: false,
     });
   }, []);
   const spawnIndexRef = useRef(0);
@@ -107,7 +107,7 @@ export function NeuralParticlesInstancedV2({
 
 
   useFrame((_, delta) => {
-    if (!meshRef.current || !glowRef.current) return;
+    if (!meshRef.current) return;
     
     const dt = delta * timeScale;
     frameCountRef.current++;
@@ -119,18 +119,8 @@ export function NeuralParticlesInstancedV2({
         if (particles[i].active) actualCount++;
       }
       if (actualCount !== activeCountRef.current) {
-        console.log('[PARTICLE COUNT] Reconciling: was', activeCountRef.current, 'actually', actualCount);
         activeCountRef.current = actualCount;
       }
-    }
-
-    // Log spawn events being processed (more detail)
-    if (spawnEvents.length > 0 && frameCountRef.current % 10 === 0) {
-      console.log('[PARTICLE FRAME] Processing', spawnEvents.length, 'spawn events');
-      console.log('[PARTICLE FRAME] Nodes available:', nodes.size, 'Edges available:', edges.size);
-      console.log('[PARTICLE FRAME] First spawn event:', spawnEvents[0]);
-      console.log('[PARTICLE FRAME] Sample edges:', Array.from(edges.keys()).slice(0, 5));
-      console.log('[PARTICLE FRAME] Sample nodes:', Array.from(nodes.keys()).slice(0, 5));
     }
 
     // Spawn new particles from ALL events (one particle per hop)
@@ -170,57 +160,17 @@ export function NeuralParticlesInstancedV2({
       p.currentHopIndex = 0;
       p.path = undefined; // No multi-hop tracking
       
-      // Calculate curved path between source and target
-      const sourceVec = new Vector3(...srcNode.position);
-      const targetVec = new Vector3(...dstNode.position);
-      p.curvePath = calculateEdgePath(sourceVec, targetVec, 0.2, 30);
-      
-      console.log('[PARTICLE ACTIVATED] edgeId:', edgeId, 'particle index:', spawnIndexRef.current,
-        'source:', ev.source, 'has position:', !!srcNode.position, 
-        'target:', ev.target, 'has position:', !!dstNode.position);
+      // Use straight line path for now (no curve)
+      p.curvePath = undefined;
       
       // Speed based on priority
-      p.speed = ev.priority === 'high' ? 1.5 : ev.priority === 'low' ? 0.3 : 0.8;
+      p.speed = ev.priority === 'high' ? 1.2 : ev.priority === 'low' ? 0.4 : 0.8;
       
-      // Inherit color from source node
-      const sourceNode = nodes.get(ev.source);
-      if (sourceNode) {
-        // Compute source node's color using same logic as node renderer
-        const nodeMetadata = classifyNode(sourceNode.id, sourceNode.subsystem);
-        const regionColor = new Color(REGION_COLORS[nodeMetadata.region]);
-        const subsystemColor = new Color(NODE_COLORS[sourceNode.subsystem]);
-        
-        // Blend region and subsystem colors (70% region, 30% subsystem)
-        const nodeColor = regionColor.lerp(subsystemColor, 0.3);
-        
-        // Special handling for specific nodes
-        const isAgentRouter = sourceNode.id.toLowerCase().includes('agent_router') || sourceNode.id.toLowerCase().includes('agentrouter');
-        const isSandboxExecution = sourceNode.id.toLowerCase().includes('sandbox_execution');
-        
-        if (isAgentRouter) {
-          nodeColor.setHex(0xFFD700); // Pure gold
-        } else if (isSandboxExecution) {
-          nodeColor.setHex(0x00CED1); // Cyan
-        }
-        
-        p.color.copy(nodeColor);
-      } else {
-        // Fallback to event type color if source node not found
-        p.color.set(PARTICLE_COLORS_BY_EVENT[ev.type] || '#ffffff');
-      }
+      // Single color for all particles
+      p.color.setHex(0x00FFFF);
       
-      // Size reflects "weight" of operation (how many spawns this decision triggered)
-      // Single tool = smaller, multi-tool decision = larger
-      const baseSize = 1.5; // Match smallest node size for visibility
-      const spawnMultiplier = Math.sqrt(ev.spawn_count || 1); // sqrt for balanced scaling (1→1, 4→2, 9→3)
-      p.size = baseSize * spawnMultiplier; // Large enough to see clearly
-      
-      console.log('[PARTICLE SPAWN]', {
-        source: ev.source,
-        target: ev.target,
-        spawn_count: ev.spawn_count,
-        size: p.size
-      });
+      // Fixed size
+      p.size = 0.8;
 
       spawnIndexRef.current = (spawnIndexRef.current + 1) % maxParticles;
     }
@@ -232,9 +182,7 @@ export function NeuralParticlesInstancedV2({
     }
     
     // Clear consumed spawn events after processing
-    // This allows new telemetry events to spawn new particles
     if (spawnEvents.length > 0) {
-      console.log('[PARTICLE] Clearing', spawnEvents.length, 'consumed spawn events');
       clearParticleEvents();
     }
 
@@ -249,7 +197,6 @@ export function NeuralParticlesInstancedV2({
         dummy.scale.set(0, 0, 0);
         dummy.updateMatrix();
         meshRef.current.setMatrixAt(i, dummy.matrix);
-        glowRef.current.setMatrixAt(i, dummy.matrix);
         return;
       }
 
@@ -309,38 +256,18 @@ export function NeuralParticlesInstancedV2({
         return;
       }
 
-      // Apply reflection effect when particle gets close to other nodes
-      const reflectionRadius = 8; // Distance at which reflection starts
-      const reflectionStrength = 0.3; // How much to deflect
-      
-      nodes.forEach((node) => {
-        // Skip source and target nodes
-        if (node.id === edge.sourceId || node.id === edge.targetId) return;
-        
-        const [nx, ny, nz] = node.position;
-        const distX = x - nx;
-        const distY = y - ny;
-        const distZ = z - nz;
-        const dist = Math.sqrt(distX*distX + distY*distY + distZ*distZ);
-        
-        // If within reflection radius, deflect particle away from node
-        if (dist < reflectionRadius && dist > 0.1) {
-          const influence = Math.pow((reflectionRadius - dist) / reflectionRadius, 2); // Quadratic falloff
-          const deflection = reflectionStrength * influence;
-          
-          // Normalize direction away from node and apply deflection
-          x += (distX / dist) * deflection;
-          y += (distY / dist) * deflection;
-          z += (distZ / dist) * deflection;
-        }
-      });
+      // Log first active particle every 30 frames
+      if (frameCountRef.current % 30 === 0 && i === 0) {
+        console.log(`[P0] t=${p.t.toFixed(3)} pos=[${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(1)}]`);
+        console.log(`     src=[${src.position[0].toFixed(1)}, ${src.position[1].toFixed(1)}, ${src.position[2].toFixed(1)}]`);
+        console.log(`     dst=[${dst.position[0].toFixed(1)}, ${dst.position[1].toFixed(1)}, ${dst.position[2].toFixed(1)}]`);
+      }
 
       dummy.position.set(x, y, z);
       dummy.scale.set(p.size, p.size, p.size);
       dummy.updateMatrix();
       
       meshRef.current.setMatrixAt(i, dummy.matrix);
-      meshRef.current.setColorAt(i, p.color);
       
       // Track particle progress for node illumination
       activeParticlesData.push({
@@ -350,9 +277,6 @@ export function NeuralParticlesInstancedV2({
       });
     });
     meshRef.current.instanceMatrix.needsUpdate = true;
-    if (meshRef.current.instanceColor) {
-      meshRef.current.instanceColor.needsUpdate = true;
-    }
     
     // Force geometry to recompute bounding sphere to prevent NaN errors
     if (meshRef.current.geometry.boundingSphere) {
@@ -360,12 +284,11 @@ export function NeuralParticlesInstancedV2({
     }
     meshRef.current.geometry.computeBoundingSphere();
 
-    // Report active particle count (tracked incrementally for O(1) performance)
+    // Report active particle count (no logging)
     if (onActiveCountChange) {
-      const activeCount = Math.max(0, activeCountRef.current); // Ensure non-negative
+      const activeCount = Math.max(0, activeCountRef.current);
       if (activeCount !== lastActiveCountRef.current) {
         lastActiveCountRef.current = activeCount;
-        console.log('[PARTICLE COUNT] Active particles:', activeCount);
         onActiveCountChange(activeCount);
       }
     }
@@ -376,34 +299,15 @@ export function NeuralParticlesInstancedV2({
     }
   });
 
-  // Create geometries once and reuse (prevent remount issues)
-  const coreGeometry = useMemo(() => new THREE.SphereGeometry(0.8, 16, 16), []);
-  const glowGeometry = useMemo(() => new THREE.SphereGeometry(2.0, 16, 16), []);
-  const glowMaterial = useMemo(() => {
-    return new THREE.MeshBasicMaterial({
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.6,
-      depthTest: true,
-      depthWrite: false,
-      toneMapped: false,
-    });
-  }, []);
-
+  // Simple large sphere for visibility testing
+  const particleGeometry = useMemo(() => new THREE.SphereGeometry(2.0, 16, 16), []);
   return (
     <>
-      {/* Core bright white center */}
+      {/* Single solid neon blue sphere */}
       <instancedMesh
         ref={meshRef}
-        args={[coreGeometry, particleMaterial, maxParticles]}
+        args={[particleGeometry, particleMaterial, maxParticles]}
         renderOrder={999}
-      />
-      
-      {/* Outer colored glow shell */}
-      <instancedMesh
-        ref={glowRef}
-        args={[glowGeometry, glowMaterial, maxParticles]}
-        renderOrder={998}
       />
     </>
   );
