@@ -827,6 +827,8 @@ const MetaView: React.FC = () => {
         if (sectionKey === 'capability_inventory') return renderCapabilityInventory(content);
         if (sectionKey === 'architectural_maturity') return renderArchitecturalMaturity(content);
         if (sectionKey === 'reliability') return renderReliability(content);
+        if (sectionKey === 'competitive_landscape') return renderCompetitiveLandscape(content);
+        if (sectionKey === 'market_valuation') return renderMarketValuation(content);
         if (sectionKey === 'known_limitations') return renderKnownLimitations(content);
         if (sectionKey === 'recommendations') return renderRecommendationsV3(content);
 
@@ -1047,14 +1049,21 @@ const MetaView: React.FC = () => {
 
     const renderCapabilityInventory = (content: any) => {
         const capabilityTooltips: Record<string, string> = {
-            'core_loop': 'Main execution engine coordinating all cognitive processes and system orchestration.',
-            'memory_system': 'L1-L10 hierarchical memory architecture managing information storage and retrieval.',
-            'reasoning_service': 'Symbolic and LLM-based reasoning capabilities for problem-solving and inference.',
-            'tool_execution': 'Runtime for discovering, validating, and executing external tools and APIs.',
-            'planning_system': 'Goal decomposition, task sequencing, and strategic execution planning.',
-            'learning_mechanisms': 'Adaptive learning from interaction history and experience accumulation.',
-            'api_service': 'FastAPI REST endpoints exposing ATLAS capabilities to external clients.',
-            'console_ui': 'Web-based visualization and interaction interface for system monitoring.',
+            'core_loop': 'CoreLoop is the central orchestrator implementing the think-act-learn cycle. Receives intents, delegates to ReasoningService, coordinates tool execution, manages memory commits, and maintains system coherence. Critical path for all operations.',
+            'memory_system': 'L1-L10 hierarchical architecture inspired by human cognition: L1 (sensory buffer), L2 (working), L3 (short-term), L4 (episodic), L5 (semantic), L6 (procedural), L7 (long-term), L8 (meta-memory), L9 (associative), L10 (archive). Enables context retention and learning.',
+            'reasoning_service': 'Hybrid neuro-symbolic reasoning engine. Combines deterministic symbolic logic (prevents drift) with LLM-powered inference (handles ambiguity). Routes between approaches based on problem type. Core intelligence mechanism.',
+            'tool_execution': 'Sandboxed runtime for external tool integration. Discovers available tools via reflection, validates inputs/outputs, executes in isolated environment, handles errors gracefully. Enables ATLAS to interact with filesystem, APIs, and system resources.',
+            'planning_system': 'Multi-horizon planning: immediate (next action), tactical (session goals), strategic (long-term objectives). Uses goal stack, priority queue, and dependency graph. Enables complex multi-step task completion.',
+            'learning_mechanisms': 'Pattern extraction from interaction history stored in procedural memory (L6). Identifies recurring workflows, user preferences, and successful strategies. Adapts behavior over time without manual reprogramming.',
+            'api_service': 'FastAPI REST server exposing /v1/atlas/agent (main query), /v1/atlas/chat (streaming), /v1/meta/assess (self-assessment), and /v1/telemetry/stream (WebSocket). Enables external integrations and console UI.',
+            'console_ui': 'Next.js web interface with 3D neural visualization (React Three Fiber), real-time telemetry display, chat interface, file explorer, and meta-assessment viewer. Provides observability into ATLAS internals.',
+            'orchestrator': 'High-level coordination layer managing intent routing, session state, error handling, and subsystem lifecycle. Sits above CoreLoop, delegates to specialized services.',
+            'sandbox': 'VM-based isolation environment (Docker/Firecracker) for running untrusted code. Implements resource limits (CPU, memory, network), filesystem restrictions, and timeout enforcement. Critical for safety.',
+            'screen': 'macOS Accessibility API integration for screen reading and UI automation. Enables ATLAS to observe and interact with GUI applications. Uses AppleScript and CoreGraphics.',
+            'ai': 'LLM client abstraction layer supporting multiple providers (OpenAI, Anthropic, local models). Includes prompt templating, response parsing, token counting, and safety filtering.',
+            'self_modify': 'Code generation and hot-reload system enabling ATLAS to modify its own implementation. Generates diffs, runs tests, commits changes. Requires human approval for production deployment.',
+            'intent': 'Deterministic parser converting natural language to structured intents. Pattern matching + keyword extraction. Faster and more reliable than pure LLM parsing for known command types.',
+            'monitoring': 'Telemetry collection via centralized TelemetryTracker. Captures events (tool calls, memory ops, reasoning steps), metrics (latency, success rate), and traces. Feeds observability dashboards.',
         };
         
         return (
@@ -1154,15 +1163,30 @@ const MetaView: React.FC = () => {
                     <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-4">
                         <h4 className="text-xs font-bold text-yellow-400 uppercase mb-3">Technical Debt</h4>
                         <div className="grid grid-cols-3 gap-4 text-sm">
-                            <div className="cursor-default" title="TODO comments marking planned improvements or incomplete features. Indicates future work that's been deferred but acknowledged.">
+                            <div 
+                                className="cursor-default" 
+                                title={content.technical_debt.todo_items?.length > 0 
+                                    ? content.technical_debt.todo_items.slice(0, 10).join('\n') + (content.technical_debt.todo_items.length > 10 ? `\n... and ${content.technical_debt.todo_items.length - 10} more` : '')
+                                    : "TODO comments marking planned improvements or incomplete features. Indicates future work that's been deferred but acknowledged."}
+                            >
                                 <p className="text-gray-400">TODOs</p>
                                 <p className="text-2xl font-bold text-yellow-400">{content.technical_debt.todos}</p>
                             </div>
-                            <div className="cursor-default" title="FIXME comments indicating known bugs or issues requiring correction. Higher priority than TODOs as they represent broken functionality.">
+                            <div 
+                                className="cursor-default" 
+                                title={content.technical_debt.fixme_items?.length > 0 
+                                    ? content.technical_debt.fixme_items.slice(0, 10).join('\n') + (content.technical_debt.fixme_items.length > 10 ? `\n... and ${content.technical_debt.fixme_items.length - 10} more` : '')
+                                    : "FIXME comments indicating known bugs or issues requiring correction. Higher priority than TODOs as they represent broken functionality."}
+                            >
                                 <p className="text-gray-400">FIXMEs</p>
                                 <p className="text-2xl font-bold text-orange-400">{content.technical_debt.fixmes}</p>
                             </div>
-                            <div className="cursor-default" title="HACK comments marking suboptimal solutions or workarounds. Technical debt that should be refactored for long-term sustainability.">
+                            <div 
+                                className="cursor-default" 
+                                title={content.technical_debt.hack_items?.length > 0 
+                                    ? content.technical_debt.hack_items.slice(0, 10).join('\n') + (content.technical_debt.hack_items.length > 10 ? `\n... and ${content.technical_debt.hack_items.length - 10} more` : '')
+                                    : "HACK comments marking suboptimal solutions or workarounds. Technical debt that should be refactored for long-term sustainability."}
+                            >
                                 <p className="text-gray-400">HACKs</p>
                                 <p className="text-2xl font-bold text-red-400">{content.technical_debt.hacks}</p>
                             </div>
@@ -1401,6 +1425,228 @@ const MetaView: React.FC = () => {
         return renderFormattedRecommendations(content);
     };
 
+    const renderCompetitiveLandscape = (content: any) => {
+        const dimensionComparisons = content.dimension_comparisons || {};
+        const competitors = content.competitors || {};
+        const overallAssessment = content.overall_assessment || {};
+        
+        return (
+            <div className="space-y-6 max-w-5xl">
+                {/* Overall Assessment */}
+                <div className="bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-purple-700/50 rounded-lg p-5">
+                    <div className="flex items-center justify-between mb-3">
+                        <div>
+                            <h4 className="text-lg font-bold text-gray-100">Market Position</h4>
+                            <p className="text-xs text-gray-400 mt-1">{overallAssessment.market_position}</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-4xl font-bold text-purple-400">{overallAssessment.atlas_average_score}</p>
+                            <p className="text-xs text-gray-400">ATLAS Score</p>
+                        </div>
+                    </div>
+                    <p className="text-sm text-gray-300 leading-relaxed">{overallAssessment.summary}</p>
+                </div>
+
+                {/* Dimension Comparisons - Bar Charts */}
+                <div>
+                    <h4 className="text-sm font-bold text-gray-200 mb-4 flex items-center gap-2">
+                        <span className="w-1 h-5 bg-purple-500 rounded"></span>
+                        Capability Comparison
+                    </h4>
+                    <div className="space-y-4">
+                        {Object.entries(dimensionComparisons).map(([dimension, scores]: [string, any]) => (
+                            <div key={dimension} className="bg-gray-800/50 rounded-lg p-4 border border-gray-700">
+                                <p className="text-xs font-semibold text-gray-300 mb-3">
+                                    {dimension.replace(/_/g, ' ').toUpperCase()}
+                                </p>
+                                <div className="space-y-2">
+                                    {Object.entries(scores).map(([competitor, score]: [string, any]) => (
+                                        <div key={competitor} className="flex items-center gap-3">
+                                            <div className="w-32 text-xs text-gray-400 truncate">
+                                                {competitor === 'atlas' ? 'ATLAS' : competitor.replace(/_/g, ' ')}
+                                            </div>
+                                            <div className="flex-1 bg-gray-700 rounded-full h-6 overflow-hidden relative">
+                                                <div 
+                                                    className={`h-full rounded-full ${
+                                                        competitor === 'atlas' ? 'bg-purple-500' :
+                                                        competitor === 'industry_leaders' ? 'bg-blue-500' :
+                                                        competitor === 'average_user' ? 'bg-green-500' :
+                                                        'bg-gray-600'
+                                                    }`}
+                                                    style={{ width: `${score}%` }}
+                                                />
+                                                <span className="absolute inset-0 flex items-center justify-end pr-2 text-xs font-bold text-white">
+                                                    {score}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Competitive Strengths & Weaknesses */}
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <h4 className="text-sm font-bold text-green-400 mb-3">✓ Competitive Strengths</h4>
+                        <div className="space-y-2">
+                            {(content.competitive_strengths || []).map((strength: string, i: number) => (
+                                <div key={i} className="bg-green-900/20 border-l-2 border-green-600 pl-3 py-2">
+                                    <p className="text-xs text-gray-300">{strength}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-bold text-red-400 mb-3">✗ Competitive Weaknesses</h4>
+                        <div className="space-y-2">
+                            {(content.competitive_weaknesses || []).map((weakness: string, i: number) => (
+                                <div key={i} className="bg-red-900/20 border-l-2 border-red-600 pl-3 py-2">
+                                    <p className="text-xs text-gray-300">{weakness}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Unique Differentiators */}
+                <div className="bg-blue-900/20 border border-blue-700/30 rounded-lg p-4">
+                    <h4 className="text-xs font-bold text-blue-400 uppercase mb-3">Unique Differentiators</h4>
+                    <div className="flex flex-wrap gap-2">
+                        {(content.unique_differentiators || []).map((diff: string, i: number) => (
+                            <span key={i} className="bg-blue-900/30 text-blue-300 text-xs px-3 py-1.5 rounded">{diff}</span>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    const renderMarketValuation = (content: any) => {
+        const devInvestment = content.development_investment || {};
+        const marketOpp = content.market_opportunity || {};
+        const revenue = content.revenue_projections || {};
+        const valuation = content.valuation_estimates || {};
+        const funding = content.funding_assessment || {};
+        
+        const formatCurrency = (num: number) => {
+            if (num >= 1_000_000_000) return `$${(num / 1_000_000_000).toFixed(1)}B`;
+            if (num >= 1_000_000) return `$${(num / 1_000_000).toFixed(1)}M`;
+            if (num >= 1_000) return `$${(num / 1_000).toFixed(0)}K`;
+            return `$${num}`;
+        };
+        
+        return (
+            <div className="space-y-6 max-w-5xl">
+                {/* Valuation Range */}
+                <div className="bg-gradient-to-r from-green-900/30 to-emerald-900/30 border-2 border-green-600/50 rounded-xl p-6">
+                    <h4 className="text-lg font-bold text-gray-100 mb-4">Current Valuation Estimate</h4>
+                    <div className="grid grid-cols-2 gap-6">
+                        <div className="text-center">
+                            <p className="text-xs text-gray-400 mb-2">Conservative</p>
+                            <p className="text-4xl font-bold text-green-400">{formatCurrency(valuation.current_low)}</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xs text-gray-400 mb-2">Optimistic</p>
+                            <p className="text-4xl font-bold text-emerald-400">{formatCurrency(valuation.current_high)}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Development Investment */}
+                <div className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+                    <h4 className="text-sm font-bold text-gray-200 mb-3">Development Investment</h4>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div className="text-center">
+                            <p className="text-xs text-gray-400 mb-1">Lines of Code</p>
+                            <p className="text-2xl font-bold text-purple-400">{devInvestment.lines_of_code?.toLocaleString()}</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xs text-gray-400 mb-1">Estimated Cost</p>
+                            <p className="text-2xl font-bold text-blue-400">
+                                {formatCurrency(devInvestment.estimated_cost_low)} - {formatCurrency(devInvestment.estimated_cost_high)}
+                            </p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xs text-gray-400 mb-1">Time Investment</p>
+                            <p className="text-2xl font-bold text-cyan-400">{devInvestment.time_investment_months} mo</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Market Opportunity */}
+                <div>
+                    <h4 className="text-sm font-bold text-gray-200 mb-3 flex items-center gap-2">
+                        <span className="w-1 h-5 bg-green-500 rounded"></span>
+                        Market Opportunity
+                    </h4>
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-gray-800/50 rounded p-3 text-center">
+                            <p className="text-xs text-gray-400 mb-1">TAM</p>
+                            <p className="text-xl font-bold text-green-400">{formatCurrency(marketOpp.total_addressable_market)}</p>
+                        </div>
+                        <div className="bg-gray-800/50 rounded p-3 text-center">
+                            <p className="text-xs text-gray-400 mb-1">SAM</p>
+                            <p className="text-xl font-bold text-blue-400">{formatCurrency(marketOpp.serviceable_market)}</p>
+                        </div>
+                        <div className="bg-gray-800/50 rounded p-3 text-center">
+                            <p className="text-xs text-gray-400 mb-1">Target Share</p>
+                            <p className="text-xl font-bold text-purple-400">{marketOpp.target_market_share}%</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Revenue Projections */}
+                <div className="bg-blue-900/20 border border-blue-700/30 rounded-lg p-4">
+                    <h4 className="text-xs font-bold text-blue-400 uppercase mb-3">Revenue Projections</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <p className="text-xs text-gray-400 mb-1">Year 1</p>
+                            <p className="text-2xl font-bold text-blue-400">{formatCurrency(revenue.year_1)}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-gray-400 mb-1">Year 3</p>
+                            <p className="text-2xl font-bold text-cyan-400">{formatCurrency(revenue.year_3)}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Funding Assessment */}
+                <div className="bg-gradient-to-r from-indigo-900/30 to-violet-900/30 border border-indigo-700/50 rounded-lg p-4">
+                    <h4 className="text-sm font-bold text-gray-200 mb-3">Funding Stage</h4>
+                    <div className="mb-4">
+                        <p className="text-xl font-bold text-indigo-400">{funding.stage}</p>
+                        <p className="text-sm text-gray-400">Typical raise: {funding.typical_raise}</p>
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold text-gray-400 uppercase mb-2">Key Milestones for Funding</p>
+                        <ul className="list-disc list-inside space-y-1 text-xs text-gray-300">
+                            {(funding.key_milestones_for_funding || []).map((milestone: string, i: number) => (
+                                <li key={i}>{milestone}</li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+
+                {/* Exit Scenarios */}
+                <div>
+                    <h4 className="text-sm font-bold text-gray-200 mb-3">Exit Scenarios</h4>
+                    <div className="grid grid-cols-3 gap-3">
+                        {(content.exit_scenarios || []).map((scenario: any, i: number) => (
+                            <div key={i} className="bg-gray-800/50 border border-gray-700 rounded-lg p-4">
+                                <p className="text-sm font-bold text-gray-200 mb-1">{scenario.type}</p>
+                                <p className="text-lg font-bold text-purple-400 mb-2">{scenario.range}</p>
+                                <p className="text-xs text-gray-400">Likelihood: {scenario.likelihood}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     const renderKnownLimitations = (content: any) => {
         return (
             <div className="space-y-6 max-w-5xl">
@@ -1547,8 +1793,10 @@ const MetaView: React.FC = () => {
         { id: "jarvis_benchmark", label: "6. Jarvis-Level Benchmark" },
         { id: "architectural_maturity", label: "7. Architectural Maturity" },
         { id: "reliability", label: "8. Reliability & Stability" },
-        { id: "known_limitations", label: "9. Known Limitations" },
-        { id: "recommendations", label: "10. Recommendations" },
+        { id: "competitive_landscape", label: "9. Competitive Landscape" },
+        { id: "market_valuation", label: "10. Market Valuation" },
+        { id: "known_limitations", label: "11. Known Limitations" },
+        { id: "recommendations", label: "12. Recommendations" },
     ] : [
         { id: "overall_score", label: "Executive Summary" },
         { id: "capability_inventory", label: "1. Capability Inventory" },
