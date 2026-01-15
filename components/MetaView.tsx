@@ -52,6 +52,8 @@ const MetaView: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [activeSection, setActiveSection] = useState<string | null>("capability_inventory");
     const [showHistory, setShowHistory] = useState(false);
+    const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+    const [cleanupConfirm, setCleanupConfirm] = useState(false);
 
     const loadLatestAssessment = async () => {
         setLoading(true);
@@ -84,7 +86,10 @@ const MetaView: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
-            const response = await fetch(`${BACKEND_URL}/v1/meta/assess`);
+            const response = await fetch(`${BACKEND_URL}/v1/meta/assess`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
@@ -151,6 +156,48 @@ const MetaView: React.FC = () => {
         } catch (e) {
             console.error("Failed to fetch diff:", e);
             setChanges([]);
+        }
+    };
+
+    const deleteAssessment = async (assessmentId: number) => {
+        try {
+            const response = await fetch(`${BACKEND_URL}/v1/meta/assess/${assessmentId}`, {
+                method: 'DELETE',
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            // Refresh history and load latest if we deleted the current one
+            await fetchHistory();
+            if (selectedAssessmentId === assessmentId) {
+                await loadLatestAssessment();
+            }
+            setDeleteConfirmId(null);
+        } catch (e: any) {
+            console.error("Failed to delete assessment:", e);
+            setError(`Failed to delete: ${e.message}`);
+        }
+    };
+
+    const cleanupOldAssessments = async (keepCount: number = 5) => {
+        setLoading(true);
+        try {
+            const response = await fetch(`${BACKEND_URL}/v1/meta/cleanup?keep=${keepCount}`, {
+                method: 'POST',
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            const data = await response.json();
+            await fetchHistory();
+            await loadLatestAssessment();
+            setCleanupConfirm(false);
+            // Could show success message: data.deleted_count, data.kept_count
+        } catch (e: any) {
+            console.error("Failed to cleanup:", e);
+            setError(`Failed to cleanup: ${e.message}`);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -603,6 +650,13 @@ const MetaView: React.FC = () => {
                         {showHistory ? "Hide History" : "Show History"}
                     </button>
                     <button
+                        className="bg-orange-700 hover:bg-orange-600 text-xs px-3 py-1.5 rounded transition-colors"
+                        onClick={() => setCleanupConfirm(true)}
+                        disabled={loading}
+                    >
+                        🧹 Cleanup
+                    </button>
+                    <button
                         className="bg-gray-700 hover:bg-gray-600 text-xs px-3 py-1.5 rounded transition-colors"
                         onClick={generateNewAssessment}
                         disabled={loading}
@@ -638,26 +692,37 @@ const MetaView: React.FC = () => {
                                 <h3 className="text-xs font-semibold text-gray-400 mb-2">ASSESSMENT HISTORY</h3>
                                 <div className="space-y-1">
                                     {history.map((h, index) => (
-                                        <button
-                                            key={h.id}
-                                            onClick={() => loadHistoricalAssessment(h.id)}
-                                            className={`w-full text-left px-2 py-2 text-xs rounded transition-colors ${
-                                                selectedAssessmentId === h.id
-                                                    ? "bg-gray-700 text-gray-100"
-                                                    : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
-                                            }`}
-                                        >
-                                            <div className="flex items-center justify-between">
-                                                <span className="font-semibold">#{h.id}</span>
-                                                {index === 0 && <span className="text-green-400 text-xs">Latest</span>}
-                                            </div>
-                                            <div className="text-xs text-gray-500 mt-0.5">
-                                                {new Date(h.generated_at).toLocaleString()}
-                                            </div>
-                                            <div className="text-xs text-gray-500">
-                                                {h.phase}
-                                            </div>
-                                        </button>
+                                        <div key={h.id} className="relative group">
+                                            <button
+                                                onClick={() => loadHistoricalAssessment(h.id)}
+                                                className={`w-full text-left px-2 py-2 text-xs rounded transition-colors ${
+                                                    selectedAssessmentId === h.id
+                                                        ? "bg-gray-700 text-gray-100"
+                                                        : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <span className="font-semibold">#{h.id}</span>
+                                                    {index === 0 && <span className="text-green-400 text-xs">Latest</span>}
+                                                </div>
+                                                <div className="text-xs text-gray-500 mt-0.5">
+                                                    {new Date(h.generated_at).toLocaleString()}
+                                                </div>
+                                                <div className="text-xs text-gray-500">
+                                                    {h.phase}
+                                                </div>
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setDeleteConfirmId(h.id);
+                                                }}
+                                                className="absolute top-2 right-2 text-red-400 hover:text-red-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                title="Delete assessment"
+                                            >
+                                                🗑️
+                                            </button>
+                                        </div>
                                     ))}
                                 </div>
                             </div>
@@ -711,6 +776,70 @@ const MetaView: React.FC = () => {
                                 ) : null}
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirmId && (
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+                    <div className="bg-gray-800 rounded-lg p-6 max-w-md border border-gray-700">
+                        <h3 className="text-base font-semibold text-gray-100 mb-3">Delete Assessment?</h3>
+                        <p className="text-sm text-gray-300 mb-4">
+                            Are you sure you want to delete assessment #{deleteConfirmId}?
+                        </p>
+                        <p className="text-xs text-gray-400 mb-6">
+                            This cannot be undone.
+                        </p>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => setDeleteConfirmId(null)}
+                                className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => deleteAssessment(deleteConfirmId)}
+                                className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 rounded transition-colors"
+                            >
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Cleanup Confirmation Modal */}
+            {cleanupConfirm && (
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+                    <div className="bg-gray-800 rounded-lg p-6 max-w-md border border-gray-700">
+                        <h3 className="text-base font-semibold text-gray-100 mb-3">Cleanup Old Assessments?</h3>
+                        <p className="text-sm text-gray-300 mb-2">
+                            This will delete all but the <strong>5 most recent</strong> assessments.
+                        </p>
+                        <p className="text-xs text-gray-400 mb-2">
+                            Current total: <strong>{history.length}</strong> assessments
+                        </p>
+                        <p className="text-xs text-gray-400 mb-6">
+                            Will delete: <strong>~{Math.max(0, history.length - 5)}</strong> assessments
+                        </p>
+                        <p className="text-xs text-red-400 mb-6">
+                            This cannot be undone.
+                        </p>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => setCleanupConfirm(false)}
+                                className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={() => cleanupOldAssessments(5)}
+                                className="px-4 py-2 text-sm bg-orange-600 hover:bg-orange-500 rounded transition-colors"
+                            >
+                                Cleanup
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
