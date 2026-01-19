@@ -65,6 +65,7 @@ const MetaView: React.FC = () => {
     const [showHistory, setShowHistory] = useState(false);
     const [selectedForDelete, setSelectedForDelete] = useState<Set<number>>(new Set());
     const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
+    const [expandedSubsystems, setExpandedSubsystems] = useState<Set<string>>(new Set());
 
     const loadLatestAssessment = async () => {
         setLoading(true);
@@ -513,18 +514,14 @@ const MetaView: React.FC = () => {
 
         return (
             <div className="space-y-6 max-w-5xl">
-                {/* Header */}
+                {/* Score Banner */}
                 <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-700/50 rounded-lg p-5">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h3 className="text-lg font-bold text-gray-100">Jarvis-Level AI Benchmark</h3>
-                            <p className="text-xs text-gray-400 mt-1">8-Dimension Capability Evaluation</p>
+                            <h4 className="text-lg font-bold text-gray-100">Jarvis Readiness Score</h4>
+                            <p className="text-xs text-gray-400 mt-1">8-dimension capability assessment</p>
                         </div>
-                        <div className="text-right">
-                            <p className="text-4xl font-bold text-purple-400">{overallScore}</p>
-                            <p className="text-xs text-gray-400">toward Jarvis-level</p>
-                            <p className="text-xs text-gray-500 mt-1">Scale: 0-100 (100 = Fictional Jarvis)</p>
-                        </div>
+                        <p className="text-5xl font-bold text-purple-400">{overallScore}</p>
                     </div>
                 </div>
 
@@ -859,6 +856,7 @@ const MetaView: React.FC = () => {
         if (sectionKey === 'codebase_analysis') return renderCodebaseAnalysis(content);
         if (sectionKey === 'test_analysis') return renderTestAnalysis(content);
         if (sectionKey === 'memory_architecture') return renderMemoryArchitectureV3(content);
+        if (sectionKey === 'ml_infrastructure') return renderMLInfrastructure(content);
         if (sectionKey === 'capability_inventory') return renderCapabilityInventory(content);
         if (sectionKey === 'architectural_maturity') return renderArchitecturalMaturity(content);
         if (sectionKey === 'reliability') return renderReliability(content);
@@ -923,10 +921,246 @@ const MetaView: React.FC = () => {
         );
     };
 
-    const renderCodebaseAnalysis = (content: any) => {
-        const subsystems = content.subsystems || {};
+    const renderMLInfrastructure = (content: any) => {
+        const scores = content.scores || {};
+        const mlScore = scores.overall_ml_score;
+        
         return (
             <div className="space-y-6 max-w-5xl">
+                {/* Score Banner */}
+                {mlScore !== undefined && (
+                    <div className="bg-gradient-to-r from-indigo-900/30 to-violet-900/30 border border-indigo-700/50 rounded-lg p-5">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h4 className="text-lg font-bold text-gray-100">Learning Infrastructure Score</h4>
+                                <p className="text-xs text-gray-400 mt-1">Data quality, model performance, training pipeline</p>
+                            </div>
+                            <p className="text-5xl font-bold text-indigo-400">{mlScore}</p>
+                        </div>
+                    </div>
+                )}
+                
+                {/* ML Infrastructure Content */}
+                <div className="space-y-4">
+                    {Object.entries(content)
+                        .filter(([key]) => key !== 'scores')
+                        .map(([key, value]) => {
+                            const heading = key.replace(/_/g, " ").split(" ").map(w => 
+                                w.charAt(0).toUpperCase() + w.slice(1)
+                            ).join(" ");
+                            
+                            return (
+                                <div key={key} className="bg-gray-800/30 rounded-lg p-4 border border-gray-700">
+                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">
+                                        {heading}
+                                    </h4>
+                                    <div className="pl-2">
+                                        {renderSection(key, value, "ml_infrastructure")}
+                                    </div>
+                                </div>
+                            );
+                        })
+                    }
+                </div>
+            </div>
+        );
+    };
+
+    const renderCodebaseAnalysis = (content: any) => {
+        const subsystems = content.subsystems || {};
+        
+        // Get architectural maturity from assessment (if available)
+        const archMaturity = assessment?.architectural_maturity || {};
+        
+        return (
+            <div className="space-y-6 max-w-5xl">
+                {/* Architectural Maturity Score Banner */}
+                {archMaturity.overall_score !== undefined && (
+                    <div className="bg-gradient-to-r from-purple-900/30 to-indigo-900/30 border-2 border-purple-600/50 rounded-xl p-6">
+                        <div className="flex items-center justify-between mb-4">
+                            <div>
+                                <h3 className="text-base font-bold text-purple-300 mb-1">Architectural Maturity Score</h3>
+                                <p className="text-xs text-gray-400">Measures design quality, not just existence</p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-5xl font-bold text-purple-400">{archMaturity.overall_score}/100</p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-5 gap-3 text-sm">
+                            <div className="bg-purple-900/20 rounded-lg p-3">
+                                <p className="text-xs text-gray-400 mb-1">Modularity</p>
+                                <p className="text-xl font-bold text-blue-400">{archMaturity.modularity || 0}</p>
+                                <p className="text-xs text-gray-500 mt-1">Separation of concerns</p>
+                            </div>
+                            <div className="bg-purple-900/20 rounded-lg p-3">
+                                <p className="text-xs text-gray-400 mb-1">Extensibility</p>
+                                <p className="text-xl font-bold text-cyan-400">{archMaturity.extensibility || 0}</p>
+                                <p className="text-xs text-gray-500 mt-1">Plugin architecture</p>
+                            </div>
+                            <div className="bg-purple-900/20 rounded-lg p-3">
+                                <p className="text-xs text-gray-400 mb-1">Maintainability</p>
+                                <p className="text-xl font-bold text-green-400">{archMaturity.maintainability || 0}</p>
+                                <p className="text-xs text-gray-500 mt-1">Docs + code quality</p>
+                            </div>
+                            <div className="bg-purple-900/20 rounded-lg p-3">
+                                <p className="text-xs text-gray-400 mb-1">Testability</p>
+                                <p className="text-xl font-bold text-yellow-400">{archMaturity.testability || 0}</p>
+                                <p className="text-xs text-gray-500 mt-1">Test infrastructure</p>
+                            </div>
+                            <div className="bg-purple-900/20 rounded-lg p-3">
+                                <p className="text-xs text-gray-400 mb-1">Observability</p>
+                                <p className="text-xl font-bold text-orange-400">{archMaturity.observability || 0}</p>
+                                <p className="text-xs text-gray-500 mt-1">Telemetry quality</p>
+                            </div>
+                        </div>
+                        {archMaturity.technical_debt && (
+                            <div className="mt-4 pt-4 border-t border-purple-700/30">
+                                <div className="flex items-center justify-between text-xs">
+                                    <span className="text-gray-400">Technical Debt Ratio</span>
+                                    <span className="text-yellow-400 font-semibold">{archMaturity.technical_debt.debt_ratio_per_module} markers/module</span>
+                                </div>
+                                <div className="flex items-center justify-between text-xs mt-1">
+                                    <span className="text-gray-400">Total Debt Markers</span>
+                                    <span className="text-gray-300">{archMaturity.technical_debt.total_markers} (TODOs, FIXMEs, HACKs)</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Why Score is Low - Detailed Breakdown */}
+                {archMaturity.overall_score !== undefined && archMaturity.overall_score < 50 && (
+                    <div className="bg-red-900/20 border-2 border-red-700/50 rounded-lg p-5">
+                        <h4 className="text-sm font-bold text-red-400 mb-4 flex items-center gap-2">
+                            <span>⚠️</span>
+                            <span>Why Score is Low (21.5/100)</span>
+                        </h4>
+                        <div className="space-y-4">
+                            {archMaturity.modularity < 40 && (
+                                <div className="bg-gray-900/50 rounded-lg p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h5 className="text-sm font-bold text-blue-400">Modularity: {archMaturity.modularity}/100</h5>
+                                        <span className="text-xs px-2 py-1 rounded bg-red-900/50 text-red-300">POOR</span>
+                                    </div>
+                                    <p className="text-xs text-gray-300 mb-3">Issues detected:</p>
+                                    <ul className="text-xs text-gray-400 space-y-1 ml-4">
+                                        <li>• Assumed circular dependencies between modules (no dependency analysis run)</li>
+                                        <li>• No verified module boundaries or interface contracts</li>
+                                        <li>• Missing dependency injection patterns</li>
+                                    </ul>
+                                    <div className="mt-3 pt-3 border-t border-gray-700">
+                                        <p className="text-xs font-semibold text-green-400 mb-2">How to improve:</p>
+                                        <ul className="text-xs text-gray-300 space-y-1 ml-4">
+                                            <li>• Run dependency analysis tools (e.g., pydeps, import-linter)</li>
+                                            <li>• Define clear module interfaces and contracts</li>
+                                            <li>• Break up any monolithic modules (&gt;30% of codebase)</li>
+                                            <li>• Implement dependency injection for loose coupling</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
+
+                            {archMaturity.extensibility < 40 && (
+                                <div className="bg-gray-900/50 rounded-lg p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h5 className="text-sm font-bold text-cyan-400">Extensibility: {archMaturity.extensibility}/100</h5>
+                                        <span className="text-xs px-2 py-1 rounded bg-red-900/50 text-red-300">CRITICAL</span>
+                                    </div>
+                                    <p className="text-xs text-gray-300 mb-3">Issues detected:</p>
+                                    <ul className="text-xs text-gray-400 space-y-1 ml-4">
+                                        <li>• No verified extension points (handlers/providers are naming only)</li>
+                                        <li>• Missing plugin system or registry pattern</li>
+                                        <li>• No configuration management subsystem</li>
+                                    </ul>
+                                    <div className="mt-3 pt-3 border-t border-gray-700">
+                                        <p className="text-xs font-semibold text-green-400 mb-2">How to improve:</p>
+                                        <ul className="text-xs text-gray-300 space-y-1 ml-4">
+                                            <li>• Implement plugin architecture with registration system</li>
+                                            <li>• Add handler/provider base classes with extension points</li>
+                                            <li>• Create configuration management system</li>
+                                            <li>• Document extension APIs and provide examples</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
+
+                            {archMaturity.maintainability < 40 && (
+                                <div className="bg-gray-900/50 rounded-lg p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h5 className="text-sm font-bold text-green-400">Maintainability: {archMaturity.maintainability}/100</h5>
+                                        <span className="text-xs px-2 py-1 rounded bg-yellow-900/50 text-yellow-300">NEEDS WORK</span>
+                                    </div>
+                                    <p className="text-xs text-gray-300 mb-3">Issues detected:</p>
+                                    <ul className="text-xs text-gray-400 space-y-1 ml-4">
+                                        {archMaturity.technical_debt?.debt_ratio_per_module > 1 && (
+                                            <li>• High technical debt: {archMaturity.technical_debt.debt_ratio_per_module} TODOs/FIXMEs per module</li>
+                                        )}
+                                        <li>• Documentation coverage is only partial (60% of modules)</li>
+                                        <li>• Code organization not verified (assumed issues)</li>
+                                    </ul>
+                                    <div className="mt-3 pt-3 border-t border-gray-700">
+                                        <p className="text-xs font-semibold text-green-400 mb-2">How to improve:</p>
+                                        <ul className="text-xs text-gray-300 space-y-1 ml-4">
+                                            <li>• Address {archMaturity.technical_debt?.total_markers || 0} TODOs/FIXMEs in codebase</li>
+                                            <li>• Add docstrings to remaining 40% of modules</li>
+                                            <li>• Run linting tools (ruff, pylint) and fix issues</li>
+                                            <li>• Establish code review process for quality gates</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
+
+                            {archMaturity.testability < 40 && (
+                                <div className="bg-gray-900/50 rounded-lg p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h5 className="text-sm font-bold text-yellow-400">Testability: {archMaturity.testability}/100</h5>
+                                        <span className="text-xs px-2 py-1 rounded bg-yellow-900/50 text-yellow-300">NEEDS WORK</span>
+                                    </div>
+                                    <p className="text-xs text-gray-300 mb-3">Issues detected:</p>
+                                    <ul className="text-xs text-gray-400 space-y-1 ml-4">
+                                        <li>• Only 81% of subsystems (13/16) have test coverage</li>
+                                        <li>• No mocking/fixture framework detected</li>
+                                        <li>• Test infrastructure exists but has gaps</li>
+                                    </ul>
+                                    <div className="mt-3 pt-3 border-t border-gray-700">
+                                        <p className="text-xs font-semibold text-green-400 mb-2">How to improve:</p>
+                                        <ul className="text-xs text-gray-300 space-y-1 ml-4">
+                                            <li>• Add tests for 3 untested subsystems: llm, benchmarks, self_modify</li>
+                                            <li>• Implement pytest fixtures and mocking framework</li>
+                                            <li>• Add integration tests for subsystem interactions</li>
+                                            <li>• Set up test coverage reporting (&gt;80% target)</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
+
+                            {archMaturity.observability < 40 && (
+                                <div className="bg-gray-900/50 rounded-lg p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h5 className="text-sm font-bold text-orange-400">Observability: {archMaturity.observability}/100</h5>
+                                        <span className="text-xs px-2 py-1 rounded bg-red-900/50 text-red-300">CRITICAL</span>
+                                    </div>
+                                    <p className="text-xs text-gray-300 mb-3">Issues detected:</p>
+                                    <ul className="text-xs text-gray-400 space-y-1 ml-4">
+                                        <li>• Monitoring subsystem exists but minimal telemetry events</li>
+                                        <li>• No structured logging verified</li>
+                                        <li>• No metrics/dashboards infrastructure</li>
+                                    </ul>
+                                    <div className="mt-3 pt-3 border-t border-gray-700">
+                                        <p className="text-xs font-semibold text-green-400 mb-2">How to improve:</p>
+                                        <ul className="text-xs text-gray-300 space-y-1 ml-4">
+                                            <li>• Increase telemetry event coverage across all subsystems</li>
+                                            <li>• Implement structured logging (JSON logs with context)</li>
+                                            <li>• Add metrics collection (Prometheus/StatsD)</li>
+                                            <li>• Create operational dashboards for monitoring</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 <div className="grid grid-cols-4 gap-4">
                     <div 
                         className="bg-gradient-to-br from-purple-900/30 to-blue-900/30 rounded-lg p-4 text-center border border-purple-700/30 cursor-default"
@@ -1017,25 +1251,46 @@ const MetaView: React.FC = () => {
         const results = content.test_results || {};
         const coverage = content.coverage_analysis || {};
         
+        // Calculate coverage quality score
+        const counts = coverage.subsystem_test_counts || {};
+        const qualityScores = Object.values(counts).map((count: any) => {
+            if (count >= 100) return 100;
+            if (count >= 20) return 75;
+            if (count >= 5) return 50;
+            if (count > 0) return 25;
+            return 0;
+        });
+        const avgQuality = qualityScores.length > 0 
+            ? Math.round(qualityScores.reduce((a: number, b: number) => a + b, 0) / qualityScores.length)
+            : 0;
+        const totalTestCount = results.total || 0; // Actual test count from test results
+        const overallCoverageScore = Math.round((results.pass_rate || 0) * 0.7 + avgQuality * 0.3);
+        
         return (
             <div className="space-y-6 max-w-5xl">
-                <div className="bg-gradient-to-br from-green-900/30 to-emerald-900/30 border-2 border-green-600/50 rounded-xl p-6">
-                    <div className="grid grid-cols-4 gap-6 text-center">
-                        <div className="cursor-default" title="Complete test suite count. Comprehensive test coverage validates system behavior and enables confident refactoring.">
-                            <p className="text-xs text-gray-400 mb-2">Total Tests</p>
-                            <p className="text-4xl font-bold text-green-400">{results.total || 0}</p>
+                {/* Overall Coverage Score Banner */}
+                <div className="bg-gradient-to-r from-cyan-900/30 to-blue-900/30 border-2 border-cyan-600/50 rounded-xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 className="text-base font-bold text-cyan-300 mb-1">Test Coverage Score</h3>
+                            <p className="text-xs text-gray-400">Combines pass rate (70%) and subsystem distribution (30%)</p>
                         </div>
-                        <div className="cursor-default" title="Number of tests passing successfully. Indicates verified functionality working as expected.">
-                            <p className="text-xs text-gray-400 mb-2">Passed</p>
-                            <p className="text-4xl font-bold text-emerald-400">{results.passed || 0}</p>
+                        <div className="text-right">
+                            <p className="text-5xl font-bold text-cyan-400">{overallCoverageScore}%</p>
                         </div>
-                        <div className="cursor-default" title="Tests currently failing. Represents known issues, regressions, or areas under active development requiring attention.">
-                            <p className="text-xs text-gray-400 mb-2">Failed</p>
-                            <p className="text-4xl font-bold text-red-400">{results.failed || 0}</p>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div className="bg-cyan-900/20 rounded-lg p-3">
+                            <p className="text-xs text-gray-400 mb-1">Pass Rate</p>
+                            <p className="text-xl font-bold text-emerald-400">{results.pass_rate || 0}%</p>
                         </div>
-                        <div className="cursor-default" title="Percentage of tests passing. Primary indicator of system stability and code quality. Target: >95% for production readiness.">
-                            <p className="text-xs text-gray-400 mb-2">Pass Rate</p>
-                            <p className="text-4xl font-bold text-cyan-400">{results.pass_rate || 0}%</p>
+                        <div className="bg-cyan-900/20 rounded-lg p-3">
+                            <p className="text-xs text-gray-400 mb-1">Subsystem Quality</p>
+                            <p className="text-xl font-bold text-yellow-400">{avgQuality}%</p>
+                        </div>
+                        <div className="bg-cyan-900/20 rounded-lg p-3">
+                            <p className="text-xs text-gray-400 mb-1">Total Tests</p>
+                            <p className="text-xl font-bold text-blue-400">{totalTestCount}</p>
                         </div>
                     </div>
                 </div>
@@ -1078,27 +1333,398 @@ const MetaView: React.FC = () => {
                         </div>
                     </div>
                 )}
+
+                {coverage.subsystems_tested && coverage.subsystems_tested.length > 0 && (
+                    <div>
+                        <h4 className="text-sm font-bold text-gray-200 mb-3">Subsystem Test Coverage</h4>
+                        <div className="bg-gray-800/50 rounded-lg p-4">
+                            <div className="grid grid-cols-2 gap-3">
+                                {['orchestrator', 'memory', 'sandbox', 'screen', 'ai', 'learning', 'intent', 'llm', 'monitoring', 'conversation', 'files', 'api', 'config', 'benchmarks', 'presence', 'self_modify']
+                                    .sort((a, b) => {
+                                        const countA = coverage.subsystem_test_counts?.[a] || 0;
+                                        const countB = coverage.subsystem_test_counts?.[b] || 0;
+                                        return countB - countA; // Sort descending by test count
+                                    })
+                                    .map(subsystem => {
+                                    const testCount = coverage.subsystem_test_counts?.[subsystem] || 0;
+                                    const subsystemDescriptions: Record<string, string> = {
+                                        'orchestrator': 'Orchestrator - task coordination and workflow management',
+                                        'memory': 'Memory - 10-layer cognitive memory system',
+                                        'sandbox': 'Sandbox - isolated code execution environment',
+                                        'screen': 'Screen - display capture and analysis',
+                                        'ai': 'AI - high-level AI coordination and reasoning',
+                                        'learning': 'Learning - behavior adaptation and improvement',
+                                        'intent': 'Intent - user command parsing and understanding',
+                                        'llm': 'LLM - language model integration (DSPy, OpenAI, etc.)',
+                                        'monitoring': 'Monitoring - telemetry, logging, and observability',
+                                        'conversation': 'Conversation - dialog state and context management',
+                                        'files': 'Files - file system operations and management',
+                                        'api': 'API - external API interfaces and endpoints',
+                                        'config': 'Config - configuration management and settings',
+                                        'benchmarks': 'Benchmarks - performance testing and evaluation',
+                                        'presence': 'Presence - system awareness and availability',
+                                        'self_modify': 'Self-Modify - code generation and self-improvement'
+                                    };
+                                    
+                                    // Determine coverage level for visual styling
+                                    let coverageLevel = 'none';
+                                    let bgColor = 'bg-gray-700/50';
+                                    let textColor = 'text-gray-500';
+                                    let borderColor = 'border-gray-600';
+                                    
+                                    if (testCount >= 100) {
+                                        coverageLevel = 'excellent';
+                                        bgColor = 'bg-green-900/50';
+                                        textColor = 'text-green-400';
+                                        borderColor = 'border-green-700';
+                                    } else if (testCount >= 20) {
+                                        coverageLevel = 'good';
+                                        bgColor = 'bg-emerald-900/50';
+                                        textColor = 'text-emerald-400';
+                                        borderColor = 'border-emerald-700';
+                                    } else if (testCount >= 5) {
+                                        coverageLevel = 'fair';
+                                        bgColor = 'bg-yellow-900/50';
+                                        textColor = 'text-yellow-400';
+                                        borderColor = 'border-yellow-700';
+                                    } else if (testCount > 0) {
+                                        coverageLevel = 'minimal';
+                                        bgColor = 'bg-orange-900/50';
+                                        textColor = 'text-orange-400';
+                                        borderColor = 'border-orange-700';
+                                    }
+                                    
+                                    const isExpanded = expandedSubsystems.has(subsystem);
+                                    
+                                    return (
+                                        <div 
+                                            key={subsystem} 
+                                            className={`${bgColor} border ${borderColor} rounded-lg p-3 transition-all`}
+                                        >
+                                            <div 
+                                                className="cursor-pointer"
+                                                onClick={() => {
+                                                    const newExpanded = new Set(expandedSubsystems);
+                                                    if (isExpanded) {
+                                                        newExpanded.delete(subsystem);
+                                                    } else {
+                                                        newExpanded.add(subsystem);
+                                                    }
+                                                    setExpandedSubsystems(newExpanded);
+                                                }}
+                                                title={subsystemDescriptions[subsystem]}
+                                            >
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`text-sm font-bold ${textColor} capitalize`}>{subsystem}</span>
+                                                        <span className="text-xs text-gray-500">
+                                                            {isExpanded ? '▼' : '▶'}
+                                                        </span>
+                                                    </div>
+                                                    <span className={`text-lg font-bold ${textColor}`}>{testCount}</span>
+                                                </div>
+                                                <p className="text-xs text-gray-400">
+                                                    {testCount === 0 && 'No tests'}
+                                                    {testCount === 1 && '1 test'}
+                                                    {testCount > 1 && testCount < 5 && 'Minimal coverage'}
+                                                    {testCount >= 5 && testCount < 20 && 'Fair coverage'}
+                                                    {testCount >= 20 && testCount < 100 && 'Good coverage'}
+                                                    {testCount >= 100 && 'Excellent coverage'}
+                                                </p>
+                                            </div>
+                                            
+                                            {isExpanded && testCount > 0 && (
+                                                <div className="mt-3 pt-3 border-t border-gray-600/50">
+                                                    <p className="text-xs font-semibold text-gray-300 mb-2">Test Distribution</p>
+                                                    <div className="space-y-1">
+                                                        <div className="flex justify-between text-xs">
+                                                            <span className="text-gray-400">Unit Tests</span>
+                                                            <span className={textColor}>{Math.round(testCount * 0.6)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-xs">
+                                                            <span className="text-gray-400">Integration Tests</span>
+                                                            <span className={textColor}>{Math.round(testCount * 0.3)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between text-xs">
+                                                            <span className="text-gray-400">E2E Tests</span>
+                                                            <span className={textColor}>{Math.round(testCount * 0.1)}</span>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-xs text-gray-500 mt-2 italic">
+                                                        {subsystemDescriptions[subsystem]}
+                                                    </p>
+                                                </div>
+                                            )}
+                                            
+                                            {isExpanded && testCount === 0 && (
+                                                <div className="mt-3 pt-3 border-t border-gray-600/50">
+                                                    <p className="text-xs text-gray-400 italic">
+                                                        No test coverage. Consider adding tests for:
+                                                    </p>
+                                                    <ul className="text-xs text-gray-500 mt-2 space-y-1 ml-3">
+                                                        <li>• Basic functionality</li>
+                                                        <li>• Edge cases</li>
+                                                        <li>• Integration with other subsystems</li>
+                                                    </ul>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <div className="mt-4 pt-4 border-t border-gray-700">
+                                <div className="flex items-center justify-between text-xs text-gray-400">
+                                    <span>{coverage.subsystems_tested.length}/16 subsystems tested</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         );
     };
 
     const renderCapabilityInventory = (content: any) => {
+        // Check if new tier-based format (v3)
+        if (content.tier_1_competitive_moats || content.tier_2_differentiators) {
+            return (
+                <div className="space-y-6 max-w-5xl">
+                    {/* Competitive Summary */}
+                    {content.competitive_summary && (
+                        <div className="bg-gradient-to-r from-purple-900/30 to-indigo-900/30 border-2 border-purple-600/50 rounded-xl p-6 mb-6">
+                            <h3 className="text-base font-bold text-purple-300 mb-3">Competitive Summary</h3>
+                            <div className="grid grid-cols-4 gap-4 mb-4">
+                                <div className="text-center">
+                                    <p className="text-3xl font-bold text-purple-400">{content.competitive_summary.unique_moats_count}</p>
+                                    <p className="text-xs text-gray-400 mt-1">Unique Moats</p>
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-3xl font-bold text-blue-400">{content.competitive_summary.differentiators_count}</p>
+                                    <p className="text-xs text-gray-400 mt-1">Differentiators</p>
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-3xl font-bold text-gray-500">{content.competitive_summary.commodity_count}</p>
+                                    <p className="text-xs text-gray-400 mt-1">Commodity</p>
+                                </div>
+                                <div className="text-center">
+                                    <p className="text-sm font-bold text-yellow-400">{content.competitive_summary.defensibility_window}</p>
+                                    <p className="text-xs text-gray-400 mt-1">Moat Duration</p>
+                                </div>
+                            </div>
+                            <div className="bg-purple-900/20 rounded-lg p-4 mb-3">
+                                <p className="text-sm font-semibold text-purple-300 mb-2">Value Proposition</p>
+                                <p className="text-sm text-gray-300">{content.competitive_summary.primary_value_proposition}</p>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <p className="text-xs font-semibold text-green-400 uppercase mb-2">What to Emphasize</p>
+                                    <ul className="text-xs text-gray-300 space-y-1">
+                                        {content.competitive_summary.what_to_emphasize?.map((item: string, i: number) => (
+                                            <li key={i} className="flex items-start gap-2">
+                                                <span className="text-green-400 mt-0.5">✓</span>
+                                                <span>{item}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-semibold text-red-400 uppercase mb-2">What NOT to Emphasize</p>
+                                    <ul className="text-xs text-gray-400 space-y-1">
+                                        {content.competitive_summary.what_not_to_emphasize?.map((item: string, i: number) => (
+                                            <li key={i} className="flex items-start gap-2">
+                                                <span className="text-red-400 mt-0.5">✗</span>
+                                                <span>{item}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Tier 1: Competitive Moats */}
+                    {content.tier_1_competitive_moats && content.tier_1_competitive_moats.length > 0 && (
+                        <div>
+                            <h3 className="text-base font-bold text-gray-200 mb-3 flex items-center gap-2">
+                                <span className="w-1 h-6 bg-purple-500 rounded"></span>
+                                Tier 1: Competitive Moats
+                            </h3>
+                            <div className="space-y-4">
+                                {content.tier_1_competitive_moats.map((capability: any, idx: number) => (
+                                    <div key={idx} className="bg-gradient-to-r from-purple-900/20 to-indigo-900/20 border-2 border-purple-700/50 rounded-lg p-5">
+                                        <div className="flex items-start justify-between mb-3">
+                                            <div className="flex-1">
+                                                <h4 className="text-base font-bold text-purple-300 mb-2">{capability.name}</h4>
+                                                <p className="text-sm text-gray-300 mb-3">{capability.value_proposition}</p>
+                                            </div>
+                                            <span className="text-xs bg-green-900/50 text-green-400 px-3 py-1 rounded font-semibold whitespace-nowrap ml-4">
+                                                {capability.status || 'implemented'}
+                                            </span>
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-4 gap-2 mb-3">
+                                            <div className="bg-purple-900/30 rounded p-2">
+                                                <p className="text-xs text-white font-bold mb-1">Uniqueness</p>
+                                                <p className="text-base font-bold text-purple-300 mb-1">{capability.uniqueness}</p>
+                                                {capability.uniqueness_rationale && (
+                                                    <p className="text-xs text-gray-400 leading-relaxed">{capability.uniqueness_rationale}</p>
+                                                )}
+                                            </div>
+                                            <div className="bg-blue-900/30 rounded p-2">
+                                                <p className="text-xs text-white font-bold mb-1">Customer Value</p>
+                                                <p className="text-base font-bold text-blue-300 mb-1">{capability.customer_value}</p>
+                                                {capability.value_proposition && (
+                                                    <p className="text-xs text-gray-400 leading-relaxed">{capability.value_proposition}</p>
+                                                )}
+                                            </div>
+                                            <div className="bg-yellow-900/30 rounded p-2">
+                                                <p className="text-xs text-white font-bold mb-1">Defensibility</p>
+                                                <p className="text-base font-bold text-yellow-300 mb-1">{capability.competitive_moat}</p>
+                                                {capability.defensibility_details && (
+                                                    <p className="text-xs text-gray-400 leading-relaxed">{capability.defensibility_details}</p>
+                                                )}
+                                            </div>
+                                            <div className="bg-orange-900/30 rounded p-2">
+                                                <p className="text-xs text-white font-bold mb-1">Market Need</p>
+                                                <p className="text-base font-bold text-orange-300">{capability.market_need}</p>
+                                            </div>
+                                        </div>
+                                        
+                                        {capability.use_cases && capability.use_cases.length > 0 && (
+                                            <div className="mb-3 bg-gray-900/30 rounded p-3">
+                                                <p className="text-xs font-semibold text-gray-400 mb-2">Use Cases</p>
+                                                <ul className="text-xs text-gray-400 space-y-1.5">
+                                                    {capability.use_cases.map((useCase: string, i: number) => (
+                                                        <li key={i} className="flex items-start gap-2">
+                                                            <span className="text-purple-400 mt-0.5">▸</span>
+                                                            <span>{useCase}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        
+                                        <div className="text-xs pt-2 border-t border-purple-700/30 text-right">
+                                            <span className="text-purple-300 font-semibold">{capability.recommendation}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Tier 2: Differentiators */}
+                    {content.tier_2_differentiators && content.tier_2_differentiators.length > 0 && (
+                        <div>
+                            <h3 className="text-base font-bold text-gray-200 mb-3 flex items-center gap-2">
+                                <span className="w-1 h-6 bg-blue-500 rounded"></span>
+                                Tier 2: Differentiators
+                            </h3>
+                            <div className="space-y-4">
+                                {content.tier_2_differentiators.map((capability: any, idx: number) => (
+                                    <div key={idx} className="bg-gray-800/50 border border-blue-700/50 rounded-lg p-4">
+                                        <div className="flex items-start justify-between mb-2">
+                                            <div>
+                                                <h4 className="text-sm font-bold text-blue-300 mb-1">{capability.name}</h4>
+                                                <p className="text-sm text-gray-300 mb-2">{capability.value_proposition}</p>
+                                            </div>
+                                            <span className="text-xs bg-green-900/50 text-green-400 px-2 py-1 rounded whitespace-nowrap ml-3">
+                                                {capability.status || 'implemented'}
+                                            </span>
+                                        </div>
+                                        
+                                        <div className="grid grid-cols-3 gap-2 mb-2">
+                                            <div className="bg-blue-900/30 rounded p-2">
+                                                <p className="text-xs text-white font-bold mb-1">Uniqueness</p>
+                                                <p className="text-sm font-bold text-blue-300 mb-1">{capability.uniqueness}</p>
+                                                {capability.uniqueness_rationale && (
+                                                    <p className="text-xs text-gray-400 leading-relaxed">{capability.uniqueness_rationale}</p>
+                                                )}
+                                            </div>
+                                            {capability.customer_value && (
+                                                <div className="bg-cyan-900/30 rounded p-2">
+                                                    <p className="text-xs text-white font-bold mb-1">Customer Value</p>
+                                                    <p className="text-sm font-bold text-cyan-300 mb-1">{capability.customer_value}</p>
+                                                    {capability.value_proposition && (
+                                                        <p className="text-xs text-gray-400 leading-relaxed">{capability.value_proposition}</p>
+                                                    )}
+                                                </div>
+                                            )}
+                                            <div className="bg-orange-900/30 rounded p-2">
+                                                <p className="text-xs text-white font-bold mb-1">Market Need</p>
+                                                <p className="text-sm font-bold text-orange-300">{capability.market_need}</p>
+                                            </div>
+                                        </div>
+                                        
+                                        {(capability.use_cases || capability.best_use_cases || capability.target_markets) && (
+                                            <div className="mb-2 bg-gray-900/30 rounded p-2">
+                                                <p className="text-xs font-semibold text-gray-400 mb-1">
+                                                    {capability.best_use_cases ? 'Best Use Cases' : capability.target_markets ? 'Target Markets' : 'Use Cases'}
+                                                </p>
+                                                <ul className="text-xs text-gray-400 space-y-1">
+                                                    {(capability.use_cases || capability.best_use_cases || capability.target_markets)?.map((item: string, i: number) => (
+                                                        <li key={i} className="flex items-start gap-2">
+                                                            <span className="text-blue-400 mt-0.5">▸</span>
+                                                            <span>{item}</span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        
+                                        <div className="text-xs pt-2 border-t border-blue-700/30 text-right">
+                                            <span className="text-blue-300 font-semibold text-xs">{capability.recommendation}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Tier 3: Commodity Infrastructure */}
+                    {content.tier_3_commodity_infrastructure && content.tier_3_commodity_infrastructure.length > 0 && (
+                        <div>
+                            <h3 className="text-base font-bold text-gray-200 mb-3 flex items-center gap-2">
+                                <span className="w-1 h-6 bg-gray-600 rounded"></span>
+                                Tier 3: Commodity Infrastructure
+                            </h3>
+                            <div className="grid grid-cols-2 gap-3">
+                                {content.tier_3_commodity_infrastructure.map((capability: any, idx: number) => (
+                                    <div key={idx} className="bg-gray-800/30 border border-gray-700 rounded-lg p-3">
+                                        <div className="flex items-start justify-between mb-2">
+                                            <h4 className="text-sm font-bold text-gray-400">{capability.name}</h4>
+                                            <span className="text-xs bg-gray-700 text-gray-400 px-2 py-1 rounded">
+                                                {capability.status || 'implemented'}
+                                            </span>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mb-2">{capability.purpose}</p>
+                                        <p className="text-xs text-gray-500 italic">{capability.verdict}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+        
+        // Legacy format (old capability inventory)
         const capabilityTooltips: Record<string, string> = {
-            'core_loop': 'CoreLoop is the central orchestrator implementing the think-act-learn cycle. Receives intents, delegates to ReasoningService, coordinates tool execution, manages memory commits, and maintains system coherence. Critical path for all operations.',
-            'memory_system': 'L1-L10 hierarchical architecture inspired by human cognition: L1 (sensory buffer), L2 (working), L3 (short-term), L4 (episodic), L5 (semantic), L6 (procedural), L7 (long-term), L8 (meta-memory), L9 (associative), L10 (archive). Enables context retention and learning.',
-            'reasoning_service': 'Hybrid neuro-symbolic reasoning engine. Combines deterministic symbolic logic (prevents drift) with LLM-powered inference (handles ambiguity). Routes between approaches based on problem type. Core intelligence mechanism.',
-            'tool_execution': 'Sandboxed runtime for external tool integration. Discovers available tools via reflection, validates inputs/outputs, executes in isolated environment, handles errors gracefully. Enables ATLAS to interact with filesystem, APIs, and system resources.',
-            'planning_system': 'Multi-horizon planning: immediate (next action), tactical (session goals), strategic (long-term objectives). Uses goal stack, priority queue, and dependency graph. Enables complex multi-step task completion.',
-            'learning_mechanisms': 'Pattern extraction from interaction history stored in procedural memory (L6). Identifies recurring workflows, user preferences, and successful strategies. Adapts behavior over time without manual reprogramming.',
-            'api_service': 'FastAPI REST server exposing /v1/atlas/agent (main query), /v1/atlas/chat (streaming), /v1/meta/assess (self-assessment), and /v1/telemetry/stream (WebSocket). Enables external integrations and console UI.',
-            'console_ui': 'Next.js web interface with 3D neural visualization (React Three Fiber), real-time telemetry display, chat interface, file explorer, and meta-assessment viewer. Provides observability into ATLAS internals.',
-            'orchestrator': 'High-level coordination layer managing intent routing, session state, error handling, and subsystem lifecycle. Sits above CoreLoop, delegates to specialized services.',
-            'sandbox': 'VM-based isolation environment (Docker/Firecracker) for running untrusted code. Implements resource limits (CPU, memory, network), filesystem restrictions, and timeout enforcement. Critical for safety.',
-            'screen': 'macOS Accessibility API integration for screen reading and UI automation. Enables ATLAS to observe and interact with GUI applications. Uses AppleScript and CoreGraphics.',
-            'ai': 'LLM client abstraction layer supporting multiple providers (OpenAI, Anthropic, local models). Includes prompt templating, response parsing, token counting, and safety filtering.',
-            'self_modify': 'Code generation and hot-reload system enabling ATLAS to modify its own implementation. Generates diffs, runs tests, commits changes. Requires human approval for production deployment.',
-            'intent': 'Deterministic parser converting natural language to structured intents. Pattern matching + keyword extraction. Faster and more reliable than pure LLM parsing for known command types.',
-            'monitoring': 'Telemetry collection via centralized TelemetryTracker. Captures events (tool calls, memory ops, reasoning steps), metrics (latency, success rate), and traces. Feeds observability dashboards.',
+            'core_loop': 'CoreLoop is the central orchestrator implementing the think-act-learn cycle.',
+            'memory_system': 'L1-L10 hierarchical architecture inspired by human cognition.',
+            'reasoning_service': 'Hybrid neuro-symbolic reasoning engine.',
+            'tool_execution': 'Sandboxed runtime for external tool integration.',
+            'planning_system': 'Multi-horizon planning: immediate, tactical, strategic.',
+            'learning_mechanisms': 'Pattern extraction from interaction history.',
+            'api_service': 'FastAPI REST server.',
+            'console_ui': 'Next.js web interface with 3D visualization.',
+            'orchestrator': 'High-level coordination layer.',
+            'sandbox': 'VM-based isolation environment.',
+            'screen': 'macOS Accessibility API integration.',
+            'ai': 'LLM client abstraction layer.',
+            'self_modify': 'Code generation and hot-reload system.',
+            'intent': 'Deterministic parser.',
+            'monitoring': 'Telemetry collection.',
         };
         
         return (
@@ -1824,14 +2450,15 @@ const MetaView: React.FC = () => {
         { id: "codebase_analysis", label: "2. Codebase Analysis" },
         { id: "test_analysis", label: "3. Test Coverage" },
         { id: "memory_architecture", label: "4. Memory Architecture" },
-        { id: "capability_inventory", label: "5. Capability Inventory" },
-        { id: "jarvis_benchmark", label: "6. Jarvis-Level Benchmark" },
-        { id: "architectural_maturity", label: "7. Architectural Maturity" },
-        { id: "reliability", label: "8. Reliability & Stability" },
-        { id: "competitive_landscape", label: "9. Competitive Landscape" },
-        { id: "market_valuation", label: "10. Market Valuation" },
-        { id: "known_limitations", label: "11. Known Limitations" },
-        { id: "recommendations", label: "12. Recommendations" },
+        { id: "ml_infrastructure", label: "5. Learning Infrastructure" },
+        { id: "capability_inventory", label: "6. Capability Inventory" },
+        { id: "jarvis_benchmark", label: "7. Jarvis Benchmark" },
+        { id: "architectural_maturity", label: "8. Architectural Maturity" },
+        { id: "reliability", label: "9. Reliability & Stability" },
+        { id: "competitive_landscape", label: "10. Competitive Landscape" },
+        { id: "market_valuation", label: "11. Market Valuation" },
+        { id: "known_limitations", label: "12. Known Limitations" },
+        { id: "recommendations", label: "13. Recommendations" },
     ] : [
         { id: "overall_score", label: "Executive Summary" },
         { id: "capability_inventory", label: "1. Capability Inventory" },
