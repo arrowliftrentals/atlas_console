@@ -7,7 +7,7 @@ interface SkillsListProps {
     onSelect: (id: number) => void;
 }
 
-export default function SkillsList({ executions, selectedId, onSelect }: SkillsListProps) {
+function SkillsList({ executions, selectedId, onSelect }: SkillsListProps) {
     if (executions.length === 0) {
         return (
             <div className="p-4 text-gray-500 text-center">
@@ -48,6 +48,7 @@ export default function SkillsList({ executions, selectedId, onSelect }: SkillsL
                         >
                             <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-300">
                                 {(() => {
+                                    if (!execution.created_at) return 'N/A';
                                     // Handle date format without timezone: "2026-01-12 06:56:13.144791"
                                     const dateStr = execution.created_at.replace(' ', 'T') + 'Z';
                                     const date = new Date(dateStr);
@@ -82,3 +83,21 @@ export default function SkillsList({ executions, selectedId, onSelect }: SkillsL
         </div>
     );
 }
+
+// Memoize to prevent unnecessary re-renders when executions haven't changed
+export default React.memo(SkillsList, (prevProps, nextProps) => {
+    // Only re-render if executions actually changed (deep comparison of IDs and statuses)
+    if (prevProps.selectedId !== nextProps.selectedId) return false;
+    if (prevProps.executions.length !== nextProps.executions.length) return false;
+    
+    // Check if any execution changed by comparing IDs and statuses
+    for (let i = 0; i < prevProps.executions.length; i++) {
+        const prev = prevProps.executions[i];
+        const next = nextProps.executions[i];
+        if (prev.id !== next.id || prev.status !== next.status) {
+            return false;
+        }
+    }
+    
+    return true; // Props are equal, skip re-render
+});

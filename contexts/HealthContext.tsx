@@ -13,6 +13,7 @@ interface HealthStatus {
   skills: HealthState;           // /v1/atlas/skills endpoint
   tasks: HealthState;            // Tasks/goals functionality
   meta: HealthState;             // /v1/meta/assess endpoint
+  sandbox: HealthState;          // /api/sandbox/health endpoint
   lastCheck: number;
 }
 
@@ -36,6 +37,7 @@ export function HealthProvider({ children }: { children: ReactNode }) {
     skills: 'disconnected',
     tasks: 'disconnected',
     meta: 'disconnected',
+    sandbox: 'disconnected',
     lastCheck: Date.now(),
   });
 
@@ -49,6 +51,7 @@ export function HealthProvider({ children }: { children: ReactNode }) {
       skills: 'disconnected',
       tasks: 'disconnected',
       meta: 'disconnected',
+      sandbox: 'disconnected',
       lastCheck: Date.now(),
     };
 
@@ -83,6 +86,7 @@ export function HealthProvider({ children }: { children: ReactNode }) {
         .then(res => ({ key: 'skills' as const, status: res.ok ? 'connected' as const : 'error' as const }))
         .catch(() => ({ key: 'skills' as const, status: 'disconnected' as const })),
       
+      // Tasks endpoint (L8 Planning Memory)
       fetch(`${BACKEND_URL}/v1/atlas/tasks`, { signal: AbortSignal.timeout(2000) })
         .then(res => ({ key: 'tasks' as const, status: res.ok ? 'connected' as const : 'error' as const }))
         .catch(() => ({ key: 'tasks' as const, status: 'disconnected' as const })),
@@ -90,6 +94,15 @@ export function HealthProvider({ children }: { children: ReactNode }) {
       fetch(`${BACKEND_URL}/v1/meta/latest`, { signal: AbortSignal.timeout(2000) })
         .then(res => ({ key: 'meta' as const, status: res.ok ? 'connected' as const : 'error' as const }))
         .catch(() => ({ key: 'meta' as const, status: 'disconnected' as const })),
+      
+      // Sandbox health
+      fetch(`${BACKEND_URL}/api/sandbox/health`, { signal: AbortSignal.timeout(2000) })
+        .then(res => res.json())
+        .then(data => ({
+          key: 'sandbox' as const,
+          status: (data.status === 'healthy' && data.docker_available) ? 'connected' as const : 'error' as const
+        }))
+        .catch(() => ({ key: 'sandbox' as const, status: 'disconnected' as const })),
     ]);
 
     // Process results

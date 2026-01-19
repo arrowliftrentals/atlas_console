@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { atlasChat } from "@/lib/atlasClient";
-import type { AtlasChatRequest } from "@/lib/types";
+import { fetchLogs } from "@/lib/atlasClient";
+import TabHeader from "./TabHeader";
+import { useHealth } from "@/contexts/HealthContext";
 
 interface SecurityEvent {
     timestamp: string;
@@ -13,38 +14,24 @@ interface SecurityEvent {
 }
 
 const SecurityView: React.FC = () => {
+    const { health } = useHealth();
     const [events, setEvents] = useState<SecurityEvent[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const parseLogLine = (line: string): SecurityEvent => {
-        // Extract timestamp - look for various date/time patterns
-        let timestamp = new Date().toLocaleString();
-        const timePatterns = [
-            /(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/,  // 2024-11-19 10:30:45
-            /(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}:\d{2})/,  // 11/19/2024 10:30:45
-            /\[([^\]]*\d{2}:\d{2}[^\]]*)\]/  // Anything with time in brackets
-        ];
+    const parseLogEntry = (log: { id: string; timestamp: string; level: string; message: string }): SecurityEvent => {
+        const lowerMsg = log.message.toLowerCase();
+        const logLevel = log.level.toLowerCase();
         
-        for (const pattern of timePatterns) {
-            const match = line.match(pattern);
-            if (match) {
-                timestamp = match[1];
-                break;
-            }
-        }
-        
-        // Determine severity based on keywords
+        // Map log level to security severity
         let severity: SecurityEvent['severity'] = 'info';
-        const lowerLine = line.toLowerCase();
-        
-        if (lowerLine.includes('critical') || lowerLine.includes('fatal') || lowerLine.includes('breach')) {
+        if (logLevel === 'error' || lowerMsg.includes('critical') || lowerMsg.includes('fatal') || lowerMsg.includes('breach')) {
             severity = 'critical';
-        } else if (lowerLine.includes('error') || lowerLine.includes('fail') || lowerLine.includes('denied') || lowerLine.includes('unauthorized')) {
+        } else if (logLevel === 'error' || lowerMsg.includes('fail') || lowerMsg.includes('denied') || lowerMsg.includes('unauthorized')) {
             severity = 'high';
-        } else if (lowerLine.includes('warn') || lowerLine.includes('suspicious') || lowerLine.includes('attempt')) {
+        } else if (logLevel === 'warn' || lowerMsg.includes('suspicious') || lowerMsg.includes('attempt')) {
             severity = 'medium';
-        } else if (lowerLine.includes('debug') || lowerLine.includes('trace')) {
+        } else if (logLevel === 'debug') {
             severity = 'low';
         }
         
@@ -52,63 +39,65 @@ const SecurityView: React.FC = () => {
         let category = 'System';
         let event = 'Event';
         
-        if (lowerLine.includes('protected core')) {
+        if (lowerMsg.includes('protected core')) {
             category = 'Core Protection';
-        } else if (lowerLine.includes('auth') || lowerLine.includes('login') || lowerLine.includes('access')) {
+        } else if (lowerMsg.includes('auth') || lowerMsg.includes('login') || lowerMsg.includes('access')) {
             category = 'Authentication';
-        } else if (lowerLine.includes('file') || lowerLine.includes('write') || lowerLine.includes('modify')) {
+        } else if (lowerMsg.includes('file') || lowerMsg.includes('write') || lowerMsg.includes('modify')) {
             category = 'File System';
-        } else if (lowerLine.includes('network') || lowerLine.includes('connection')) {
+        } else if (lowerMsg.includes('network') || lowerMsg.includes('connection')) {
             category = 'Network';
-        } else if (lowerLine.includes('api') || lowerLine.includes('request')) {
+        } else if (lowerMsg.includes('api') || lowerMsg.includes('request')) {
             category = 'API';
         }
         
         // Extract meaningful event name
-        if (lowerLine.includes('blocked')) event = 'Access Blocked';
-        else if (lowerLine.includes('allowed')) event = 'Access Granted';
-        else if (lowerLine.includes('denied')) event = 'Access Denied';
-        else if (lowerLine.includes('validated')) event = 'Validation Success';
-        else if (lowerLine.includes('failed')) event = 'Operation Failed';
-        else if (lowerLine.includes('started')) event = 'Service Started';
-        else if (lowerLine.includes('stopped')) event = 'Service Stopped';
+        if (lowerMsg.includes('blocked')) event = 'Access Blocked';
+        else if (lowerMsg.includes('allowed')) event = 'Access Granted';
+        else if (lowerMsg.includes('denied')) event = 'Access Denied';
+        else if (lowerMsg.includes('validated')) event = 'Validation Success';
+        else if (lowerMsg.includes('failed')) event = 'Operation Failed';
+        else if (lowerMsg.includes('started')) event = 'Service Started';
+        else if (lowerMsg.includes('stopped')) event = 'Service Stopped';
         
-        // Clean up description - remove timestamp and log level markers
-        let description = line
-            // Remove date/time patterns
-            .replace(/\[\d{4}-\d{2}-\d{2}[^\]]*\]/g, '')
-            .replace(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/g, '')
-            .replace(/\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}:\d{2}/g, '')
-            .replace(/\d{2}:\d{2}:\d{2}/g, '')
-            // Remove log level markers
-            .replace(/\[(INFO|WARN|ERROR|DEBUG|TRACE|CRITICAL)\]/gi, '')
-            // Remove leading/trailing whitespace and dashes
-            .replace(/^\s*-\s*/, '')
-            .replace(/\s+/g, ' ')
-            .trim();
+        // Format timestamp for display
+        const timestamp = new Date(log.timestamp).toLocaleString();
         
-        return { timestamp, severity, category, event, description };
+        return {
+            timestamp,
+            severity,
+            category,
+            event,
+            description: log.message
+        };
     };
 
     const fetchSecurityEvents = async () => {
         setLoading(true);
         setError(null);
         try {
-            // v0 placeholder: search logs for 'Protected Core' as a proxy for security events.
-            const payload: AtlasChatRequest = {
-                query: "search logs Protected Core 20",
-                assumptions: [],
-                context: null,
-                override_unresolved_assumptions: true,
-            };
-            const resp = await atlasChat(payload);
-            const rawLines = resp.answer.split("\n").filter((ln) => ln.trim() !== "");
-
-            if (rawLines.length === 1 && rawLines[0].startsWith("[INFO]")) {
-                setEvents([]);
-            } else {
-                setEvents(rawLines.map(parseLogLine));
-            }
+            // Fetch logs from ATLAS and filter for security-related entries
+            const logs = await fetchLogs();
+            
+            // Filter for security-relevant logs (Protected Core, auth, access, etc.)
+            const securityLogs = logs.filter(log => {
+                const msg = log.message.toLowerCase();
+                return (
+                    msg.includes('protected core') ||
+                    msg.includes('security') ||
+                    msg.includes('auth') ||
+                    msg.includes('access') ||
+                    msg.includes('denied') ||
+                    msg.includes('unauthorized') ||
+                    msg.includes('blocked') ||
+                    msg.includes('breach') ||
+                    msg.includes('violation')
+                );
+            });
+            
+            // Convert log entries to security events
+            const events = securityLogs.map(log => parseLogEntry(log));
+            setEvents(events);
         } catch (e: any) {
             console.error("ATLAS SecurityView error:", e);
             setError("Failed to load security events from ATLAS Core.");
@@ -122,17 +111,23 @@ const SecurityView: React.FC = () => {
     }, []);
 
     return (
-        <div className="h-full w-full p-4 text-sm text-gray-200 flex flex-col">
-            <div className="flex items-center justify-between mb-2">
-                <h1 className="text-lg font-semibold">Security View (v0)</h1>
+        <div className="h-full flex flex-col bg-[#1E1E1E]">
+            <TabHeader
+                title="Security Monitor"
+                subtitle={`${events.length} security events`}
+                statusConnected={health.backend === 'connected'}
+                statusLabel={health.backend === 'connected' ? 'Connected' : 'Disconnected'}
+            >
                 <button
-                    className="bg-gray-700 hover:bg-gray-600 text-xs px-3 py-1 rounded"
+                    className="px-3 py-2 bg-[#1E1E1E] hover:bg-gray-700 border border-gray-700 rounded text-xs text-gray-300 transition-colors"
                     onClick={fetchSecurityEvents}
                     disabled={loading}
                 >
                     {loading ? "Refreshing..." : "Refresh"}
                 </button>
-            </div>
+            </TabHeader>
+            
+            <div className="flex-1 overflow-auto px-4 py-3 text-sm text-gray-200">
 
             {error && (
                 <div className="text-red-400 text-xs mb-2 whitespace-pre-wrap">
@@ -196,6 +191,7 @@ const SecurityView: React.FC = () => {
                     </table>
                 </div>
             )}
+            </div>
         </div>
     );
 };

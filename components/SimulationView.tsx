@@ -3,8 +3,11 @@
 import React, { useState } from "react";
 import { atlasChat } from "@/lib/atlasClient";
 import type { AtlasChatRequest } from "@/lib/types";
+import TabHeader from "./TabHeader";
+import { useHealth } from "@/contexts/HealthContext";
 
 const SimulationView: React.FC = () => {
+  const { health } = useHealth();
   const [goal, setGoal] = useState("");
   const [output, setOutput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
@@ -37,13 +40,15 @@ const SimulationView: React.FC = () => {
   };
 
   return (
-    <div className="h-full w-full p-4 text-sm text-gray-200 flex flex-col">
-      <div className="flex items-center justify-between mb-2">
-        <h1 className="text-lg font-semibold">Simulation (v0)</h1>
-        {loading && (
-          <span className="text-xs text-gray-400">Running...</span>
-        )}
-      </div>
+    <div className="h-full flex flex-col bg-[#1E1E1E]">
+      <TabHeader
+        title="Simulation"
+        subtitle={loading ? "Running..." : "Scenario planning"}
+        statusConnected={health.backend === 'connected'}
+        statusLabel={health.backend === 'connected' ? 'Connected' : 'Disconnected'}
+      />
+      
+      <div className="flex-1 overflow-auto px-4 py-3 text-sm text-gray-200">
 
       <div className="flex flex-col gap-2 mb-3 text-xs">
         <label className="text-gray-300">
@@ -81,6 +86,7 @@ const SimulationView: React.FC = () => {
           {output}
         </div>
       )}
+      </div>
     </div>
   );
 };

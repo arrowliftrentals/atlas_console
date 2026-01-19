@@ -55,6 +55,7 @@ export default function SkillDetail({ execution }: SkillDetailProps) {
                         <span className="text-xs font-semibold text-gray-400 uppercase">Created</span>
                         <p className="text-gray-100">
                             {(() => {
+                                if (!execution.created_at) return 'N/A';
                                 const dateStr = execution.created_at.replace(' ', 'T') + 'Z';
                                 const date = new Date(dateStr);
                                 return isNaN(date.getTime()) ? execution.created_at : date.toLocaleString();
@@ -70,34 +71,38 @@ export default function SkillDetail({ execution }: SkillDetailProps) {
                 </div>
 
                 {/* SkillSpec JSON */}
-                <div className="border border-gray-700 rounded">
+                <div className="border border-gray-700 rounded overflow-hidden">
                     <button
                         onClick={() => setSpecExpanded(!specExpanded)}
-                        className="w-full px-4 py-2 text-left bg-gray-800 hover:bg-gray-750 transition-colors flex items-center justify-between"
+                        className="w-full px-4 py-2 text-left bg-gray-800 hover:bg-gray-700 transition-colors flex items-center justify-between"
                     >
                         <span className="font-semibold text-gray-200">Skill Specification</span>
                         <span className="text-gray-400">{specExpanded ? '▼' : '▶'}</span>
                     </button>
                     {specExpanded && (
-                        <pre className="p-4 bg-gray-950 text-gray-300 text-xs overflow-x-auto">
-                            {JSON.stringify(execution.spec_json, null, 2)}
-                        </pre>
+                        <div className="max-h-96 overflow-auto bg-[#1a1a1a] border-t border-gray-700">
+                            <pre className="p-4 text-gray-300 text-xs whitespace-pre font-mono">
+{JSON.stringify(execution.spec_json, null, 2)}
+                            </pre>
+                        </div>
                     )}
                 </div>
 
                 {/* Result JSON */}
-                <div className="border border-gray-700 rounded">
+                <div className="border border-gray-700 rounded overflow-hidden">
                     <button
                         onClick={() => setResultExpanded(!resultExpanded)}
-                        className="w-full px-4 py-2 text-left bg-gray-800 hover:bg-gray-750 transition-colors flex items-center justify-between"
+                        className="w-full px-4 py-2 text-left bg-gray-800 hover:bg-gray-700 transition-colors flex items-center justify-between"
                     >
                         <span className="font-semibold text-gray-200">Execution Result</span>
                         <span className="text-gray-400">{resultExpanded ? '▼' : '▶'}</span>
                     </button>
                     {resultExpanded && (
-                        <pre className="p-4 bg-gray-950 text-gray-300 text-xs overflow-x-auto">
-                            {JSON.stringify(execution.result_json, null, 2)}
-                        </pre>
+                        <div className="max-h-96 overflow-auto bg-[#1a1a1a] border-t border-gray-700">
+                            <pre className="p-4 text-gray-300 text-xs whitespace-pre font-mono">
+{JSON.stringify(execution.result_json, null, 2)}
+                            </pre>
+                        </div>
                     )}
                 </div>
             </div>

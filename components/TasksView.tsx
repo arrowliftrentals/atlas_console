@@ -3,8 +3,11 @@
 import React, { useState, useEffect } from "react";
 import { fetchTasks } from "@/lib/atlasClient";
 import type { TaskInfo } from "@/lib/types";
+import TabHeader from "./TabHeader";
+import { useHealth } from "@/contexts/HealthContext";
 
 const TasksView: React.FC = () => {
+  const { health } = useHealth();
   const [tasks, setTasks] = useState<TaskInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("ALL");
@@ -52,24 +55,25 @@ const TasksView: React.FC = () => {
   }, {} as Record<string, number>);
 
   return (
-    <div className="atlas-panel h-full flex flex-col">
-      {/* Header */}
-      <div className="atlas-panel-header">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-[var(--atlas-text-primary)]">
-            Tasks
-          </h2>
-          <button
-            onClick={loadTasks}
-            className="text-xs text-[var(--atlas-text-muted)] hover:text-[var(--atlas-text-secondary)] transition-colors"
-            aria-label="Refresh tasks"
-          >
-            Refresh
-          </button>
-        </div>
-
-        {/* Filters */}
-        <div className="flex items-center gap-2 mt-3">
+    <div className="h-full flex flex-col bg-[#1E1E1E]">
+      <TabHeader
+        title="Tasks & Goals"
+        subtitle={`${tasks.length} active tasks`}
+        statusConnected={health.tasks === 'connected'}
+        statusLabel={health.tasks === 'connected' ? 'Connected' : 'Disconnected'}
+      >
+        <button
+          onClick={loadTasks}
+          className="px-3 py-2 bg-[#1E1E1E] hover:bg-gray-700 border border-gray-700 rounded text-xs text-gray-300 flex items-center gap-2 transition-colors"
+          aria-label="Refresh tasks"
+        >
+          Refresh
+        </button>
+      </TabHeader>
+      
+      {/* Filters */}
+      <div className="px-4 py-3 bg-[#252526] border-b border-gray-700">
+        <div className="flex items-center gap-2">
           {["ALL", "pending", "running", "success", "failed"].map((status) => (
             <button
               key={status}
@@ -90,7 +94,7 @@ const TasksView: React.FC = () => {
       </div>
 
       {/* Tasks List */}
-      <div className="atlas-panel-body atlas-scrollbar">
+      <div className="flex-1 overflow-auto px-4 py-3">
         {loading ? (
           <div className="text-center text-[var(--atlas-text-muted)] py-8">
             Loading tasks...

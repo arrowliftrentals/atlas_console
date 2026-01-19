@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { fetchActivityLogs, clearActivityLogs } from "@/lib/atlasConsoleClient";
+import TabHeader from "./TabHeader";
+import { useHealth } from "@/contexts/HealthContext";
 
 interface ActivityLog {
   timestamp: string;
@@ -12,6 +14,7 @@ interface ActivityLog {
 }
 
 const LogsView: React.FC = () => {
+  const { health } = useHealth();
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [levelFilter, setLevelFilter] = useState<string>("ALL");
@@ -90,40 +93,39 @@ const LogsView: React.FC = () => {
   }, {} as Record<string, number>);
 
   return (
-    <div className="atlas-panel h-full flex flex-col">
-      {/* Header */}
-      <div className="atlas-panel-header">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-[var(--atlas-text-primary)]">
-            Logs
-          </h2>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={async () => {
-                try {
-                  await clearActivityLogs();
-                  setLogs([]);
-                } catch (error) {
-                  console.error("Failed to clear logs:", error);
-                }
-              }}
-              className="text-xs text-[var(--atlas-text-muted)] hover:text-red-400 transition-colors"
-              aria-label="Clear logs"
-            >
-              Clear
-            </button>
-            <button
-              onClick={loadLogs}
-              className="text-xs text-[var(--atlas-text-muted)] hover:text-[var(--atlas-text-secondary)] transition-colors"
-              aria-label="Refresh logs"
-            >
-              Refresh
-            </button>
-          </div>
-        </div>
-        
-        {/* Filters */}
-        <div className="flex items-center gap-2 mt-3">
+    <div className="h-full flex flex-col bg-[#1E1E1E]">
+      <TabHeader
+        title="Activity Logs"
+        subtitle={`${logs.length} log entries`}
+        statusConnected={health.logs === 'connected'}
+        statusLabel={health.logs === 'connected' ? 'Connected' : 'Disconnected'}
+      >
+        <button
+          onClick={async () => {
+            try {
+              await clearActivityLogs();
+              setLogs([]);
+            } catch (error) {
+              console.error("Failed to clear logs:", error);
+            }
+          }}
+          className="px-3 py-2 bg-[#1E1E1E] hover:bg-gray-700 border border-gray-700 rounded text-xs text-gray-300 transition-colors"
+          aria-label="Clear logs"
+        >
+          Clear
+        </button>
+        <button
+          onClick={loadLogs}
+          className="px-3 py-2 bg-[#1E1E1E] hover:bg-gray-700 border border-gray-700 rounded text-xs text-gray-300 transition-colors"
+          aria-label="Refresh logs"
+        >
+          Refresh
+        </button>
+      </TabHeader>
+      
+      {/* Filters */}
+      <div className="px-4 py-3 bg-[#252526] border-b border-gray-700">
+        <div className="flex items-center gap-2">
           {["ALL", "DEBUG", "INFO", "WARN", "ERROR"].map((level) => (
             <button
               key={level}
@@ -147,7 +149,7 @@ const LogsView: React.FC = () => {
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="atlas-panel-body atlas-scrollbar"
+        className="flex-1 overflow-auto px-4 py-3"
       >
         {loading ? (
           <div className="text-center text-[var(--atlas-text-muted)] py-8">

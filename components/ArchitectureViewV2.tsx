@@ -2,14 +2,17 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import cytoscape, { Core, ElementDefinition } from 'cytoscape';
-import { X, BarChart3, Grid3x3, Clock, Search } from 'lucide-react';
+import { X, BarChart3, Grid3x3, Clock, Search, RefreshCw } from 'lucide-react';
 import AnalysisPanel from './AnalysisPanel';
 import DependencyMatrix from './DependencyMatrix';
 import Timeline from './Timeline';
+import TabHeader from './TabHeader';
 import { classifyNode, formatNodeLabel, CognitiveRegion } from './Neural3D/NeuralCognitiveLayoutV2';
 import { REGION_COLORS } from './Neural3D/NeuralVisualEncodingV2';
 // Import layout plugins dynamically (will be registered in useEffect)
 let layoutsRegistered = false;
+let layoutRegistrationAttempts = 0;
+const MAX_LAYOUT_REGISTRATION_ATTEMPTS = 3;
 
 interface ComponentNode {
   id: string;
@@ -35,6 +38,9 @@ interface ComponentEdge {
   source: string;
   target: string;
   metadata?: DependencyMetadata | null;
+  call_count?: number;  // Telemetry data
+  data_source?: string;  // 'telemetry' or 'pattern'
+  weight?: number;  // Normalized weight for visualization
 }
 
 interface ArchitectureData {
@@ -96,6 +102,10 @@ export default function ArchitectureViewV2() {
   const [errorEdges, setErrorEdges] = useState<Set<string>>(new Set());
   const [showNodeSelector, setShowNodeSelector] = useState(false);
   const [nodeSelectorSearch, setNodeSelectorSearch] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRecovering, setIsRecovering] = useState(false);
+  const [layoutsReady, setLayoutsReady] = useState(false);
+  const maxRetries = 3;
 
   // Callback ref to disable Cytoscape zoom when hovering over node selector
   const handleNodeSelectorRef = React.useCallback((element: HTMLDivElement | null) => {
@@ -117,6 +127,52 @@ export default function ArchitectureViewV2() {
     element.addEventListener('mouseleave', handleMouseLeave);
   }, []);
   
+  // Window visibility handler - refresh when returning to tab
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('👁️ Tab visible, checking visualization health...');
+        
+        // Verify Cytoscape is still healthy
+        if (cyRef.current) {
+          try {
+            // Test if cytoscape is responsive
+            cyRef.current.nodes().length;
+            console.log('✅ Visualization is healthy');
+          } catch (err) {
+            console.warn('⚠️ Visualization unhealthy after tab visibility change, triggering recovery');
+            setRetryCount(0);
+            fetchArchitectureData();
+          }
+        } else if (data && layoutsReady) {
+          console.log('⚠️ Cytoscape not initialized but data is ready, triggering re-init');
+          setRetryCount(0);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [data, layoutsReady]);
+
+  // Health check and proactive recovery
+  useEffect(() => {
+    const healthCheck = () => {
+      // Check if Cytoscape instance is healthy
+      if (cyRef.current && cyRef.current.destroyed()) {
+        console.warn('⚠️ Cytoscape instance was destroyed unexpectedly, triggering recovery...');
+        setInitError('Visualization was disrupted');
+        setRetryCount(0);
+        fetchArchitectureData();
+      }
+    };
+
+    // Run health check every 10 seconds
+    const healthCheckInterval = setInterval(healthCheck, 10000);
+
+    return () => clearInterval(healthCheckInterval);
+  }, []);
+
   // Fetch architecture data and error edges
   useEffect(() => {
     fetchArchitectureData();
@@ -127,13 +183,41 @@ export default function ArchitectureViewV2() {
     return () => clearInterval(interval);
   }, []);
 
-  const fetchArchitectureData = async () => {
+  const fetchArchitectureData = async (retryAttempt = 0) => {
     try {
-      const response = await fetch('http://localhost:8000/v1/architecture/graph');
+      console.log('📡 Fetching architecture data...');
+      const response = await fetch('http://localhost:8000/v1/architecture/graph', {
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const result = await response.json();
+      console.log('📊 Architecture data received:', {
+        nodes: result.nodes?.length || 0,
+        edges: result.edges?.length || 0,
+        discovery_method: result.discovery_method,
+        sample_edges: result.edges?.slice(0, 3)
+      });
       setData(result);
+      console.log('✅ Architecture data loaded successfully');
     } catch (error) {
-      console.error('Failed to fetch architecture:', error);
+      console.error('❌ Failed to fetch architecture:', error);
+      
+      // Retry up to 3 times with exponential backoff
+      if (retryAttempt < 3) {
+        const delay = Math.pow(2, retryAttempt) * 1000;
+        console.log(`🔄 Retrying data fetch in ${delay}ms (attempt ${retryAttempt + 1}/3)...`);
+        setTimeout(() => fetchArchitectureData(retryAttempt + 1), delay);
+      } else {
+        setInitError('Failed to load architecture data. Please check if the backend is running.');
+      }
     }
   };
   
@@ -150,35 +234,77 @@ export default function ArchitectureViewV2() {
     }
   };
 
-  // Register cytoscape layout plugins once
+  // Register cytoscape layout plugins with retry and error handling
   useEffect(() => {
-    if (!layoutsRegistered && typeof window !== 'undefined') {
-      Promise.all([
-        import('cytoscape-dagre').then(dagre => {
-          cytoscape.use(dagre.default || dagre);
-        }),
-        import('cytoscape-klay').then(klay => {
-          cytoscape.use(klay.default || klay);
-        }),
-        import('cytoscape-cola').then(cola => {
-          cytoscape.use(cola.default || cola);
-        })
-      ]).then(() => {
+    const registerLayouts = async () => {
+      if (layoutsRegistered || typeof window === 'undefined') {
+        setLayoutsReady(layoutsRegistered);
+        return;
+      }
+
+      if (layoutRegistrationAttempts >= MAX_LAYOUT_REGISTRATION_ATTEMPTS) {
+        console.error('❌ Max layout registration attempts reached');
+        setInitError('Failed to load visualization libraries after multiple attempts. Please reload the page.');
+        return;
+      }
+
+      layoutRegistrationAttempts++;
+      console.log(`🔄 Attempting to register Cytoscape layouts (attempt ${layoutRegistrationAttempts}/${MAX_LAYOUT_REGISTRATION_ATTEMPTS})`);
+
+      try {
+        await Promise.all([
+          import('cytoscape-dagre').then(dagre => {
+            cytoscape.use(dagre.default || dagre);
+            console.log('✅ Dagre layout registered');
+          }),
+          import('cytoscape-klay').then(klay => {
+            cytoscape.use(klay.default || klay);
+            console.log('✅ Klay layout registered');
+          }),
+          import('cytoscape-cola').then(cola => {
+            cytoscape.use(cola.default || cola);
+            console.log('✅ Cola layout registered');
+          })
+        ]);
+        
         layoutsRegistered = true;
-        // Force re-render after layouts are registered
+        setLayoutsReady(true);
         setInitError(null);
-      });
-    }
+        console.log('✅ All Cytoscape layouts registered successfully');
+      } catch (err) {
+        console.error('❌ Failed to register Cytoscape layouts:', err);
+        
+        // Retry after a delay
+        if (layoutRegistrationAttempts < MAX_LAYOUT_REGISTRATION_ATTEMPTS) {
+          console.log(`⏳ Retrying layout registration in 1 second...`);
+          setTimeout(() => {
+            registerLayouts();
+          }, 1000);
+        } else {
+          setInitError('Failed to load visualization libraries. Please reload the page.');
+        }
+      }
+    };
+
+    registerLayouts();
   }, []);
 
-  // Initialize Cytoscape
+  // Initialize Cytoscape with error recovery
   useEffect(() => {
-    if (!containerRef.current || !data || !layoutsRegistered) {
-      console.log('Waiting for container, data, or layouts...');
+    if (!containerRef.current || !data || !layoutsReady) {
+      console.log('⏳ Waiting for container, data, or layouts...');
       return;
     }
 
-    try {
+    // Skip if recovering
+    if (isRecovering) {
+      console.log('🔄 Recovery in progress, skipping initialization');
+      return;
+    }
+
+    const initializeCytoscape = () => {
+      try {
+        console.log('🎨 Initializing Cytoscape visualization...');
       const elements: ElementDefinition[] = [];
 
       // Add nodes with cognitive region classification
@@ -221,6 +347,8 @@ export default function ArchitectureViewV2() {
           pattern: edge.metadata?.call_pattern || 'sync',
           format: edge.metadata?.data_format || 'json',
           cardinality: edge.metadata?.cardinality || '1:1',
+          call_count: edge.call_count,  // Include telemetry call count
+          data_source: edge.data_source,  // Track whether from telemetry or pattern
         };
         
         // Only add hasError if true (Cytoscape selectors check for presence)
@@ -304,6 +432,18 @@ export default function ArchitectureViewV2() {
           'target-arrow-shape': 'triangle',
           'curve-style': 'bezier',
           'arrow-scale': 1.2,
+          // Show call count label if available (from telemetry)
+          'label': (ele: any) => {
+            const callCount = ele.data('call_count');
+            return callCount ? `${callCount}` : '';
+          },
+          'font-size': '14px',
+          'font-weight': 'bold',
+          'color': '#FFFFFF',
+          'text-background-color': '#000000',
+          'text-background-opacity': 0.9,
+          'text-background-padding': '5px',
+          'text-background-shape': 'roundrectangle',
         } as any,
       },
       // Edge operation type colors
@@ -616,21 +756,42 @@ export default function ArchitectureViewV2() {
       cyRef.current = cy;
 
       setInitError(null);
+      setRetryCount(0);
+      console.log('✅ Cytoscape initialized successfully');
       
       return () => {
         if (cy && !cy.destroyed()) {
           try {
             cy.destroy();
           } catch (err) {
-            console.warn('Error destroying Cytoscape:', err);
+            console.warn('⚠️ Error destroying Cytoscape:', err);
           }
         }
       };
     } catch (err) {
-      console.error('Failed to initialize Cytoscape:', err);
-      setInitError(err instanceof Error ? err.message : 'Failed to initialize graph visualization');
+      console.error('❌ Failed to initialize Cytoscape:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to initialize graph visualization';
+      setInitError(errorMessage);
+      
+      // Attempt automatic recovery
+      if (retryCount < maxRetries) {
+        console.log(`🔄 Attempting automatic recovery (${retryCount + 1}/${maxRetries})...`);
+        setIsRecovering(true);
+        
+        setTimeout(() => {
+          setRetryCount(prev => prev + 1);
+          setIsRecovering(false);
+          setInitError(null);
+          
+          // Force re-fetch data to trigger re-initialization
+          fetchArchitectureData();
+        }, 2000);
+      }
     }
-  }, [data]);
+  };
+
+  initializeCytoscape();
+  }, [data, layoutsReady, isRecovering, retryCount]);
   
   // Update edge styles when error edges change (without full re-render)
   useEffect(() => {
@@ -947,27 +1108,27 @@ export default function ArchitectureViewV2() {
   return (
     <div className="h-full flex flex-col bg-[#1E1E1E] overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 bg-[#252526] border-b border-gray-700 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex gap-2">
-            <div 
-              className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${telemetryConnected ? 'bg-green-500' : 'bg-gray-600'}`}
-              style={{
-                boxShadow: telemetryConnected 
-                  ? '0 0 6px rgba(34, 197, 94, 0.8)' 
-                  : 'none',
-                border: telemetryConnected
-                  ? '1.5px solid rgba(34, 197, 94, 0.9)'
-                  : '1.5px solid rgba(75, 85, 99, 0.6)'
+      <TabHeader
+        title="Cognitive Architecture"
+        subtitle="Components"
+        statusConnected={telemetryConnected}
+        statusLabel={telemetryConnected ? 'Live' : 'Disconnected'}
+      >
+            {/* Manual Reload Button */}
+            <button
+              onClick={() => {
+                console.log('🔄 Manual reload triggered by user');
+                setRetryCount(0);
+                setIsRecovering(false);
+                setInitError(null);
+                fetchArchitectureData();
               }}
-              title={telemetryConnected ? 'Live' : 'Disconnected'}
-            />
-            <div>
-              <h2 className="text-lg font-semibold text-white whitespace-nowrap">Cognitive Architecture</h2>
-              <p className="text-sm text-gray-400 whitespace-nowrap">Components</p>
-            </div>
-          </div>
-          <div className="flex items-end gap-4">
+              className="px-3 py-2 bg-[#1E1E1E] hover:bg-gray-700 border border-gray-700 rounded text-xs text-gray-300 flex items-center gap-2 transition-colors"
+              title="Reload visualization"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Reload
+            </button>
             {/* Detail Category */}
             <div className="flex flex-col items-center gap-1">
               <div className="text-[10px] text-gray-500 uppercase tracking-wider font-bold">Detail</div>
@@ -1092,9 +1253,7 @@ export default function ArchitectureViewV2() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
+      </TabHeader>
 
       {/* Main Content */}
       <div className="flex-1 flex relative overflow-hidden" style={{ minHeight: 0 }}>
@@ -1111,17 +1270,66 @@ export default function ArchitectureViewV2() {
           className={`flex-1 bg-[#1E1E1E] ${showMatrix ? 'hidden' : ''} relative`}
           style={{ height: '100%' }}
         >
-          {initError && (
-            <div className="absolute inset-0 flex items-center justify-center">
+          {initError && !isRecovering && (
+            <div className="absolute inset-0 flex items-center justify-center z-50">
               <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-6 max-w-md">
-                <h3 className="text-red-400 font-semibold mb-2">Initialization Error</h3>
+                <h3 className="text-red-400 font-semibold mb-2 flex items-center gap-2">
+                  <X className="w-5 h-5" />
+                  Visualization Error
+                </h3>
                 <p className="text-gray-300 text-sm mb-4">{initError}</p>
-                <button
-                  onClick={() => window.location.reload()}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm"
-                >
-                  Reload Page
-                </button>
+                
+                {retryCount < maxRetries ? (
+                  <div className="mb-4">
+                    <p className="text-gray-400 text-xs">
+                      Automatic recovery in progress ({retryCount}/{maxRetries} attempts)
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mb-4">
+                    <p className="text-gray-400 text-xs">
+                      Automatic recovery failed after {maxRetries} attempts.
+                    </p>
+                  </div>
+                )}
+                
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setRetryCount(0);
+                      setIsRecovering(false);
+                      setInitError(null);
+                      fetchArchitectureData();
+                    }}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm flex items-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Retry
+                  </button>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded text-sm"
+                  >
+                    Reload Page
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {isRecovering && (
+            <div className="absolute inset-0 flex items-center justify-center z-50 bg-black/50">
+              <div className="bg-[#252526] border border-blue-500/30 rounded-lg p-6 max-w-md">
+                <h3 className="text-blue-400 font-semibold mb-2 flex items-center gap-2">
+                  <RefreshCw className="w-5 h-5 animate-spin" />
+                  Recovering Visualization
+                </h3>
+                <p className="text-gray-300 text-sm">
+                  Attempting to restore the architecture view...
+                </p>
+                <p className="text-gray-400 text-xs mt-2">
+                  Attempt {retryCount + 1} of {maxRetries}
+                </p>
               </div>
             </div>
           )}

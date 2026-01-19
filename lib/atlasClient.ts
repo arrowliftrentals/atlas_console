@@ -302,16 +302,18 @@ export type TaskStatus =
   | 'pending'
   | 'running'
   | 'completed'
+  | 'success' // Backend may return 'success' instead of 'completed'
   | 'failed'
   | 'cancelled';
 
 export interface AtlasTask {
   id: string;
+  name: string;
   status: TaskStatus;
+  progress: number; // 0-100
   createdAt: string; // ISO 8601 string
   updatedAt: string; // ISO 8601 string;
-  // Extend as needed to match TasksView expectations:
-  // name?: string;
+  // Extend as needed:
   // description?: string;
   // resultSummary?: string;
 }
@@ -350,26 +352,27 @@ export async function fetchLogs(): Promise<AtlasLogEntry[]> {
 /**
  * Fetch tasks for the Atlas console.
  *
- * Currently implemented as a stub that returns an empty array so the
- * console can render without a backing tasks API. Replace the body with
- * a real API call when your backend exposes a tasks endpoint.
+ * Fetches active tasks and goals from L8 Planning Memory via /v1/atlas/tasks.
  */
 export async function fetchTasks(): Promise<AtlasTask[]> {
-  // Example real implementation (for later):
-  //
-  // const res = await fetch('/api/tasks', {
-  //   method: 'GET',
-  //   headers: {
-  //     'Content-Type': 'application/json',
-  //   },
-  // });
-  //
-  // if (!res.ok) {
-  //   throw new Error(`Failed to fetch tasks: ${res.status} ${res.statusText}`);
-  // }
-  //
-  // return (await res.json()) as AtlasTask[];
+  try {
+    const response = await fetch("/api/tasks", {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      cache: "no-store",
+    });
 
-  // Stub: no tasks yet
-  return [];
+    if (!response.ok) {
+      console.error(`[fetchTasks] Failed: ${response.status}`);
+      return [];
+    }
+
+    const data = await response.json();
+    return data.tasks || [];
+  } catch (error) {
+    console.error("[fetchTasks] Error:", error);
+    return [];
+  }
 }

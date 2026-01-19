@@ -112,6 +112,13 @@ export interface LogEntry {
   message: string;
 }
 
+export interface FeedbackRequest {
+  query: string;
+  predicted_intent: string;
+  confidence: number;
+  message: string;
+}
+
 export interface AgentResponse {
   answer: string;
   tool_calls?: ToolCall[];
@@ -123,6 +130,10 @@ export interface AgentResponse {
   assumptions_used: Assumption[];
   unresolved_assumptions: Assumption[];
   notes?: string;
+  metadata?: {
+    feedback_request?: FeedbackRequest;
+    [key: string]: any;
+  };
 }
 
 // Task types (re-export from atlasClient for backward compatibility)
@@ -131,15 +142,16 @@ export type TaskStatus =
   | 'running'
   | 'completed'
   | 'failed'
-  | 'cancelled';
+  | 'cancelled'
+  | 'success'; // Backend may return 'success' instead of 'completed'
 
 export interface AtlasTask {
   id: string;
+  name: string;
   status: TaskStatus;
+  progress: number; // 0-100
   createdAt: string;
   updatedAt: string;
-  name?: string;
-  progress?: number;
   description?: string;
 }
 

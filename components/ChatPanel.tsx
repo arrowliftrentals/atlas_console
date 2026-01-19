@@ -9,6 +9,7 @@ import PermanentProgressBar from "./PermanentProgressBar";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { AgentResponse } from "@/lib/types";
+import FeedbackPrompt from "./FeedbackPrompt";
 
 const CHAT_PANEL_WIDTH_KEY = "atlas_console_chat_panel_width";
 const CHAT_PANEL_COLLAPSED_KEY = "atlas_console_chat_panel_collapsed";
@@ -27,6 +28,7 @@ const ChatPanel: React.FC = () => {
   const [isResizing, setIsResizing] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [attachments, setAttachments] = useState<Array<{name: string, type: string, content: string, size?: number}>>([]);
+  const [copySuccess, setCopySuccess] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -235,6 +237,34 @@ const ChatPanel: React.FC = () => {
     fileInputRef.current?.click();
   };
 
+  const handleCopyConversation = async () => {
+    if (!activeSessionId || messages.length === 0) return;
+
+    let conversationText = 'ATLAS Conversation\n';
+    conversationText += '='.repeat(50) + '\n\n';
+
+    messages.forEach((msg) => {
+      if (msg.type === 'user') {
+        conversationText += `User:\n${msg.content}\n\n`;
+      } else if (msg.type === 'assistant') {
+        const content = msg.content || (msg.response?.answer || '');
+        conversationText += `ATLAS:\n${content}\n\n`;
+      }
+    });
+
+    conversationText += '='.repeat(50) + '\n';
+    conversationText += `Exported: ${new Date().toLocaleString()}`;
+
+    try {
+      await navigator.clipboard.writeText(conversationText);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      setError('Failed to copy conversation to clipboard');
+    }
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
@@ -432,6 +462,16 @@ const ChatPanel: React.FC = () => {
                   {message.response && (
                     <div className="px-3 pb-4">
                       <AgentResponsePanel response={message.response} index={index} />
+                      {/* Feedback prompt for active learning */}
+                      {message.response.metadata?.feedback_request && (
+                        <FeedbackPrompt
+                          query={message.response.metadata.feedback_request.query}
+                          predictedIntent={message.response.metadata.feedback_request.predicted_intent}
+                          confidence={message.response.metadata.feedback_request.confidence}
+                          message={message.response.metadata.feedback_request.message}
+                          sessionId={activeSessionId || undefined}
+                        />
+                      )}
                     </div>
                   )}
 
@@ -486,6 +526,22 @@ const ChatPanel: React.FC = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
               </svg>
               <span>Attach</span>
+            </button>
+            <button
+              type="button"
+              onClick={handleCopyConversation}
+              disabled={!activeSessionId || messages.length === 0}
+              className={`flex items-center gap-1 px-2 py-1 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                copySuccess 
+                  ? 'bg-green-600 text-white' 
+                  : 'hover:bg-[var(--atlas-bg-hover)] text-[var(--atlas-text-muted)] hover:text-[var(--atlas-text-primary)]'
+              }`}
+              title="Copy entire conversation to clipboard"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              <span>{copySuccess ? 'Copied!' : 'Copy'}</span>
             </button>
           </div>
 
