@@ -5,7 +5,6 @@ import { sendAtlasChat, clearConsoleSession, atlasChatStream } from "@/lib/atlas
 import { useConsole } from "./ConsoleProvider";
 import { AgentResponsePanel } from "./AgentResponsePanel";
 import { useHealth } from "@/contexts/HealthContext";
-import PermanentProgressBar from "./PermanentProgressBar";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { AgentResponse } from "@/lib/types";
@@ -136,7 +135,7 @@ const ChatPanel: React.FC = () => {
 
   const handleSend = async () => {
     const trimmed = input.trim();
-    if (!trimmed || loading || !activeSessionId) return;
+    if (!trimmed || !activeSessionId) return;
 
     // Build message with attachments as context
     let messageContent = trimmed;
@@ -312,21 +311,21 @@ const ChatPanel: React.FC = () => {
 
   return (
     <>
-      {/* Resize Handle */}
-      <div
+      {/* Resize Handle - TEMPORARILY DISABLED */}
+      {/* <div
         onMouseDown={handleMouseDown}
         className={`w-1 h-full cursor-col-resize hover:bg-yellow-300 transition-colors duration-200 delay-[400ms] ${
           isResizing ? "bg-yellow-300" : "bg-transparent"
         }`}
         style={{ flexShrink: 0 }}
-      />
+      /> */}
       
       {/* Chat Panel Content */}
-      <div className="h-full w-full flex flex-col bg-black border-l border-[var(--atlas-border-subtle)]">
+      <div className="h-full w-full flex flex-col border-l" style={{ backgroundColor: 'var(--atlas-bg-primary)', borderColor: 'var(--atlas-border-subtle)' }}>
       {!isCollapsed ? (
         <>
         {/* Header */}
-        <div className="px-3 py-2 border-b border-[var(--atlas-border-subtle)] bg-[#252526]">
+        <div className="px-3 py-2 border-b" style={{ borderColor: 'var(--atlas-border-subtle)', backgroundColor: 'var(--atlas-bg-elevated)' }}>
           <div className="flex items-center gap-2 mb-2">
             <button
               onClick={toggleCollapse}
@@ -335,7 +334,7 @@ const ChatPanel: React.FC = () => {
             >
               ▶
             </button>
-            <span className="text-xs text-gray-300 font-medium">ATLAS Chat</span>
+            <span className="text-xs text-gray-300 font-medium">Chat</span>
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -366,7 +365,17 @@ const ChatPanel: React.FC = () => {
                 ></div>
               </div>
               {/* ATLAS Badge */}
-              <span className="text-sm font-semibold text-[var(--atlas-text-primary)]">ATLAS</span>
+              <span 
+                className="text-sm font-semibold"
+                style={{
+                  background: `linear-gradient(135deg, var(--atlas-accent-primary) 0%, var(--atlas-accent-secondary) 100%)`,
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text'
+                }}
+              >
+                ATLAS
+              </span>
             </div>
             <button
               type="button"
@@ -378,9 +387,6 @@ const ChatPanel: React.FC = () => {
             </button>
           </div>
         </div>
-
-      {/* Permanent Progress Bar - Always visible */}
-      <PermanentProgressBar sessionId={activeSessionId} />
 
       {/* Responses */}
       <div ref={messagesContainerRef} className="flex-1 overflow-y-auto atlas-scrollbar">
@@ -432,29 +438,19 @@ const ChatPanel: React.FC = () => {
                     </div>
                   )}
 
-                  {/* User message as button */}
+                  {/* User message */}
                   {message.type === 'user' && (
                     <div className="px-3 pb-4 flex justify-end">
-                      <button 
-                        onClick={async () => {
-                          if (!activeSessionId) return;
-                          const confirmed = window.confirm(`Restore conversation to this point? This will remove ${messages.length - index} message(s).`);
-                          if (confirmed) {
-                            try {
-                              await clearConsoleSession(activeSessionId);
-                              const messagesToKeep = messages.slice(0, index);
-                              clearMessages(activeSessionId);
-                              messagesToKeep.forEach(msg => addMessage(activeSessionId, msg));
-                            } catch (err) {
-                              console.error('Failed to restore:', err);
-                            }
-                          }
+                      <div 
+                        className="text-sm px-4 py-2 rounded-lg max-w-[90%] select-text"
+                        style={{
+                          background: 'var(--atlas-bg-subtle)',
+                          borderLeft: '3px solid var(--atlas-accent-primary)',
+                          color: 'var(--atlas-text-primary)'
                         }}
-                        className="bg-[#1e3a5f] hover:bg-[#2563eb] text-white text-sm px-4 py-2 rounded-lg max-w-[90%] text-left transition-colors"
-                        title="Click to restore conversation to this point"
                       >
                         {message.content}
-                      </button>
+                      </div>
                     </div>
                   )}
 
@@ -478,7 +474,14 @@ const ChatPanel: React.FC = () => {
                   {/* Agent message with just content (streaming) - VS Code style with Markdown */}
                   {message.type === 'assistant' && message.content && !message.response && (
                     <div className="px-4 pb-3">
-                      <div className="bg-[#1e1e1e] rounded-lg px-4 py-2 text-sm inline-block max-w-[90%]">
+                      <div 
+                        className="rounded-lg px-4 py-2 text-sm inline-block max-w-[90%] select-text"
+                        style={{
+                          background: 'var(--atlas-bg-card)',
+                          borderLeft: '3px solid var(--atlas-accent-secondary)',
+                          color: 'var(--atlas-text-primary)'
+                        }}
+                      >
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
                           {message.content}
                         </ReactMarkdown>
@@ -585,19 +588,22 @@ const ChatPanel: React.FC = () => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={activeSessionId ? "Ask ATLAS anything..." : "Select a session to start"}
+            placeholder={activeSessionId ? (loading ? "Add follow-up or refinement..." : "Ask ATLAS anything...") : "Select a session to start"}
             className="atlas-textarea min-h-[60px] max-h-[120px] text-xs"
-            disabled={loading || !activeSessionId}
+            disabled={!activeSessionId}
             rows={2}
           />
           <div className="flex gap-2">
             <button
               type="button"
               onClick={handleSend}
-              disabled={!input.trim() || loading || !activeSessionId}
-              className="flex-1 atlas-btn-primary text-xs py-1.5"
+              disabled={!activeSessionId}
+              className="flex-1 text-white font-medium rounded-lg px-4 py-2.5 text-base transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-[inset_0_2px_0_0_rgba(255,255,255,0.3)]"
+              style={{ background: 'var(--atlas-btn-primary)' }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--atlas-btn-primary-hover)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'var(--atlas-btn-primary)'}
             >
-              {loading ? "Sending..." : "Send"}
+              {loading ? "Send Follow-up" : "Send"}
             </button>
           </div>
         </div>

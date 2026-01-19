@@ -32,7 +32,8 @@ export async function GET(request: NextRequest) {
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+    // Backend returns {logs: [...], count: N}, but frontend expects array directly
+    return NextResponse.json(data.logs || []);
   } catch (error: any) {
     console.error('[API /api/atlas/logs] Error:', error);
     return NextResponse.json(

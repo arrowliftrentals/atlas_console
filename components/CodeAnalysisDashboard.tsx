@@ -123,31 +123,30 @@ const CodeAnalysisDashboard: React.FC = () => {
       const runId = data.run_id;
       setCurrentRunId(runId);
 
-      // Connect to WebSocket for progress updates
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const ws = new WebSocket(`${protocol}//${window.location.host}/api/analysis/progress/${runId}`);
-      wsRef.current = ws;
+      // Poll for progress updates
+      const pollInterval = setInterval(async () => {
+        try {
+          const progressRes = await fetch(`/api/analysis/progress/${runId}`);
+          const progressData = await progressRes.json();
+          
+          setProgress(progressData);
 
-      ws.onmessage = (event) => {
-        const progressData = JSON.parse(event.data);
-        setProgress(progressData);
-
-        if (progressData.stage === "complete") {
-          setIsRunning(false);
-          loadRuns();
-          setSelectedRunId(runId);
+          if (progressData.stage === "complete" || progressData.stage === "error") {
+            clearInterval(pollInterval);
+            setIsRunning(false);
+            
+            if (progressData.stage === "complete") {
+              loadRuns();
+              setSelectedRunId(runId);
+            }
+          }
+        } catch (err) {
+          console.error("Progress poll error:", err);
         }
-      };
+      }, 500); // Poll every 500ms
 
-      ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
-        setIsRunning(false);
-        setProgress({ stage: "error", current: 0, total: 100, message: "Connection error" });
-      };
-
-      ws.onclose = () => {
-        setIsRunning(false);
-      };
+      // Store interval ID for cleanup
+      wsRef.current = pollInterval as any;
     } catch (e) {
       console.error("Failed to start analysis:", e);
       setIsRunning(false);
@@ -157,7 +156,7 @@ const CodeAnalysisDashboard: React.FC = () => {
 
   const stopAnalysis = () => {
     if (wsRef.current) {
-      wsRef.current.close();
+      clearInterval(wsRef.current as any);
       wsRef.current = null;
     }
     setIsRunning(false);

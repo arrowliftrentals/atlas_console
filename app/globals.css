@@ -54,3 +54,44 @@ body {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Vibrant UI Utilities */
+.atlas-card {
+  background: var(--atlas-bg-card);
+  border-left: 3px solid var(--atlas-border-accent);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.atlas-card-success {
+  background: var(--atlas-success-muted);
+  border-left: 3px solid var(--atlas-success);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.atlas-card-warning {
+  background: var(--atlas-warning-muted);
+  border-left: 3px solid var(--atlas-warning);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.atlas-card-error {
+  background: var(--atlas-error-muted);
+  border-left: 3px solid var(--atlas-error);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.atlas-gradient-text {
+  background: linear-gradient(135deg, var(--atlas-accent-primary) 0%, var(--atlas-accent-secondary) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.atlas-section-divider {
+  border-left: 3px solid var(--atlas-section-divider);
+  padding-left: 0.75rem;
+}

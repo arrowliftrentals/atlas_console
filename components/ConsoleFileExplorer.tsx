@@ -211,10 +211,14 @@ const ConsoleFileExplorer: React.FC<ConsoleFileExplorerProps> = ({
     return (
       <div key={node.path}>
         <div
-          className={`flex items-center cursor-pointer rounded px-1 py-0.5 hover:bg-[#2a2d2e] ${
-            isSelected ? 'bg-[#094771]' : ''
-          }`}
-          style={{ paddingLeft }}
+          className="flex items-center cursor-pointer rounded px-1 py-0.5"
+          style={{ 
+            paddingLeft,
+            backgroundColor: isSelected ? 'var(--atlas-accent-primary)' : 'transparent',
+            opacity: isSelected ? 0.8 : 1
+          }}
+          onMouseEnter={(e) => !isSelected && (e.currentTarget.style.backgroundColor = 'var(--atlas-bg-hover)')}
+          onMouseLeave={(e) => !isSelected && (e.currentTarget.style.backgroundColor = 'transparent')}
           onClick={() => {
             if (node.isDir) {
               toggleDirectory(node.path);
@@ -225,15 +229,15 @@ const ConsoleFileExplorer: React.FC<ConsoleFileExplorerProps> = ({
           title={node.path}
         >
           {node.isDir ? (
-            <span className="mr-1.5 text-gray-400 text-[10px]">
+            <span className="mr-1.5 text-[10px]" style={{ color: 'var(--atlas-accent-primary)' }}>
               {isExpanded ? '▼' : '▶'}
             </span>
           ) : (
-            <span className={`mr-1.5 text-[9px] font-semibold ${getFileIconColor(node.name)} w-8 text-center`}>
+            <span className="mr-1.5 text-[9px] font-semibold w-8 text-center" style={{ color: 'var(--atlas-accent-secondary)' }}>
               {getFileIcon(node.name)}
             </span>
           )}
-          <span className="truncate">{node.name}</span>
+          <span className="truncate" style={{ color: 'var(--atlas-text-primary)' }}>{node.name}</span>
         </div>
         {node.isDir && isExpanded && node.children && node.children.length > 0 && (
           <div>
@@ -245,7 +249,7 @@ const ConsoleFileExplorer: React.FC<ConsoleFileExplorerProps> = ({
   };
 
   return (
-    <div className="h-full w-full text-xs text-gray-200 bg-black flex flex-col">
+    <div className="h-full w-full text-xs flex flex-col" style={{ color: 'var(--atlas-text-primary)', backgroundColor: 'var(--atlas-bg-primary)' }}>
       {error && (
         <div className="p-2 text-red-400 text-[10px]">{error}</div>
       )}

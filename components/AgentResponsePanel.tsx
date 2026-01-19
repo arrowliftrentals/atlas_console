@@ -49,7 +49,7 @@ export function AgentResponsePanel({ response, index }: AgentResponsePanelProps)
   // If no structured content, show only text
   if (!hasStructuredContent) {
     return (
-      <div className="text-xs text-[var(--atlas-text-secondary)] leading-relaxed whitespace-pre-wrap">
+      <div className="text-xs text-[var(--atlas-text-secondary)] leading-relaxed whitespace-pre-wrap select-text">
         {response.answer}
       </div>
     );
@@ -238,7 +238,7 @@ export function AgentResponsePanel({ response, index }: AgentResponsePanelProps)
             )}
 
             {/* Response Text */}
-            <div className="whitespace-pre-wrap text-[var(--atlas-text-secondary)] leading-relaxed">
+            <div className="whitespace-pre-wrap text-[var(--atlas-text-secondary)] leading-relaxed select-text">
               {response.answer}
             </div>
 

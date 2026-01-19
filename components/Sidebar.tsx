@@ -94,7 +94,7 @@ const Sidebar: React.FC = () => {
         {!isCollapsed ? (
           <>
             {/* Header with collapse button */}
-            <div className="px-3 py-2 bg-[#252526] border-b border-gray-700 flex items-center justify-between">
+            <div className="px-3 py-2 border-b flex items-center justify-between" style={{ backgroundColor: 'var(--atlas-bg-elevated)', borderColor: 'var(--atlas-border)' }}>
               <span className="text-xs text-gray-300 font-medium">Explorer</span>
               <button
                 onClick={toggleCollapse}
@@ -107,7 +107,15 @@ const Sidebar: React.FC = () => {
             
             <SessionSelector />
 
-            <div className="px-3 py-2 border-b border-gray-700 font-semibold">
+            <div 
+              className="px-3 py-2 border-b font-semibold" 
+              style={{ 
+                borderColor: 'var(--atlas-border)',
+                borderLeft: '3px solid var(--atlas-accent-tertiary)',
+                paddingLeft: '0.75rem',
+                color: 'var(--atlas-text-accent)'
+              }}
+            >
               Workspace Files
             </div>
             <div className="flex-1 overflow-auto">
@@ -119,7 +127,7 @@ const Sidebar: React.FC = () => {
           </>
         ) : (
           <div className="flex flex-col h-full">
-            <div className="px-3 py-2 bg-[#252526] border-b border-gray-700 flex items-center justify-center">
+            <div className="px-3 py-2 border-b flex items-center justify-center" style={{ backgroundColor: 'var(--atlas-bg-elevated)', borderColor: 'var(--atlas-border)' }}>
               <button
                 onClick={toggleCollapse}
                 className="text-gray-400 hover:text-gray-200 text-xs"
@@ -132,14 +140,14 @@ const Sidebar: React.FC = () => {
         )}
       </div>
 
-      {/* Resize Handle */}
-      <div
+      {/* Resize Handle - TEMPORARILY DISABLED */}
+      {/* <div
         onMouseDown={handleMouseDown}
         className={`w-1 h-full cursor-col-resize hover:bg-yellow-300 transition-colors duration-200 delay-[400ms] ${
           isResizing ? "bg-yellow-300" : "bg-transparent"
         }`}
         style={{ flexShrink: 0 }}
-      />
+      /> */}
     </>
   );
 };

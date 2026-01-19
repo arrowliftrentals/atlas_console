@@ -24,8 +24,20 @@ export default function SessionSelector() {
   };
 
   return (
-    <div className="p-4 border-b border-gray-700">
-      <div className="mb-2 text-xs font-semibold text-gray-400 uppercase">Console Session</div>
+    <div 
+      className="p-4 border-b" 
+      style={{ 
+        borderColor: 'var(--atlas-border)',
+        borderLeft: '3px solid var(--atlas-accent-primary)',
+        paddingLeft: '1rem'
+      }}
+    >
+      <div 
+        className="mb-2 text-xs font-semibold uppercase" 
+        style={{ color: 'var(--atlas-text-accent)' }}
+      >
+        Console Session
+      </div>
       
       {loadingSessions ? (
         <div className="text-sm text-gray-400">Loading sessions...</div>
@@ -36,8 +48,14 @@ export default function SessionSelector() {
           <select
             value={activeSessionId || ''}
             onChange={(e) => setActiveSessionId(e.target.value || null)}
-            className="w-full px-2 py-1 text-sm bg-[#3c3c3c] text-gray-200 border border-gray-600 rounded focus:outline-none focus:border-blue-500"
-          >
+            className="w-full px-2 py-1.5 text-sm border rounded-lg focus:outline-none shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)]"
+            style={{ 
+              backgroundColor: 'var(--atlas-bg-subtle)',
+              color: 'var(--atlas-text-primary)',
+              borderColor: 'var(--atlas-border)'
+            }}
+            onFocus={(e) => e.currentTarget.style.borderColor = 'var(--atlas-border-accent)'}
+            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--atlas-border)'}          >
             {sessions.length === 0 && (
               <option value="">No sessions available</option>
             )}
@@ -51,7 +69,10 @@ export default function SessionSelector() {
           <button
             onClick={handleCreateSession}
             disabled={creating}
-            className="mt-2 w-full px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed"
+            className="mt-2 w-full px-2 py-1.5 text-xs text-white font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-[inset_0_2px_0_0_rgba(255,255,255,0.3)]"
+            style={{ background: creating ? 'var(--atlas-btn-secondary)' : 'var(--atlas-btn-primary)' }}
+            onMouseEnter={(e) => !creating && (e.currentTarget.style.background = 'var(--atlas-btn-primary-hover)')}
+            onMouseLeave={(e) => !creating && (e.currentTarget.style.background = 'var(--atlas-btn-primary)')}
           >
             {creating ? 'Creating...' : '+ New Session'}
           </button>

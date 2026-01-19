@@ -26,6 +26,7 @@ const HealthContext = createContext<HealthContextType | undefined>(undefined);
 
 const BACKEND_URL = 'http://localhost:8000';
 const CHECK_INTERVAL = 10000; // Check every 10 seconds
+const REQUIRED_CONSISTENT_CHECKS = 3; // Require 3 consecutive checks before changing state
 
 export function HealthProvider({ children }: { children: ReactNode }) {
   const [health, setHealth] = useState<HealthStatus>({
@@ -40,6 +41,9 @@ export function HealthProvider({ children }: { children: ReactNode }) {
     sandbox: 'disconnected',
     lastCheck: Date.now(),
   });
+  
+  // Track consecutive check results to debounce flickering
+  const [checkHistory, setCheckHistory] = useState<Record<string, HealthState[]>>({});
 
   const checkHealth = async () => {
     const newHealth: HealthStatus = {
@@ -62,14 +66,9 @@ export function HealthProvider({ children }: { children: ReactNode }) {
         .then(res => ({ key: 'backend' as const, status: res.ok ? 'connected' as const : 'error' as const }))
         .catch(() => ({ key: 'backend' as const, status: 'disconnected' as const })),
       
-      // Priority 2: Chat endpoint (direct backend check, no proxy)
-      fetch(`${BACKEND_URL}/v1/atlas/agent`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: 'health', session_id: null }),
-        signal: AbortSignal.timeout(2000)
-      })
-        .then(res => ({ key: 'chat' as const, status: (res.ok || res.status === 422) ? 'connected' as const : 'error' as const }))
+      // Priority 2: Chat endpoint (use backend health as simpler proxy)
+      fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(5000) })
+        .then(res => ({ key: 'chat' as const, status: res.ok ? 'connected' as const : 'error' as const }))
         .catch(() => ({ key: 'chat' as const, status: 'disconnected' as const })),
       
       // Priority 3: Architecture
@@ -105,25 +104,55 @@ export function HealthProvider({ children }: { children: ReactNode }) {
         .catch(() => ({ key: 'sandbox' as const, status: 'disconnected' as const })),
     ]);
 
-    // Process results
+    // Process results into temporary state
+    const rawHealth: Partial<HealthStatus> = {};
     checks.forEach((result) => {
       if (result.status === 'fulfilled' && result.value) {
-        newHealth[result.value.key] = result.value.status;
+        rawHealth[result.value.key] = result.value.status;
       }
     });
 
     // Telemetry WebSocket check - check if WebSocket is actually open
-    // Components store their WebSocket state on window object
     const wsState = typeof window !== 'undefined' ? (window as any).__atlasWebSocketState : null;
     if (wsState && wsState.connected) {
-      newHealth.telemetry = 'connected';
+      rawHealth.telemetry = 'connected';
     } else if (wsState && wsState.error) {
-      newHealth.telemetry = 'error';
+      rawHealth.telemetry = 'error';
     } else {
-      newHealth.telemetry = 'disconnected';
+      rawHealth.telemetry = 'disconnected';
     }
 
-    setHealth(newHealth);
+    // Update check history and apply debouncing
+    setCheckHistory(prevHistory => {
+      const newHistory = { ...prevHistory };
+      const debouncedHealth = { ...newHealth };
+      
+      Object.keys(rawHealth).forEach((key) => {
+        const typedKey = key as keyof HealthStatus;
+        if (typedKey === 'lastCheck') return;
+        
+        const currentState = rawHealth[typedKey] as HealthState;
+        
+        // Initialize history for this key if needed
+        if (!newHistory[key]) {
+          newHistory[key] = [];
+        }
+        
+        // Add current check result to history
+        newHistory[key] = [...newHistory[key], currentState].slice(-REQUIRED_CONSISTENT_CHECKS);
+        
+        // Only change state if we have enough consistent checks
+        if (newHistory[key].length >= REQUIRED_CONSISTENT_CHECKS) {
+          const allSame = newHistory[key].every(state => state === currentState);
+          if (allSame) {
+            debouncedHealth[typedKey] = currentState;
+          }
+        }
+      });
+      
+      setHealth(debouncedHealth);
+      return newHistory;
+    });
   };
 
   const updateTelemetryStatus = (connected: boolean) => {
