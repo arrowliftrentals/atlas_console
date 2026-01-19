@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import TabHeader from "./TabHeader";
 import { useHealth } from "@/contexts/HealthContext";
+import CodeAnalysisDashboard from "./CodeAnalysisDashboard";
 
 interface SandboxResult {
   output: string;
@@ -48,7 +49,7 @@ interface Proposal {
 }
 
 const SandboxView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"executor" | "history" | "stats" | "proposals">("executor");
+  const [activeTab, setActiveTab] = useState<"executor" | "history" | "stats" | "proposals" | "analysis">("executor");
   
   // Executor state
   const [code, setCode] = useState<string>("print(2 + 2)");
@@ -286,6 +287,16 @@ const SandboxView: React.FC = () => {
           }`}
         >
           Proposals
+        </button>
+        <button
+          onClick={() => setActiveTab("analysis")}
+          className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+            activeTab === "analysis"
+              ? "border-blue-500 text-blue-400"
+              : "border-transparent text-gray-400 hover:text-gray-200"
+          }`}
+        >
+          Code Analysis
         </button>
       </div>
 
@@ -574,6 +585,10 @@ const SandboxView: React.FC = () => {
               </div>
             )}
           </div>
+        )}
+
+        {activeTab === "analysis" && (
+          <CodeAnalysisDashboard />
         )}
       </div>
     </div>
