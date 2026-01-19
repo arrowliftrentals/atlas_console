@@ -3,14 +3,18 @@
 import React, { useState, useEffect, useRef } from "react";
 
 interface AnalysisIssue {
+  id: string;
   file: string;
   line: number;
-  column?: number;
   code: string;
   message: string;
   severity: string;
-  source: string;
+  tool: string;
   priority_score: number;
+  category: string;
+  requires_fix: boolean;
+  auto_fixable: boolean;
+  fix_applied: boolean;
 }
 
 interface AnalysisRun {
@@ -61,7 +65,7 @@ const CodeAnalysisDashboard: React.FC = () => {
   const [issues, setIssues] = useState<AnalysisIssue[]>([]);
   const [issuesLoading, setIssuesLoading] = useState(false);
 
-  const [groupBy, setGroupBy] = useState<"file" | "severity" | "source">("severity");
+  const [groupBy, setGroupBy] = useState<"file" | "severity" | "tool">("severity");
   const [sortBy, setSortBy] = useState<"priority" | "file" | "line">("priority");
   const [filterText, setFilterText] = useState("");
   const [selectedIssue, setSelectedIssue] = useState<AnalysisIssue | null>(null);
@@ -210,7 +214,7 @@ const CodeAnalysisDashboard: React.FC = () => {
     let key = "";
     if (groupBy === "file") key = issue.file;
     else if (groupBy === "severity") key = issue.severity;
-    else if (groupBy === "source") key = issue.source;
+    else if (groupBy === "tool") key = issue.tool;
 
     if (!acc[key]) acc[key] = [];
     acc[key].push(issue);
@@ -421,7 +425,7 @@ const CodeAnalysisDashboard: React.FC = () => {
               >
                 <option value="severity">Group by Severity</option>
                 <option value="file">Group by File</option>
-                <option value="source">Group by Source</option>
+                <option value="tool">Group by Tool</option>
               </select>
               <select
                 value={sortBy}
@@ -483,9 +487,9 @@ const CodeAnalysisDashboard: React.FC = () => {
                                 <span className="text-xs font-mono bg-gray-800 px-2 py-0.5 rounded text-gray-300">
                                   {issue.code}
                                 </span>
-                                <span className="text-xs text-gray-500">{issue.source}</span>
+                                <span className="text-xs text-gray-500">{issue.tool}</span>
                                 <span className="text-xs text-purple-400">
-                                  Priority: {issue.priority_score.toFixed(2)}
+                                  Priority: {issue.priority_score}
                                 </span>
                               </div>
                               <div className="text-xs font-mono text-gray-400 mb-1">
