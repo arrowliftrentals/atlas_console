@@ -51,9 +51,9 @@ const CodeAnalysisDashboard: React.FC = () => {
     include_mypy: true,
     include_pylint: true,
     include_tests: true,
-    min_priority: 0.3,
-    severity_filter: ["error", "warning"],
-    exclude_codes: ["import-not-found", "missing-imports"],
+    min_priority: 0.0,
+    severity_filter: ["error", "warning", "info"],
+    exclude_codes: [],
   });
 
   const [isRunning, setIsRunning] = useState(false);
