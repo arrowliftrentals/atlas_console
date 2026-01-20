@@ -117,10 +117,27 @@ const CodeAnalysisDashboard: React.FC = () => {
     setProgress({ stage: "Initializing", current: 0, total: 100, message: "Starting analysis..." });
 
     try {
+      // Build backend config format (mypy/pylint objects with exclude lists)
+      const backendConfig = {
+        mypy: {
+          enabled: config.include_mypy,
+          categories: [],
+          exclude: config.exclude_codes
+        },
+        pylint: {
+          enabled: config.include_pylint,
+          categories: [],
+          exclude: config.exclude_codes
+        }
+      };
+      
       const res = await fetch("/api/analysis/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(config),
+        body: JSON.stringify({
+          config: backendConfig,
+          skip_tests: !config.include_tests
+        }),
       });
 
       const data = await res.json();
@@ -263,7 +280,7 @@ const CodeAnalysisDashboard: React.FC = () => {
       {/* Configuration Panel */}
       {showConfig && (
         <div className="border-b border-gray-700 p-4 bg-[#1a1a1a]">
-          <div className="flex gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <h3 className="text-xs font-semibold mb-2 text-gray-300">Analysis Tools</h3>
               <label className="flex items-center gap-2 text-xs mb-1">
@@ -293,6 +310,26 @@ const CodeAnalysisDashboard: React.FC = () => {
                 />
                 <span>Run tests</span>
               </label>
+            </div>
+
+            <div>
+              <h3 className="text-xs font-semibold mb-2 text-gray-300">Filters (optional)</h3>
+              <div className="text-xs text-gray-400 mb-2">
+                Leave blank to show all issues
+              </div>
+              <textarea
+                value={config.exclude_codes.join(", ")}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    exclude_codes: e.target.value.split(",").map((c) => c.trim()).filter(Boolean),
+                  })
+                }
+                placeholder="Leave empty to show all"
+                className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs font-mono"
+                rows={2}
+              />
+              <p className="text-xs text-gray-500 mt-1">Exclude specific error codes (comma-separated)</p>
             </div>
           </div>
         </div>
