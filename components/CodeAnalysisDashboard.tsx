@@ -263,7 +263,7 @@ const CodeAnalysisDashboard: React.FC = () => {
       {/* Configuration Panel */}
       {showConfig && (
         <div className="border-b border-gray-700 p-4 bg-[#1a1a1a]">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="flex gap-4">
             <div>
               <h3 className="text-xs font-semibold mb-2 text-gray-300">Analysis Tools</h3>
               <label className="flex items-center gap-2 text-xs mb-1">
@@ -293,48 +293,6 @@ const CodeAnalysisDashboard: React.FC = () => {
                 />
                 <span>Run tests</span>
               </label>
-            </div>
-
-            <div>
-              <h3 className="text-xs font-semibold mb-2 text-gray-300">Severity Filter</h3>
-              <div className="text-xs">
-                <div className="flex gap-2">
-                  {["error", "warning", "info"].map((sev) => (
-                    <label key={sev} className="flex items-center gap-1">
-                      <input
-                        type="checkbox"
-                        checked={config.severity_filter.includes(sev)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setConfig({ ...config, severity_filter: [...config.severity_filter, sev] });
-                          } else {
-                            setConfig({ ...config, severity_filter: config.severity_filter.filter((s) => s !== sev) });
-                          }
-                        }}
-                        className="rounded"
-                      />
-                      <span className="capitalize">{sev}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-xs font-semibold mb-2 text-gray-300">Exclude Codes</h3>
-              <textarea
-                value={config.exclude_codes.join(", ")}
-                onChange={(e) =>
-                  setConfig({
-                    ...config,
-                    exclude_codes: e.target.value.split(",").map((c) => c.trim()).filter(Boolean),
-                  })
-                }
-                placeholder="import-not-found, missing-imports"
-                className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs font-mono"
-                rows={3}
-              />
-              <p className="text-xs text-gray-500 mt-1">Comma-separated error codes to exclude</p>
             </div>
           </div>
         </div>
