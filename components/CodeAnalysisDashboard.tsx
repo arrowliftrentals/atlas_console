@@ -296,22 +296,8 @@ const CodeAnalysisDashboard: React.FC = () => {
             </div>
 
             <div>
-              <h3 className="text-xs font-semibold mb-2 text-gray-300">Filters</h3>
-              <label className="flex items-center gap-2 text-xs mb-2">
-                <span className="text-gray-400">Min Priority:</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.1"
-                  value={config.min_priority}
-                  onChange={(e) => setConfig({ ...config, min_priority: parseFloat(e.target.value) })}
-                  className="flex-1"
-                />
-                <span className="w-8 text-right">{config.min_priority.toFixed(1)}</span>
-              </label>
+              <h3 className="text-xs font-semibold mb-2 text-gray-300">Severity Filter</h3>
               <div className="text-xs">
-                <span className="text-gray-400 block mb-1">Severity:</span>
                 <div className="flex gap-2">
                   {["error", "warning", "info"].map((sev) => (
                     <label key={sev} className="flex items-center gap-1">
