@@ -65,10 +65,14 @@ const CodeAnalysisDashboard: React.FC = () => {
   const [issues, setIssues] = useState<AnalysisIssue[]>([]);
   const [issuesLoading, setIssuesLoading] = useState(false);
 
-  const [groupBy, setGroupBy] = useState<"file" | "severity" | "tool">("severity");
+  const [groupBy, setGroupBy] = useState<"file" | "severity" | "tool" | "code" | "priority">("code");
   const [sortBy, setSortBy] = useState<"priority" | "file" | "line">("priority");
   const [filterText, setFilterText] = useState("");
   const [selectedIssue, setSelectedIssue] = useState<AnalysisIssue | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  const [selectedIssueIds, setSelectedIssueIds] = useState<Set<string>>(new Set());
+  const [isGeneratingFixes, setIsGeneratingFixes] = useState(false);
+  const [fixProgress, setFixProgress] = useState<string | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
 
@@ -184,6 +188,136 @@ const CodeAnalysisDashboard: React.FC = () => {
     setProgress(null);
   };
 
+  const toggleIssueSelection = (issueId: string) => {
+    const newSelected = new Set(selectedIssueIds);
+    if (newSelected.has(issueId)) {
+      newSelected.delete(issueId);
+    } else {
+      newSelected.add(issueId);
+    }
+    setSelectedIssueIds(newSelected);
+  };
+
+  const selectAllVisibleIssues = () => {
+    const allIds = new Set(processedIssues.map(issue => issue.id));
+    setSelectedIssueIds(allIds);
+  };
+
+  const deselectAll = () => {
+    setSelectedIssueIds(new Set());
+  };
+
+  const generateFixesForSelected = async () => {
+    if (!selectedRunId || selectedIssueIds.size === 0) return;
+
+    setIsGeneratingFixes(true);
+    setFixProgress("Submitting fix request...");
+
+    try {
+      const res = await fetch("/api/fix/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          run_id: selectedRunId,
+          issue_ids: Array.from(selectedIssueIds),
+          create_proposal: true,
+        }),
+      });
+
+      const data = await res.json();
+      const jobId = data.job_id;
+
+      // Poll for progress
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/fix/status/${jobId}`);
+          const statusData = await statusRes.json();
+
+          setFixProgress(statusData.message);
+
+          if (statusData.status === "completed") {
+            clearInterval(pollInterval);
+            setIsGeneratingFixes(false);
+            setFixProgress(null);
+            deselectAll();
+            
+            if (statusData.proposal_id) {
+              alert(`✅ Proposal ${statusData.proposal_id.slice(0, 8)} created! Check the Proposals tab.`);
+            }
+          } else if (statusData.status === "failed") {
+            clearInterval(pollInterval);
+            setIsGeneratingFixes(false);
+            setFixProgress(null);
+            alert(`❌ Fix generation failed: ${statusData.message}`);
+          }
+        } catch (err) {
+          console.error("Fix status poll error:", err);
+        }
+      }, 1000);
+    } catch (e) {
+      console.error("Failed to generate fixes:", e);
+      setIsGeneratingFixes(false);
+      setFixProgress(null);
+      alert("Failed to start fix generation");
+    }
+  };
+
+  const autoFixTopIssues = async () => {
+    if (!selectedRunId) return;
+
+    if (!confirm("Generate fixes for the top 10 highest priority issues?")) return;
+
+    setIsGeneratingFixes(true);
+    setFixProgress("Selecting top issues...");
+
+    try {
+      const res = await fetch("/api/fix/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          run_id: selectedRunId,
+          max_issues: 10,
+          min_priority: 50,
+        }),
+      });
+
+      const data = await res.json();
+      const jobId = data.job_id;
+
+      // Poll for progress
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/fix/status/${jobId}`);
+          const statusData = await statusRes.json();
+
+          setFixProgress(statusData.message);
+
+          if (statusData.status === "completed") {
+            clearInterval(pollInterval);
+            setIsGeneratingFixes(false);
+            setFixProgress(null);
+            
+            if (statusData.proposal_id) {
+              alert(`✅ Proposal ${statusData.proposal_id.slice(0, 8)} created! Check the Proposals tab.`);
+            }
+          } else if (statusData.status === "failed") {
+            clearInterval(pollInterval);
+            setIsGeneratingFixes(false);
+            setFixProgress(null);
+            alert(`❌ Batch fix generation failed: ${statusData.message}`);
+          }
+        } catch (err) {
+          console.error("Batch fix status poll error:", err);
+        }
+      }, 1000);
+    } catch (e) {
+      console.error("Failed to generate batch fixes:", e);
+      setIsGeneratingFixes(false);
+      setFixProgress(null);
+      alert("Failed to start batch fix generation");
+    }
+  };
+
   const markAsFixed = async (issue: AnalysisIssue) => {
     if (!selectedRunId) return;
 
@@ -232,11 +366,33 @@ const CodeAnalysisDashboard: React.FC = () => {
     if (groupBy === "file") key = issue.file;
     else if (groupBy === "severity") key = issue.severity;
     else if (groupBy === "tool") key = issue.tool;
+    else if (groupBy === "code") key = `${issue.code} - ${issue.message.split(':')[0].substring(0, 50)}`;
+    else if (groupBy === "priority") key = `Priority ${issue.priority_score}`;
 
     if (!acc[key]) acc[key] = [];
     acc[key].push(issue);
     return acc;
   }, {} as Record<string, AnalysisIssue[]>);
+  
+  // Sort groups by average priority (or by name if priorities are equal)
+  const sortedGroups = Object.entries(groupedIssues).sort((a, b) => {
+    const aAvgPriority = a[1].reduce((sum, issue) => sum + issue.priority_score, 0) / a[1].length;
+    const bAvgPriority = b[1].reduce((sum, issue) => sum + issue.priority_score, 0) / b[1].length;
+    if (Math.abs(bAvgPriority - aAvgPriority) < 0.01) {
+      return a[0].localeCompare(b[0]); // Secondary sort by group name
+    }
+    return bAvgPriority - aAvgPriority;
+  });
+  
+  const toggleGroup = (groupKey: string) => {
+    const newExpanded = new Set(expandedGroups);
+    if (newExpanded.has(groupKey)) {
+      newExpanded.delete(groupKey);
+    } else {
+      newExpanded.add(groupKey);
+    }
+    setExpandedGroups(newExpanded);
+  };
 
   const selectedRun = runs.find((r) => r.run_id === selectedRunId);
 
@@ -283,37 +439,37 @@ const CodeAnalysisDashboard: React.FC = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <h3 className="text-xs font-semibold mb-2 text-gray-300">Analysis Tools</h3>
-              <label className="flex items-center gap-2 text-xs mb-1">
+              <label className="flex items-center gap-2 text-xs mb-1 cursor-pointer" title="Type checker - finds type errors, missing annotations, and incorrect type usage">
                 <input
                   type="checkbox"
                   checked={config.include_mypy}
                   onChange={(e) => setConfig({ ...config, include_mypy: e.target.checked })}
-                  className="rounded"
+                  className="rounded cursor-pointer"
                 />
                 <span>mypy (type checking)</span>
               </label>
-              <label className="flex items-center gap-2 text-xs mb-1">
+              <label className="flex items-center gap-2 text-xs mb-1 cursor-pointer" title="Code linter - finds style issues, code smells, potential bugs, and complexity problems">
                 <input
                   type="checkbox"
                   checked={config.include_pylint}
                   onChange={(e) => setConfig({ ...config, include_pylint: e.target.checked })}
-                  className="rounded"
+                  className="rounded cursor-pointer"
                 />
                 <span>pylint (linting)</span>
               </label>
-              <label className="flex items-center gap-2 text-xs">
+              <label className="flex items-center gap-2 text-xs cursor-pointer" title="Execute test suite - runs pytest/unittest and reports failures (slower, recommended after fixing static issues)">
                 <input
                   type="checkbox"
                   checked={config.include_tests}
                   onChange={(e) => setConfig({ ...config, include_tests: e.target.checked })}
-                  className="rounded"
+                  className="rounded cursor-pointer"
                 />
                 <span>Run tests</span>
               </label>
             </div>
 
             <div>
-              <h3 className="text-xs font-semibold mb-2 text-gray-300">Filters (optional)</h3>
+              <h3 className="text-xs font-semibold mb-2 text-gray-300" title="Filter which issues to report - useful for ignoring known/accepted violations">Filters (optional)</h3>
               <div className="text-xs text-gray-400 mb-2">
                 Leave blank to show all issues
               </div>
@@ -325,11 +481,12 @@ const CodeAnalysisDashboard: React.FC = () => {
                     exclude_codes: e.target.value.split(",").map((c) => c.trim()).filter(Boolean),
                   })
                 }
-                placeholder="Leave empty to show all"
+                placeholder="e.g. C0301, W0612, E1101"
+                title="Enter error codes to exclude (e.g., C0301 for line-too-long, W0612 for unused-variable). Separate multiple codes with commas."
                 className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs font-mono"
                 rows={2}
               />
-              <p className="text-xs text-gray-500 mt-1">Exclude specific error codes (comma-separated)</p>
+              <p className="text-xs text-gray-500 mt-1">Exclude specific error codes like C0301, W0612 (comma-separated)</p>
             </div>
           </div>
         </div>
@@ -390,37 +547,89 @@ const CodeAnalysisDashboard: React.FC = () => {
         {/* Main Issue Browser */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Controls */}
-          <div className="border-b border-gray-700 p-3 bg-[#1a1a1a] flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <input
-                type="text"
-                placeholder="Filter issues..."
-                value={filterText}
-                onChange={(e) => setFilterText(e.target.value)}
-                className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs w-64"
-              />
-              <select
-                value={groupBy}
-                onChange={(e) => setGroupBy(e.target.value as any)}
-                className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs"
-              >
-                <option value="severity">Group by Severity</option>
-                <option value="file">Group by File</option>
-                <option value="tool">Group by Tool</option>
-              </select>
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs"
-              >
-                <option value="priority">Sort by Priority</option>
-                <option value="file">Sort by File</option>
-                <option value="line">Sort by Line</option>
-              </select>
+          <div className="border-b border-gray-700 p-3 bg-[#1a1a1a]">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <input
+                  type="text"
+                  placeholder="Filter issues..."
+                  value={filterText}
+                  onChange={(e) => setFilterText(e.target.value)}
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs w-64"
+                />
+                <select
+                  value={groupBy}
+                  onChange={(e) => setGroupBy(e.target.value as any)}
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs"
+                >
+                  <option value="code">Group by Type</option>
+                  <option value="priority">Group by Priority Score</option>
+                  <option value="severity">Group by Severity</option>
+                  <option value="file">Group by File</option>
+                  <option value="tool">Group by Tool</option>
+                </select>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as any)}
+                  className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs"
+                >
+                  <option value="priority">Sort by Priority</option>
+                  <option value="file">Sort by File</option>
+                  <option value="line">Sort by Line</option>
+                </select>
+              </div>
+              {selectedRun && (
+                <div className="text-xs text-gray-400">
+                  {processedIssues.length} / {selectedRun.total_issues} issues
+                </div>
+              )}
             </div>
-            {selectedRun && (
-              <div className="text-xs text-gray-400">
-                {processedIssues.length} / {selectedRun.total_issues} issues
+            
+            {/* Fix Generation Controls */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={selectAllVisibleIssues}
+                  className="text-xs px-2 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded transition-colors"
+                >
+                  Select All
+                </button>
+                <button
+                  onClick={deselectAll}
+                  className="text-xs px-2 py-1 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded transition-colors"
+                >
+                  Deselect All
+                </button>
+                {selectedIssueIds.size > 0 && (
+                  <span className="text-xs text-gray-400">
+                    {selectedIssueIds.size} selected
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={autoFixTopIssues}
+                  disabled={isGeneratingFixes || !selectedRunId}
+                  className="text-xs px-3 py-1 bg-purple-700 hover:bg-purple-600 disabled:bg-gray-700 disabled:cursor-not-allowed rounded transition-colors"
+                >
+                  Auto-Fix Top 10
+                </button>
+                <button
+                  onClick={generateFixesForSelected}
+                  disabled={isGeneratingFixes || selectedIssueIds.size === 0}
+                  className="text-xs px-3 py-1 bg-green-700 hover:bg-green-600 disabled:bg-gray-700 disabled:cursor-not-allowed rounded transition-colors"
+                >
+                  Generate Fixes ({selectedIssueIds.size})
+                </button>
+              </div>
+            </div>
+            
+            {/* Fix Progress */}
+            {isGeneratingFixes && fixProgress && (
+              <div className="mt-3 p-2 bg-blue-900/20 border border-blue-700 rounded">
+                <div className="text-xs text-blue-300">
+                  🔧 {fixProgress}
+                </div>
               </div>
             )}
           </div>
@@ -434,25 +643,52 @@ const CodeAnalysisDashboard: React.FC = () => {
             ) : processedIssues.length === 0 ? (
               <div className="text-center text-gray-400 py-8">No issues found</div>
             ) : (
-              <div className="space-y-4">
-                {Object.entries(groupedIssues).map(([groupKey, groupIssues]) => (
-                  <div key={groupKey}>
-                    <h3 className="text-sm font-semibold mb-2 text-gray-300 capitalize sticky top-0 bg-[#1E1E1E] py-2">
-                      {groupKey} ({groupIssues.length})
-                    </h3>
-                    <div className="space-y-2">
+              <div className="space-y-2">
+                {sortedGroups.map(([groupKey, groupIssues]) => {
+                  const isExpanded = expandedGroups.has(groupKey);
+                  const totalPriority = groupIssues.reduce((sum, issue) => sum + issue.priority_score, 0);
+                  const avgPriority = Math.round(totalPriority / groupIssues.length);
+                  
+                  return (
+                  <div key={groupKey} className="border border-gray-700 rounded bg-[#1a1a1a]">
+                    <div 
+                      className="flex items-center justify-between p-3 cursor-pointer hover:bg-gray-800 transition-colors"
+                      onClick={() => toggleGroup(groupKey)}
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        <span className="text-gray-400">{isExpanded ? '▼' : '▶'}</span>
+                        <span className="text-sm font-medium text-gray-200">{groupKey}</span>
+                        <span className="text-xs text-gray-500">({groupIssues.length} issues)</span>
+                        <span className="text-xs text-purple-400">Avg Priority: {avgPriority}</span>
+                      </div>
+                    </div>
+                    {isExpanded && (
+                    <div className="border-t border-gray-700 p-3 space-y-2">
                       {groupIssues.map((issue, idx) => (
                         <div
                           key={`${issue.file}-${issue.line}-${idx}`}
-                          className={`border rounded p-3 cursor-pointer transition-colors ${
+                          className={`border rounded p-3 transition-colors ${
                             selectedIssue === issue
                               ? "border-blue-500 bg-blue-900/20"
                               : "border-gray-700 bg-[#1a1a1a] hover:border-gray-600"
                           }`}
-                          onClick={() => setSelectedIssue(selectedIssue === issue ? null : issue)}
                         >
-                          <div className="flex items-start justify-between mb-2">
-                            <div className="flex-1">
+                          <div className="flex items-start gap-3">
+                            <input
+                              type="checkbox"
+                              checked={selectedIssueIds.has(issue.id)}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                toggleIssueSelection(issue.id);
+                              }}
+                              className="mt-1 cursor-pointer"
+                            />
+                            <div 
+                              className="flex-1 cursor-pointer"
+                              onClick={() => setSelectedIssue(selectedIssue === issue ? null : issue)}
+                            >
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
                                 <span
                                   className={`text-xs px-2 py-0.5 rounded font-medium ${
@@ -479,21 +715,25 @@ const CodeAnalysisDashboard: React.FC = () => {
                               </div>
                               <div className="text-sm text-gray-200">{issue.message}</div>
                             </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                markAsFixed(issue);
-                              }}
-                              className="ml-3 text-xs px-2 py-1 bg-green-800 hover:bg-green-700 rounded transition-colors"
-                            >
-                              Mark Fixed
-                            </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    markAsFixed(issue);
+                                  }}
+                                  className="ml-3 text-xs px-2 py-1 bg-green-800 hover:bg-green-700 rounded transition-colors"
+                                >
+                                  Mark Fixed
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       ))}
                     </div>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
