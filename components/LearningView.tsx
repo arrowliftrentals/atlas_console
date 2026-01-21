@@ -67,7 +67,7 @@ export default function LearningView() {
     }
 
     const selected = selectedPattern 
-        ? patterns.find(p => `${p.tool}:${p.error_code}` === selectedPattern)
+        ? patterns.find(p => `${p.tool}:${p.error_code}` === selectedPattern) || null
         : null;
 
     return (
