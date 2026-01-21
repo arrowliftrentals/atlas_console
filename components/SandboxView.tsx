@@ -148,7 +148,9 @@ const SandboxView: React.FC = () => {
   const loadProposalDetails = async (proposalId: string) => {
     console.log("Loading proposal details for:", proposalId);
     try {
-      const res = await fetch(`/api/sandbox/proposals/${proposalId}`);
+      // Call backend directly (Next.js dynamic routes not working with Turbopack)
+      const atlasApiBase = process.env.NEXT_PUBLIC_ATLAS_API_BASE || "http://127.0.0.1:8000";
+      const res = await fetch(`${atlasApiBase}/api/proposals/${proposalId}`);
       console.log("Response status:", res.status);
       
       if (!res.ok) {
