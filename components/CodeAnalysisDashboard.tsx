@@ -264,6 +264,30 @@ const CodeAnalysisDashboard: React.FC = () => {
     setCurrentRunId(null);
   };
 
+  const deleteRun = async (runId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Don't select the run when clicking delete
+    
+    if (!confirm("Delete this analysis run? This cannot be undone.")) return;
+    
+    try {
+      await fetch(`/api/analysis/delete/${runId}`, {
+        method: "DELETE"
+      });
+      
+      // Refresh runs list
+      await loadRuns();
+      
+      // Clear selection if deleted run was selected
+      if (selectedRunId === runId) {
+        setSelectedRunId(null);
+        setIssues([]);
+      }
+    } catch (err) {
+      console.error("Failed to delete run:", err);
+      alert("Failed to delete run");
+    }
+  };
+
   const toggleIssueSelection = (issueId: string) => {
     const newSelected = new Set(selectedIssueIds);
     if (newSelected.has(issueId)) {
@@ -574,19 +598,32 @@ const CodeAnalysisDashboard: React.FC = () => {
                 <div
                   key={run.run_id}
                   onClick={() => setSelectedRunId(run.run_id)}
-                  className={`p-3 border-b border-gray-700 cursor-pointer transition-colors ${
+                  className={`p-3 border-b border-gray-700 cursor-pointer transition-colors group relative ${
                     selectedRunId === run.run_id
                       ? "bg-blue-900/30 border-l-2 border-l-blue-500"
                       : "hover:bg-gray-800"
                   }`}
                 >
-                  <div className="text-xs font-mono text-gray-300 mb-1">{run.run_id.slice(0, 8)}</div>
-                  <div className="text-xs text-gray-400 mb-2">{new Date(run.timestamp).toLocaleString()}</div>
-                  <div className="flex items-center gap-2 text-xs">
-                    <span className="text-red-400">{run.critical_count}C</span>
-                    <span className="text-orange-400">{run.error_count}E</span>
-                    <span className="text-yellow-400">{run.warning_count}W</span>
-                    <span className="text-gray-400">{run.info_count}I</span>
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="text-xs font-mono text-gray-300 mb-1">{run.run_id.slice(0, 8)}</div>
+                      <div className="text-xs text-gray-400 mb-2">{new Date(run.timestamp).toLocaleString()}</div>
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="text-red-400">{run.critical_count}C</span>
+                        <span className="text-orange-400">{run.error_count}E</span>
+                        <span className="text-yellow-400">{run.warning_count}W</span>
+                        <span className="text-gray-400">{run.info_count}I</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => deleteRun(run.run_id, e)}
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-600/20 rounded transition-opacity"
+                      title="Delete run"
+                    >
+                      <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               ))
