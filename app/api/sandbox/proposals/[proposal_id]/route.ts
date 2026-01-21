@@ -7,11 +7,12 @@ export async function GET(
   { params }: { params: Promise<{ proposal_id: string }> }
 ) {
   const { proposal_id } = await params;
+  const url = `${ATLAS_API_BASE}/api/proposals/${proposal_id}`;
+  
+  console.log(`[Proposal Detail] Fetching: ${url}`);
 
   try {
-    const response = await fetch(
-      `${ATLAS_API_BASE}/api/proposals/${proposal_id}`
-    );
+    const response = await fetch(url);
 
     if (!response.ok) {
       return NextResponse.json(
