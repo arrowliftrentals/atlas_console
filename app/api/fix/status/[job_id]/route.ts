@@ -7,10 +7,11 @@ const atlasApiBase =
 
 export async function GET(
   request: Request,
-  { params }: { params: { job_id: string } }
+  { params }: { params: Promise<{ job_id: string }> }
 ) {
   try {
-    const res = await fetch(`${atlasApiBase}/api/fix/status/${params.job_id}`, {
+    const { job_id } = await params;
+    const res = await fetch(`${atlasApiBase}/api/fix/status/${job_id}`, {
       method: "GET",
     });
 

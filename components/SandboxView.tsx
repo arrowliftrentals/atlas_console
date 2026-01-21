@@ -37,7 +37,7 @@ interface Statistics {
   total_executions: number;
   success_rate: number;
   avg_execution_time: number;
-  by_language: Record<string, number>;
+  by_language: Record<string, number | { count: number }>;
 }
 
 interface Proposal {
@@ -377,7 +377,7 @@ const SandboxView: React.FC = () => {
                   <div className="mt-3 pt-3 border-t border-gray-700 flex items-center justify-between text-gray-400">
                     <div className="flex gap-4">
                       <span>Exit code: {result.exit_code}</span>
-                      <span>Time: {result.execution_time.toFixed(3)}s</span>
+                      <span>Time: {result?.execution_time?.toFixed(3) ?? "N/A"}s</span>
                       {result.resource_usage && (
                         <>
                           <span>Memory: {result.resource_usage.peak_memory_mb.toFixed(1)} MB</span>
@@ -454,7 +454,7 @@ const SandboxView: React.FC = () => {
                         <span className={`text-xs ${item.success ? "text-green-400" : "text-red-400"}`}>
                           {item.success ? "✓ Success" : "✗ Failed"}
                         </span>
-                        <span className="text-xs text-gray-400">{item.execution_time.toFixed(3)}s</span>
+                        <span className="text-xs text-gray-400">{item?.execution_time?.toFixed(3) ?? "N/A"}s</span>
                       </div>
                       <span className="text-xs text-gray-500">{new Date(item.timestamp).toLocaleString()}</span>
                     </div>
@@ -495,17 +495,17 @@ const SandboxView: React.FC = () => {
                 </div>
                 
                 <div className="border border-gray-700 rounded p-4 bg-[#1e1e1e]">
-                  <div className="text-2xl font-bold text-purple-400">{stats.avg_execution_time.toFixed(3)}s</div>
+                  <div className="text-2xl font-bold text-purple-400">{stats?.avg_execution_time?.toFixed(3) ?? "0.000"}s</div>
                   <div className="text-xs text-gray-400 mt-1">Avg Execution Time</div>
                 </div>
                 
                 <div className="border border-gray-700 rounded p-4 bg-[#1e1e1e]">
                   <div className="text-xs text-gray-400 mb-2">By Language</div>
                   <div className="space-y-1">
-                    {Object.entries(stats.by_language).map(([lang, count]) => (
+                    {Object.entries(stats.by_language).map(([lang, data]) => (
                       <div key={lang} className="flex items-center justify-between text-xs">
                         <span className="text-gray-300">{lang}</span>
-                        <span className="text-gray-400">{count}</span>
+                        <span className="text-gray-400">{typeof data === 'object' ? data.count : data}</span>
                       </div>
                     ))}
                   </div>

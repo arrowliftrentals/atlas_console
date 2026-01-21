@@ -77,35 +77,9 @@ const CodeAnalysisDashboard: React.FC = () => {
   const [fixMessage, setFixMessage] = useState<string>("");
   const [fixStatus, setFixStatus] = useState<string>("");
   const [fixLogs, setFixLogs] = useState<string[]>([]);
-  // Analysis progress connections
-  const analysisWsRef = useRef<WebSocket | null>(null);
-  const analysisPollRef = useRef<any>(null);
-  // Fix progress polling
+  const wsRef = useRef<WebSocket | null>(null);
   const fixPollRef = useRef<any>(null);
   const fixLogsEndRef = useRef<HTMLDivElement>(null);
-
-  // Polling fallback for analysis progress (WS fallback)
-  const startProgressPolling = (runId: string) => {
-    if (analysisPollRef.current) return;
-    analysisPollRef.current = setInterval(async () => {
-      try {
-        const progressRes = await fetch(`/api/analysis/progress/${runId}`);
-        const progressData = await progressRes.json();
-        setProgress(progressData);
-        if (progressData.stage === "complete" || progressData.stage === "error") {
-          clearInterval(analysisPollRef.current);
-          analysisPollRef.current = null;
-          setIsRunning(false);
-          if (progressData.stage === "complete") {
-            loadRuns();
-            setSelectedRunId(runId);
-          }
-        }
-      } catch (err) {
-        console.error("Progress poll error:", err);
-      }
-    }, 500);
-  };
 
   // Load runs on mount
   useEffect(() => {
@@ -184,53 +158,30 @@ const CodeAnalysisDashboard: React.FC = () => {
       const runId = data.run_id;
       setCurrentRunId(runId);
 
-      // Try WebSocket first
-      try {
-        const httpBase = process.env.NEXT_PUBLIC_ATLAS_API_BASE || "http://127.0.0.1:8000";
-        const wsBase = httpBase.replace(/^http/, "ws");
-        const wsUrl = `${wsBase}/api/analysis/ws/${runId}`;
-        const ws = new WebSocket(wsUrl);
-        analysisWsRef.current = ws;
+      // Poll for progress updates
+      const pollInterval = setInterval(async () => {
+        try {
+          const progressRes = await fetch(`/api/analysis/progress/${runId}`);
+          const progressData = await progressRes.json();
+          
+          setProgress(progressData);
 
-        ws.onopen = () => {
-          // Connected; no need to start polling
-        };
-
-        ws.onmessage = (ev) => {
-          try {
-            const msg = JSON.parse(ev.data);
-            // Expected shape from backend: { stage, current, total, message }
-            setProgress(msg);
-            if (msg.stage === "complete" || msg.stage === "error") {
-              ws.close();
-              analysisWsRef.current = null;
-              setIsRunning(false);
-              if (msg.stage === "complete") {
-                loadRuns();
-                setSelectedRunId(runId);
-              }
+          if (progressData.stage === "complete" || progressData.stage === "error") {
+            clearInterval(pollInterval);
+            setIsRunning(false);
+            
+            if (progressData.stage === "complete") {
+              loadRuns();
+              setSelectedRunId(runId);
             }
-          } catch (err) {
-            console.error("WS parse error:", err);
           }
-        };
+        } catch (err) {
+          console.error("Progress poll error:", err);
+        }
+      }, 500); // Poll every 500ms
 
-        ws.onerror = () => {
-          // Fallback to polling if WS errors out
-          if (analysisPollRef.current) return;
-          startProgressPolling(runId);
-        };
-
-        ws.onclose = () => {
-          // If closed before completion and we are still running, ensure fallback polling
-          if (isRunning && !analysisPollRef.current) {
-            startProgressPolling(runId);
-          }
-        };
-      } catch (wsErr) {
-        console.warn("WebSocket unavailable, falling back to polling:", wsErr);
-        startProgressPolling(runId);
-      }
+      // Store interval ID for cleanup
+      wsRef.current = pollInterval as any;
     } catch (e) {
       console.error("Failed to start analysis:", e);
       setIsRunning(false);
@@ -239,13 +190,9 @@ const CodeAnalysisDashboard: React.FC = () => {
   };
 
   const stopAnalysis = () => {
-    if (analysisPollRef.current) {
-      clearInterval(analysisPollRef.current as any);
-      analysisPollRef.current = null;
-    }
-    if (analysisWsRef.current) {
-      try { analysisWsRef.current.close(); } catch {}
-      analysisWsRef.current = null;
+    if (wsRef.current) {
+      clearInterval(wsRef.current as any);
+      wsRef.current = null;
     }
     setIsRunning(false);
     setProgress(null);
@@ -451,7 +398,7 @@ const CodeAnalysisDashboard: React.FC = () => {
           </button>
           <button
             onClick={isRunning ? stopAnalysis : startAnalysis}
-            disabled={isRunning}
+            disabled={isRunning && !wsRef.current}
             className={`px-3 py-2 rounded text-xs font-medium transition-colors ${
               isRunning
                 ? "bg-red-600 hover:bg-red-500"

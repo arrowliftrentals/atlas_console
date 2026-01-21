@@ -321,6 +321,36 @@ export default function ColorPalettePainter() {
     };
   }, [isPainting, selectedColor, paintMode, gradientAngle, gradientColor1, gradientColor2]);
 
+  const handleBorderInputSubmit = () => {
+    if (!borderInputPopup) return;
+
+    const { element } = borderInputPopup;
+    const newWidth = parseFloat(borderInputValue);
+
+    if (isNaN(newWidth) || newWidth < 0) {
+      alert('Please enter a valid positive number');
+      return;
+    }
+
+    // Save to undo stack
+    setUndoStack(prev => [
+      ...prev,
+      { element, property: 'borderColor', oldValue: element.style.borderColor || '' },
+      { element, property: 'borderWidth', oldValue: element.style.borderWidth || '' },
+      { element, property: 'borderStyle', oldValue: element.style.borderStyle || '' }
+    ]);
+
+    // Apply changes
+    if (selectedColor) {
+      element.style.borderColor = selectedColor;
+    }
+    element.style.borderWidth = `${newWidth}px`;
+    element.style.borderStyle = element.style.borderStyle || 'solid';
+
+    // Close popup
+    setBorderInputPopup(null);
+  };
+
   if (!isOpen) {
     return (
       <>
@@ -399,35 +429,6 @@ export default function ColorPalettePainter() {
     setUndoStack(prev => prev.slice(0, -1));
   };
 
-  const handleBorderInputSubmit = () => {
-    if (!borderInputPopup) return;
-
-    const { element } = borderInputPopup;
-    const newWidth = parseFloat(borderInputValue);
-
-    if (isNaN(newWidth) || newWidth < 0) {
-      alert('Please enter a valid positive number');
-      return;
-    }
-
-    // Save to undo stack
-    setUndoStack(prev => [
-      ...prev,
-      { element, property: 'borderColor', oldValue: element.style.borderColor || '' },
-      { element, property: 'borderWidth', oldValue: element.style.borderWidth || '' },
-      { element, property: 'borderStyle', oldValue: element.style.borderStyle || '' }
-    ]);
-
-    // Apply changes
-    if (selectedColor) {
-      element.style.borderColor = selectedColor;
-    }
-    element.style.borderWidth = `${newWidth}px`;
-    element.style.borderStyle = element.style.borderStyle || 'solid';
-
-    // Close popup
-    setBorderInputPopup(null);
-  };
 
   const handleExportTheme = () => {
     const themeName = prompt('Enter a name for your custom theme:', 'My Custom Theme');
