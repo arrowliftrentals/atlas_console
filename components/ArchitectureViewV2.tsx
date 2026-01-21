@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import cytoscape, { Core, ElementDefinition } from 'cytoscape';
-import { X, BarChart3, Grid3x3, Clock, Search, RefreshCw } from 'lucide-react';
+import { X, BarChart3, Grid3x3, Clock, Search, RefreshCw, Maximize2 } from 'lucide-react';
 import AnalysisPanel from './AnalysisPanel';
 import DependencyMatrix from './DependencyMatrix';
 import Timeline from './Timeline';
@@ -578,7 +578,7 @@ export default function ArchitectureViewV2() {
       elements,
       style: stylesheet,
       layout: layoutConfig,
-      minZoom: 0.3,
+      minZoom: 0.1,  // Allow more zoom out to see all nodes
       maxZoom: 8,
       wheelSensitivity: 0.2,
     });
@@ -1128,6 +1128,23 @@ export default function ArchitectureViewV2() {
             >
               <RefreshCw className="w-3 h-3" />
               Reload
+            </button>
+            {/* Fit All Button */}
+            <button
+              onClick={() => {
+                if (cyRef.current) {
+                  cyRef.current.fit(undefined, 50); // Fit with 50px padding
+                  console.log('🔍 Fit all nodes to screen');
+                }
+              }}
+              disabled={showMatrix}
+              className={`px-3 py-2 bg-[#1E1E1E] hover:bg-gray-700 border border-gray-700 rounded text-xs text-gray-300 flex items-center gap-2 transition-colors ${
+                showMatrix ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              title="Fit all nodes to screen"
+            >
+              <Maximize2 className="w-3 h-3" />
+              Fit All
             </button>
             {/* Detail Category */}
             <div className="flex flex-col items-center gap-1">
