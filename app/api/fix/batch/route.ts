@@ -7,14 +7,24 @@ const atlasApiBase =
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    // Extract query parameters from the request URL
+    const { searchParams } = new URL(request.url);
+    const run_id = searchParams.get('run_id');
+    const max_issues = searchParams.get('max_issues') || '10';
+    const min_priority = searchParams.get('min_priority') || '50';
     
-    const res = await fetch(`${atlasApiBase}/api/fix/batch`, {
+    if (!run_id) {
+      return NextResponse.json(
+        { error: "run_id is required" },
+        { status: 400 }
+      );
+    }
+    
+    // Forward as query parameters to backend
+    const backendUrl = `${atlasApiBase}/api/fix/batch?run_id=${encodeURIComponent(run_id)}&max_issues=${max_issues}&min_priority=${min_priority}`;
+    
+    const res = await fetch(backendUrl, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
     });
 
     if (!res.ok) {
