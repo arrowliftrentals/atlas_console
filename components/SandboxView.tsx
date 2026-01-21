@@ -46,6 +46,9 @@ interface Proposal {
   diff?: string;
   test_passed?: boolean;
   sandbox_path?: string;
+  tests_passed?: number;
+  tests_failed?: number;
+  estimated_risk?: string;
   changes?: Array<{
     file_path: string;
     diff: string;
@@ -165,7 +168,13 @@ const SandboxView: React.FC = () => {
       // Update the proposal in the list with full details
       setProposals(prev => prev.map(p => 
         p.proposal_id === proposalId 
-          ? { ...p, changes: data.changes } 
+          ? { 
+              ...p, 
+              changes: data.changes,
+              tests_passed: data.tests_passed,
+              tests_failed: data.tests_failed,
+              estimated_risk: data.estimated_risk
+            } 
           : p
       ));
       
@@ -575,11 +584,11 @@ const SandboxView: React.FC = () => {
                   >
                     <div className="p-3 border-b border-gray-700">
                       <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs font-mono bg-gray-800 px-2 py-0.5 rounded">{proposal.proposal_id}</span>
                           {proposal.test_passed !== undefined && (
-                            <span className={`text-xs ${proposal.test_passed ? "text-green-400" : "text-red-400"}`}>
-                              Tests: {proposal.test_passed ? "✓ Passed" : "✗ Failed"}
+                            <span className={`text-xs px-2 py-0.5 rounded ${proposal.test_passed ? "bg-green-900/30 text-green-400" : "bg-red-900/30 text-red-400"}`}>
+                              {proposal.test_passed ? "✓ All Tests Pass" : "✗ Tests Failed"}
                             </span>
                           )}
                         </div>
@@ -622,9 +631,50 @@ const SandboxView: React.FC = () => {
                           </button>
                         </div>
                       </div>
-                      <div className="text-xs text-gray-300">{proposal.description}</div>
-                      {proposal.sandbox_path && (
-                        <div className="text-xs text-gray-500 mt-1 font-mono">{proposal.sandbox_path}</div>
+                      <div className="text-xs text-gray-300 mb-2">{proposal.description}</div>
+                      
+                      {/* Validation Details */}
+                      {proposal.changes && (
+                        <div className="mt-2 p-2 bg-gray-800/50 rounded">
+                          <div className="text-xs font-semibold text-gray-400 mb-1">Validation Results:</div>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <span className="text-gray-400">Tests Passed:</span>
+                              <span className="ml-1 text-green-400">{(proposal as any).tests_passed || 0}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-400">Tests Failed:</span>
+                              <span className="ml-1 text-red-400">{(proposal as any).tests_failed || 0}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-400">Risk Level:</span>
+                              <span className={`ml-1 ${(proposal as any).estimated_risk === 'high' ? 'text-red-400' : (proposal as any).estimated_risk === 'medium' ? 'text-yellow-400' : 'text-green-400'}`}>
+                                {(proposal as any).estimated_risk || 'unknown'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-400">Changes:</span>
+                              <span className="ml-1 text-blue-400">{proposal.changes?.length || 0} file(s)</span>
+                            </div>
+                          </div>
+                          
+                          {/* Decision Guidance */}
+                          <div className="mt-2 pt-2 border-t border-gray-700">
+                            <div className="text-xs font-semibold text-gray-400 mb-1">Decision Guidance:</div>
+                            {proposal.test_passed ? (
+                              <div className="text-xs text-green-400">✓ Safe to apply - all validation tests passed</div>
+                            ) : (
+                              <div className="text-xs text-yellow-400">
+                                ⚠️ Review required - {(proposal as any).tests_failed || 0} test(s) failed
+                                <div className="text-gray-400 mt-1">
+                                  • Check the diff to understand what changed
+                                  • Review failed tests to see if they're critical
+                                  • Consider if the fix is worth the test failures
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
                     
