@@ -260,23 +260,63 @@ const SandboxView: React.FC = () => {
   };
 
   const applyProposal = async (proposalId: string) => {
-    if (!confirm("Apply this proposal to the repository?")) return;
-    
+    // STAGE 1: Verify changes in sandbox with regression testing
     try {
-      const res = await fetch("/api/sandbox/apply-changes", {
+      const atlasApiBase = process.env.NEXT_PUBLIC_ATLAS_API_BASE || "http://127.0.0.1:8000";
+      
+      // Call verify-changes endpoint (runs tests in sandbox)
+      const verifyRes = await fetch(
+        `${atlasApiBase}/api/sandbox/verify-changes?proposal_id=${proposalId}`,
+        { method: "POST" }
+      );
+      const verifyData = await verifyRes.json();
+      
+      if (!verifyData.success) {
+        alert(`Verification failed: ${verifyData.message || 'Unknown error'}`);
+        return;
+      }
+      
+      // If tests failed in sandbox, warn user
+      if (!verifyData.is_safe) {
+        alert(
+          `⚠️ SAFETY WARNING\n\n` +
+          `Regression tests FAILED in sandbox.\n` +
+          `Status: ${verifyData.message}\n\n` +
+          `It is NOT recommended to apply these changes.`
+        );
+        return;
+      }
+      
+      // STAGE 2: Show confirmation with safety info
+      const testStatus = verifyData.test_passed ? "✅ PASSED" : "❌ FAILED";
+      const confirmMessage = 
+        `Sandbox Verification Complete\n\n` +
+        `Tests: ${testStatus}\n` +
+        `Status: ${verifyData.message}\n\n` +
+        `A safety git commit will be created before applying.\n` +
+        `You can rollback with: git reset HEAD~1 && git restore .\n\n` +
+        `Apply changes to live code?`;
+      
+      if (!confirm(confirmMessage)) return;
+      
+      // STAGE 3: Apply to live code (automatic safety commit happens in backend)
+      const applyRes = await fetch("/api/sandbox/apply-changes", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proposal_id: proposalId, run_tests: true }),
+        body: JSON.stringify({ proposal_id: proposalId }),
       });
-      const data = await res.json();
+      const applyData = await applyRes.json();
       
-      if (data.success) {
-        // Update status to applied
+      if (applyData.success) {
         await updateProposalStatus(proposalId, "applied");
-        alert("Changes applied successfully!");
+        alert(
+          `✅ Changes Applied Successfully\n\n` +
+          `Safety commit created.\n` +
+          `To rollback: git reset HEAD~1 && git restore .`
+        );
         loadProposals();
       } else {
-        alert(`Failed to apply: ${data.error || data.message}`);
+        alert(`Failed to apply: ${applyData.error || applyData.message}`);
       }
     } catch (e) {
       console.error("Failed to apply proposal:", e);
