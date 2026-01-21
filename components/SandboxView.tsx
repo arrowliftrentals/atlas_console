@@ -146,9 +146,19 @@ const SandboxView: React.FC = () => {
   };
 
   const loadProposalDetails = async (proposalId: string) => {
+    console.log("Loading proposal details for:", proposalId);
     try {
       const res = await fetch(`/api/sandbox/proposals/${proposalId}`);
+      console.log("Response status:", res.status);
+      
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error("Failed to load proposal:", res.status, errorText);
+        return;
+      }
+      
       const data = await res.json();
+      console.log("Proposal data:", data);
       
       // Update the proposal in the list with full details
       setProposals(prev => prev.map(p => 
@@ -156,6 +166,8 @@ const SandboxView: React.FC = () => {
           ? { ...p, changes: data.changes } 
           : p
       ));
+      
+      console.log("Proposal updated with changes:", data.changes?.length);
     } catch (e) {
       console.error("Failed to load proposal details:", e);
     }
@@ -584,12 +596,21 @@ const SandboxView: React.FC = () => {
                           </button>
                           <button
                             onClick={async () => {
+                              console.log("View Diff clicked for:", proposal.proposal_id);
+                              console.log("Current selectedProposal:", selectedProposal);
+                              console.log("Proposal has changes:", !!proposal.changes);
+                              
                               if (selectedProposal === proposal.proposal_id) {
+                                console.log("Hiding diff");
                                 setSelectedProposal(null);
                               } else {
+                                console.log("Showing diff");
                                 setSelectedProposal(proposal.proposal_id);
                                 if (!proposal.changes) {
+                                  console.log("Fetching proposal details...");
                                   await loadProposalDetails(proposal.proposal_id);
+                                } else {
+                                  console.log("Using cached changes");
                                 }
                               }
                             }}
