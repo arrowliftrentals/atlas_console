@@ -669,15 +669,19 @@ const SandboxView: React.FC = () => {
                           {/* Decision Guidance */}
                           <div className="mt-2 pt-2 border-t border-gray-700">
                             <div className="text-xs font-semibold text-gray-400 mb-1">Decision Guidance:</div>
-                            {proposal.test_passed ? (
-                              <div className="text-xs text-green-400">✓ Safe to apply - all validation tests passed</div>
+                            {((proposal as any).tests_failed || 0) === 0 ? (
+                              <div className="text-xs text-green-400">
+                                ✓ All tests passed ({(proposal as any).tests_passed || 0}/{((proposal as any).tests_passed || 0) + ((proposal as any).tests_failed || 0)})
+                                <div className="text-gray-400 mt-1">Safe to apply - validation successful</div>
+                              </div>
                             ) : (
                               <div className="text-xs text-yellow-400">
-                                ⚠️ Review required - {(proposal as any).tests_failed || 0} test(s) failed
+                                ⚠️ {(proposal as any).tests_failed || 0} of {((proposal as any).tests_passed || 0) + ((proposal as any).tests_failed || 0)} tests failed
                                 <div className="text-gray-400 mt-1">
-                                  • Check the diff to understand what changed
-                                  • Review failed tests to see if they're critical
-                                  • Consider if the fix is worth the test failures
+                                  • Expand "Test Details" below to see which tests failed
+                                  • Review the diff to understand what changed
+                                  • Determine if failed tests are critical for your use case
+                                  • Consider if the fix provides enough value despite test failures
                                 </div>
                               </div>
                             )}
