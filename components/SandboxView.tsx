@@ -595,8 +595,8 @@ const SandboxView: React.FC = () => {
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-xs font-mono bg-gray-800 px-2 py-0.5 rounded">{proposal.proposal_id}</span>
                           {proposal.test_passed !== undefined && (
-                            <span className={`text-xs px-2 py-0.5 rounded ${proposal.test_passed ? "bg-green-900/30 text-green-400" : "bg-red-900/30 text-red-400"}`}>
-                              {proposal.test_passed ? "✓ All Tests Pass" : "✗ Tests Failed"}
+                            <span className={`text-xs px-2 py-0.5 rounded ${proposal.test_passed ? "bg-green-900/30 text-green-400" : "bg-yellow-900/30 text-yellow-400"}`}>
+                              {proposal.test_passed ? "✓ Validation Criteria Met" : "⚠️ Review Required"}
                             </span>
                           )}
                         </div>
