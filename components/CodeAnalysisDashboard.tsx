@@ -83,6 +83,24 @@ const CodeAnalysisDashboard: React.FC = () => {
   // Fix progress polling
   const fixPollRef = useRef<any>(null);
   const fixLogsEndRef = useRef<HTMLDivElement>(null);
+  
+  // Restore active fix job from localStorage on mount
+  useEffect(() => {
+    const stored = localStorage.getItem('active_fix_job_dashboard');
+    if (stored) {
+      try {
+        const { jobId, startedAt } = JSON.parse(stored);
+        // Only restore if less than 10 minutes old
+        if (Date.now() - startedAt < 10 * 60 * 1000) {
+          startFixGeneration(jobId);
+        } else {
+          localStorage.removeItem('active_fix_job_dashboard');
+        }
+      } catch (e) {
+        localStorage.removeItem('active_fix_job_dashboard');
+      }
+    }
+  }, []);
 
   // Polling fallback for analysis progress (WS fallback)
   const startProgressPolling = (runId: string) => {
@@ -314,6 +332,12 @@ const CodeAnalysisDashboard: React.FC = () => {
     setFixMessage("Starting fix generation...");
     setFixLogs([]);
     
+    // Save to localStorage for persistence across tab switches
+    localStorage.setItem('active_fix_job_dashboard', JSON.stringify({
+      jobId,
+      startedAt: Date.now()
+    }));
+    
     // Poll for status updates
     fixPollRef.current = setInterval(async () => {
       try {
@@ -342,6 +366,9 @@ const CodeAnalysisDashboard: React.FC = () => {
           clearInterval(fixPollRef.current);
           fixPollRef.current = null;
           
+          // Clear from localStorage when done
+          localStorage.removeItem('active_fix_job_dashboard');
+          
           if (status.status === "completed" && status.proposal_id) {
             setFixLogs(prev => [...prev, `✅ Proposal ${status.proposal_id.slice(0,8)} created!`]);
           } else if (status.status === "failed") {
@@ -360,6 +387,7 @@ const CodeAnalysisDashboard: React.FC = () => {
       clearInterval(fixPollRef.current);
       fixPollRef.current = null;
     }
+    localStorage.removeItem('active_fix_job_dashboard');
     setFixJobId(null);
     setFixProgress(0);
     setFixMessage("");
