@@ -791,10 +791,25 @@ const SandboxView: React.FC = () => {
                           {proposal.test_output && proposal.test_output.trim() && (
                             <div className="mt-2 pt-2 border-t border-gray-700">
                               <details className="text-xs">
-                                <summary className="font-semibold text-gray-400 cursor-pointer hover:text-gray-300">
-                                  Full Test Output
+                                <summary className="font-semibold text-gray-400 cursor-pointer hover:text-gray-300 flex items-center gap-2">
+                                  <span>Full Test Output</span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      navigator.clipboard.writeText(proposal.test_output || '');
+                                      // Show brief feedback
+                                      const btn = e.currentTarget;
+                                      const originalText = btn.textContent;
+                                      btn.textContent = 'Copied!';
+                                      setTimeout(() => btn.textContent = originalText, 1500);
+                                    }}
+                                    className="ml-auto px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
+                                  >
+                                    Copy
+                                  </button>
                                 </summary>
-                                <pre className="mt-2 text-xs font-mono whitespace-pre-wrap bg-black/60 rounded p-2 max-h-96 overflow-y-auto">{proposal.test_output}</pre>
+                                <pre className="mt-2 text-xs font-mono whitespace-pre-wrap bg-black/60 rounded p-2 max-h-96 overflow-y-auto select-text">{proposal.test_output}</pre>
                               </details>
                             </div>
                           )}
