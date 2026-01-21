@@ -432,7 +432,9 @@ const CodeAnalysisDashboard: React.FC = () => {
 
   const selectedRun = runs.find((r) => r.run_id === selectedRunId);
 
-  const progressPercentage = progress ? (progress.current / progress.total) * 100 : 0;
+  const progressPercentage = progress && progress.total > 0 
+    ? Math.min(100, Math.max(0, (progress.current / progress.total) * 100)) 
+    : 0;
 
   return (
     <div className="h-full w-full flex flex-col bg-[#1E1E1E] text-gray-200">
