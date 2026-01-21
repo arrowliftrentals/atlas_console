@@ -232,6 +232,32 @@ const SandboxView: React.FC = () => {
     setActiveTab("executor");
   };
 
+  const updateProposalStatus = async (
+    proposalId: string,
+    status: string,
+    rejectionReason?: string,
+    userFeedback?: string
+  ) => {
+    try {
+      const atlasApiBase = process.env.NEXT_PUBLIC_ATLAS_API_BASE || "http://127.0.0.1:8000";
+      const res = await fetch(`${atlasApiBase}/api/proposals/${proposalId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status,
+          rejection_reason: rejectionReason,
+          user_feedback: userFeedback,
+        }),
+      });
+      
+      if (!res.ok) {
+        console.error("Failed to update proposal status:", res.status);
+      }
+    } catch (e) {
+      console.error("Failed to update proposal status:", e);
+    }
+  };
+
   const applyProposal = async (proposalId: string) => {
     if (!confirm("Apply this proposal to the repository?")) return;
     
@@ -244,6 +270,8 @@ const SandboxView: React.FC = () => {
       const data = await res.json();
       
       if (data.success) {
+        // Update status to applied
+        await updateProposalStatus(proposalId, "applied");
         alert("Changes applied successfully!");
         loadProposals();
       } else {
@@ -256,7 +284,25 @@ const SandboxView: React.FC = () => {
   };
 
   const rollbackProposal = async (proposalId: string) => {
-    if (!confirm("Discard this proposal?")) return;
+    // Ask for rejection reason
+    const reason = prompt(
+      "Why are you rejecting this proposal?\n\nOptions:\n" +
+      "- 'tests' - Test failures are unacceptable\n" +
+      "- 'approach' - Don't agree with the solution approach\n" +
+      "- 'risk' - Risk level is too high\n" +
+      "- 'other' - Other reason (please specify)\n\n" +
+      "Enter reason:"
+    );
+    
+    if (!reason) return; // User cancelled
+    
+    // If they specified 'other', ask for details
+    let feedback = reason;
+    if (reason === 'other') {
+      const details = prompt("Please provide more details:");
+      if (!details) return; // User cancelled
+      feedback = details;
+    }
     
     try {
       const res = await fetch(`/api/sandbox/rollback-changes?proposal_id=${proposalId}`, {
@@ -265,6 +311,8 @@ const SandboxView: React.FC = () => {
       const data = await res.json();
       
       if (data.success) {
+        // Update status to rejected with reason and feedback
+        await updateProposalStatus(proposalId, "rejected", reason, feedback);
         loadProposals();
       }
     } catch (e) {
