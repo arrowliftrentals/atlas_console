@@ -49,6 +49,12 @@ interface Proposal {
   tests_passed?: number;
   tests_failed?: number;
   estimated_risk?: string;
+  test_details?: Array<{
+    name: string;
+    status: string;
+    error: string;
+  }>;
+  test_output?: string;
   changes?: Array<{
     file_path: string;
     diff: string;
@@ -173,7 +179,9 @@ const SandboxView: React.FC = () => {
               changes: data.changes,
               tests_passed: data.tests_passed,
               tests_failed: data.tests_failed,
-              estimated_risk: data.estimated_risk
+              estimated_risk: data.estimated_risk,
+              test_details: data.test_details || [],
+              test_output: data.test_output || ""
             } 
           : p
       ));
@@ -674,6 +682,59 @@ const SandboxView: React.FC = () => {
                               </div>
                             )}
                           </div>
+                          
+                          {/* Test Details - Show failed tests if available */}
+                          {proposal.test_details && proposal.test_details.length > 0 && (
+                            <div className="mt-2 pt-2 border-t border-gray-700">
+                              <details className="text-xs">
+                                <summary className="font-semibold text-gray-400 cursor-pointer hover:text-gray-300 mb-1">
+                                  Test Details ({proposal.test_details.filter(t => t.status === 'FAILED').length} failed, {proposal.test_details.filter(t => t.status === 'PASSED').length} passed)
+                                </summary>
+                                <div className="mt-2 space-y-2 max-h-64 overflow-y-auto">
+                                  {/* Show failed tests first */}
+                                  {proposal.test_details.filter(t => t.status === 'FAILED').map((test, idx) => (
+                                    <div key={`fail-${idx}`} className="bg-red-900/20 border border-red-700/50 rounded p-2">
+                                      <div className="flex items-start gap-2">
+                                        <span className="text-red-400 font-bold">✗</span>
+                                        <div className="flex-1">
+                                          <div className="text-red-300 font-mono break-all">{test.name}</div>
+                                          {test.error && (
+                                            <pre className="mt-1 text-xs text-red-200/80 whitespace-pre-wrap font-mono">{test.error}</pre>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {/* Show passed tests collapsed by default */}
+                                  {proposal.test_details.filter(t => t.status === 'PASSED').length > 0 && (
+                                    <details className="mt-2">
+                                      <summary className="text-gray-400 cursor-pointer hover:text-gray-300">
+                                        Show {proposal.test_details.filter(t => t.status === 'PASSED').length} passed tests
+                                      </summary>
+                                      <div className="mt-2 space-y-1">
+                                        {proposal.test_details.filter(t => t.status === 'PASSED').map((test, idx) => (
+                                          <div key={`pass-${idx}`} className="flex items-start gap-2 text-green-400/70">
+                                            <span>✓</span>
+                                            <span className="font-mono break-all text-xs">{test.name}</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </details>
+                                  )}
+                                </div>
+                              </details>
+                              
+                              {/* Full test output - very verbose, collapsed by default */}
+                              {proposal.test_output && proposal.test_output.trim() && (
+                                <details className="mt-2">
+                                  <summary className="text-xs font-semibold text-gray-400 cursor-pointer hover:text-gray-300">
+                                    Full Test Output
+                                  </summary>
+                                  <pre className="mt-2 text-xs font-mono whitespace-pre-wrap bg-black/60 rounded p-2 max-h-96 overflow-y-auto">{proposal.test_output}</pre>
+                                </details>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
