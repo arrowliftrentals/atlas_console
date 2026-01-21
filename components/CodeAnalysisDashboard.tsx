@@ -466,7 +466,6 @@ const CodeAnalysisDashboard: React.FC = () => {
           </button>
           <button
             onClick={isRunning ? stopAnalysis : startAnalysis}
-            disabled={isRunning}
             className={`px-3 py-2 rounded text-xs font-medium transition-colors ${
               isRunning
                 ? "bg-red-600 hover:bg-red-500"
