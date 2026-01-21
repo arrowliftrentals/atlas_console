@@ -8,6 +8,7 @@ import MetaView from "@/components/MetaView";
 import TasksView from "@/components/TasksView";
 import SecurityView from "@/components/SecurityView";
 import SkillsView from "@/components/SkillsView";
+import LearningView from "@/components/LearningView";
 import SimulationView from "@/components/SimulationView";
 import SandboxView from "@/components/SandboxView";
 import dynamic from "next/dynamic";
@@ -46,6 +47,9 @@ export default function HomePage() {
         </div>
         <div style={{ display: activeTab === "skills" ? "block" : "none", height: "100%" }}>
           <SkillsView />
+        </div>
+        <div style={{ display: activeTab === "learning" ? "block" : "none", height: "100%" }}>
+          <LearningView />
         </div>
         <div style={{ display: activeTab === "simulation" ? "block" : "none", height: "100%" }}>
           <SimulationView />

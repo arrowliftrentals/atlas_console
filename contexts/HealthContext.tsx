@@ -11,6 +11,7 @@ interface HealthStatus {
   telemetry: HealthState;         // WebSocket connection
   logs: HealthState;             // /v1/atlas/logs endpoint
   skills: HealthState;           // /v1/atlas/skills endpoint
+  learning: HealthState;         // /api/learning/patterns endpoint
   tasks: HealthState;            // Tasks/goals functionality
   meta: HealthState;             // /v1/meta/assess endpoint
   sandbox: HealthState;          // /api/sandbox/health endpoint
@@ -36,6 +37,7 @@ export function HealthProvider({ children }: { children: ReactNode }) {
     telemetry: 'disconnected',
     logs: 'disconnected',
     skills: 'disconnected',
+    learning: 'disconnected',
     tasks: 'disconnected',
     meta: 'disconnected',
     sandbox: 'disconnected',
@@ -53,6 +55,7 @@ export function HealthProvider({ children }: { children: ReactNode }) {
       telemetry: 'disconnected',
       logs: 'disconnected',
       skills: 'disconnected',
+      learning: 'disconnected',
       tasks: 'disconnected',
       meta: 'disconnected',
       sandbox: 'disconnected',
@@ -84,6 +87,11 @@ export function HealthProvider({ children }: { children: ReactNode }) {
       fetch(`${BACKEND_URL}/v1/atlas/skills`, { signal: AbortSignal.timeout(2000) })
         .then(res => ({ key: 'skills' as const, status: res.ok ? 'connected' as const : 'error' as const }))
         .catch(() => ({ key: 'skills' as const, status: 'disconnected' as const })),
+      
+      // Learning endpoint
+      fetch(`${BACKEND_URL}/api/learning/patterns`, { signal: AbortSignal.timeout(2000) })
+        .then(res => ({ key: 'learning' as const, status: res.ok ? 'connected' as const : 'error' as const }))
+        .catch(() => ({ key: 'learning' as const, status: 'disconnected' as const })),
       
       // Tasks endpoint (L8 Planning Memory)
       fetch(`${BACKEND_URL}/v1/atlas/tasks`, { signal: AbortSignal.timeout(2000) })
