@@ -726,7 +726,16 @@ const SandboxView: React.FC = () => {
                               <div className="text-xs text-yellow-400">
                                 ⚠️ {(proposal as any).tests_failed || 0} of {((proposal as any).tests_passed || 0) + ((proposal as any).tests_failed || 0)} tests failed
                                 <div className="text-gray-400 mt-1">
-                                  • Expand "Test Details" below to see which tests failed
+                                  {(proposal as any).tests_failed === 999 ? (
+                                    <>
+                                      • Tests could not run (likely syntax or import errors in generated code)
+                                      • Expand "Full Test Output" below to see error details
+                                    </>
+                                  ) : (
+                                    <>
+                                      • Expand "Test Details" below to see which tests failed
+                                    </>
+                                  )}
                                   • Review the diff to understand what changed
                                   • Determine if failed tests are critical for your use case
                                   • Consider if the fix provides enough value despite test failures
@@ -775,16 +784,18 @@ const SandboxView: React.FC = () => {
                                   )}
                                 </div>
                               </details>
-                              
-                              {/* Full test output - very verbose, collapsed by default */}
-                              {proposal.test_output && proposal.test_output.trim() && (
-                                <details className="mt-2">
-                                  <summary className="text-xs font-semibold text-gray-400 cursor-pointer hover:text-gray-300">
-                                    Full Test Output
-                                  </summary>
-                                  <pre className="mt-2 text-xs font-mono whitespace-pre-wrap bg-black/60 rounded p-2 max-h-96 overflow-y-auto">{proposal.test_output}</pre>
-                                </details>
-                              )}
+                            </div>
+                          )}
+                          
+                          {/* Full test output - always show if available, even without test_details */}
+                          {proposal.test_output && proposal.test_output.trim() && (
+                            <div className="mt-2 pt-2 border-t border-gray-700">
+                              <details className="text-xs">
+                                <summary className="font-semibold text-gray-400 cursor-pointer hover:text-gray-300">
+                                  Full Test Output
+                                </summary>
+                                <pre className="mt-2 text-xs font-mono whitespace-pre-wrap bg-black/60 rounded p-2 max-h-96 overflow-y-auto">{proposal.test_output}</pre>
+                              </details>
                             </div>
                           )}
                         </div>
