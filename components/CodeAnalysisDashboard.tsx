@@ -238,7 +238,19 @@ const CodeAnalysisDashboard: React.FC = () => {
     }
   };
 
-  const stopAnalysis = () => {
+  const stopAnalysis = async () => {
+    if (!currentRunId) return;
+    
+    try {
+      // Call backend to cancel the analysis
+      await fetch(`/api/analysis/cancel/${currentRunId}`, {
+        method: "POST"
+      });
+    } catch (err) {
+      console.error("Failed to cancel analysis:", err);
+    }
+    
+    // Clean up frontend state
     if (analysisPollRef.current) {
       clearInterval(analysisPollRef.current as any);
       analysisPollRef.current = null;
@@ -249,6 +261,7 @@ const CodeAnalysisDashboard: React.FC = () => {
     }
     setIsRunning(false);
     setProgress(null);
+    setCurrentRunId(null);
   };
 
   const toggleIssueSelection = (issueId: string) => {
