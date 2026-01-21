@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import TabHeader from "./TabHeader";
 import { useHealth } from "@/contexts/HealthContext";
 import CodeAnalysisDashboard from "./CodeAnalysisDashboard";
+import { parseTestOutput } from "@/lib/testOutputParser";
 
 interface SandboxResult {
   output: string;
@@ -786,6 +787,50 @@ const SandboxView: React.FC = () => {
                               </details>
                             </div>
                           )}
+                          
+                          {/* Intelligent failure summary - parse and display key error info */}
+                          {proposal.test_output && proposal.test_output.trim() && ((proposal as any).tests_failed || 0) > 0 && (() => {
+                            const parsed = parseTestOutput(proposal.test_output);
+                            const typeColors = {
+                              import_error: 'border-purple-700/50 bg-purple-900/20',
+                              syntax_error: 'border-red-700/50 bg-red-900/20',
+                              test_failure: 'border-yellow-700/50 bg-yellow-900/20',
+                              unknown: 'border-gray-700/50 bg-gray-900/20'
+                            };
+                            const typeIcons = {
+                              import_error: '📦',
+                              syntax_error: '⚠️',
+                              test_failure: '❌',
+                              unknown: '🔍'
+                            };
+                            
+                            return (
+                              <div className={`mt-2 pt-2 border-t border-gray-700`}>
+                                <div className={`border ${typeColors[parsed.type]} rounded p-3`}>
+                                  <div className="flex items-start gap-2 mb-2">
+                                    <span className="text-lg">{typeIcons[parsed.type]}</span>
+                                    <div className="flex-1">
+                                      <div className="text-sm font-semibold text-white mb-1">{parsed.summary}</div>
+                                      <div className="text-xs text-gray-300 space-y-1">
+                                        {parsed.details.map((detail, idx) => (
+                                          <div key={idx}>{detail}</div>
+                                        ))}
+                                      </div>
+                                      {parsed.affectedFiles.length > 0 && (
+                                        <div className="mt-2 text-xs">
+                                          <span className="text-gray-400">Affected files: </span>
+                                          <span className="text-blue-300 font-mono">
+                                            {parsed.affectedFiles.slice(0, 3).join(', ')}
+                                            {parsed.affectedFiles.length > 3 && ` +${parsed.affectedFiles.length - 3} more`}
+                                          </span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
                           
                           {/* Full test output - always show if available, even without test_details */}
                           {proposal.test_output && proposal.test_output.trim() && (
