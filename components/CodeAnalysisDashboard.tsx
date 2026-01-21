@@ -372,19 +372,23 @@ const CodeAnalysisDashboard: React.FC = () => {
     if (!confirm("Generate fixes for the top 10 highest priority issues?")) return;
 
     try {
-      const res = await fetch("/api/fix/batch", {
+      // Backend expects query parameters, not body
+      const params = new URLSearchParams({
+        run_id: selectedRunId,
+        max_issues: "10",
+        min_priority: "50",
+      });
+      
+      const res = await fetch(`/api/fix/batch?${params}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          run_id: selectedRunId,
-          max_issues: 10,
-          min_priority: 50,
-        }),
       });
       const data = await res.json();
       
       if (data.job_id) {
         startFixGeneration(data.job_id);
+      } else if (data.detail) {
+        // Handle error response
+        alert(`Failed to start fix generation: ${data.detail}`);
       }
     } catch (e) {
       alert(`Failed to start fix generation: ${e}`);
