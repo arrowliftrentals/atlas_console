@@ -43,9 +43,14 @@ interface Statistics {
 interface Proposal {
   proposal_id: string;
   description: string;
-  diff: string;
+  diff?: string;
   test_passed?: boolean;
   sandbox_path?: string;
+  changes?: Array<{
+    file_path: string;
+    diff: string;
+    rationale: string;
+  }>;
 }
 
 const SandboxView: React.FC = () => {
@@ -137,6 +142,22 @@ const SandboxView: React.FC = () => {
       console.error("Failed to load proposals:", e);
     } finally {
       setProposalsLoading(false);
+    }
+  };
+
+  const loadProposalDetails = async (proposalId: string) => {
+    try {
+      const res = await fetch(`/api/sandbox/proposals/${proposalId}`);
+      const data = await res.json();
+      
+      // Update the proposal in the list with full details
+      setProposals(prev => prev.map(p => 
+        p.proposal_id === proposalId 
+          ? { ...p, changes: data.changes } 
+          : p
+      ));
+    } catch (e) {
+      console.error("Failed to load proposal details:", e);
     }
   };
 
@@ -562,7 +583,16 @@ const SandboxView: React.FC = () => {
                             Discard
                           </button>
                           <button
-                            onClick={() => setSelectedProposal(selectedProposal === proposal.proposal_id ? null : proposal.proposal_id)}
+                            onClick={async () => {
+                              if (selectedProposal === proposal.proposal_id) {
+                                setSelectedProposal(null);
+                              } else {
+                                setSelectedProposal(proposal.proposal_id);
+                                if (!proposal.changes) {
+                                  await loadProposalDetails(proposal.proposal_id);
+                                }
+                              }
+                            }}
                             className="text-xs border border-gray-600 hover:border-gray-500 px-2 py-1 rounded"
                           >
                             {selectedProposal === proposal.proposal_id ? "Hide" : "View"} Diff
@@ -575,9 +605,19 @@ const SandboxView: React.FC = () => {
                       )}
                     </div>
                     
-                    {selectedProposal === proposal.proposal_id && proposal.diff && (
-                      <div className="p-3">
-                        <pre className="text-xs font-mono whitespace-pre-wrap bg-black/40 rounded p-2 overflow-x-auto">{proposal.diff}</pre>
+                    {selectedProposal === proposal.proposal_id && proposal.changes && (
+                      <div className="p-3 space-y-3">
+                        {proposal.changes.map((change, idx) => (
+                          <div key={idx} className="border border-gray-700 rounded">
+                            <div className="bg-gray-800 px-3 py-2 text-xs font-semibold">
+                              {change.file_path}
+                            </div>
+                            <div className="p-3">
+                              <div className="text-xs text-gray-400 mb-2">{change.rationale}</div>
+                              <pre className="text-xs font-mono whitespace-pre-wrap bg-black/40 rounded p-2 overflow-x-auto max-h-96 overflow-y-auto">{change.diff}</pre>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
