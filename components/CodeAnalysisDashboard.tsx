@@ -370,7 +370,8 @@ const CodeAnalysisDashboard: React.FC = () => {
           clearInterval(fixPollRef.current);
           fixPollRef.current = null;
           
-          // Clear from localStorage when done
+          // Clear from localStorage (job finished, no need to restore)
+          // But keep fixJobId set so panel stays visible with results
           localStorage.removeItem('active_fix_job_dashboard');
           
           if (status.status === "completed" && status.proposal_id) {
