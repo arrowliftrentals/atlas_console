@@ -66,6 +66,8 @@ const MetaView: React.FC = () => {
     const [selectedForDelete, setSelectedForDelete] = useState<Set<number>>(new Set());
     const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
     const [expandedSubsystems, setExpandedSubsystems] = useState<Set<string>>(new Set());
+    const [progressPercentage, setProgressPercentage] = useState<number>(0);
+    const [progressStep, setProgressStep] = useState<string>("");
 
     const loadLatestAssessment = async () => {
         setLoading(true);
@@ -97,6 +99,31 @@ const MetaView: React.FC = () => {
     const generateNewAssessment = async () => {
         setLoading(true);
         setError(null);
+        setProgressPercentage(0);
+        setProgressStep("Starting...");
+        
+        // Connect to SSE progress stream
+        const eventSource = new EventSource(`${BACKEND_URL}/v1/meta/progress`);
+        
+        eventSource.addEventListener("progress", (event) => {
+            try {
+                const progress = JSON.parse(event.data);
+                setProgressPercentage(progress.percentage);
+                setProgressStep(progress.step);
+            } catch (e) {
+                console.error("Failed to parse progress:", e);
+            }
+        });
+        
+        eventSource.addEventListener("complete", () => {
+            eventSource.close();
+        });
+        
+        eventSource.addEventListener("error", (e) => {
+            console.error("SSE error:", e);
+            eventSource.close();
+        });
+        
         try {
             const response = await fetch(`${BACKEND_URL}/v1/meta/assess`, {
                 method: 'POST',
@@ -110,11 +137,19 @@ const MetaView: React.FC = () => {
             setSelectedAssessmentId(data._storage_id);
             setChanges([]); // New assessment has no changes
             await fetchHistory();
+            setProgressPercentage(100);
+            setProgressStep("Complete");
         } catch (e: any) {
             console.error("Meta-assessment generation error:", e);
             setError(`Failed to generate meta-assessment: ${e.message}`);
         } finally {
+            eventSource.close();
             setLoading(false);
+            // Reset progress after 2 seconds
+            setTimeout(() => {
+                setProgressPercentage(0);
+                setProgressStep("");
+            }, 2000);
         }
     };
 
@@ -2650,9 +2685,26 @@ const MetaView: React.FC = () => {
                     <div className="flex-1 overflow-y-auto p-4">
                         {activeSection && (
                             <div className="space-y-4">
-                                <h2 className="text-sm font-semibold text-gray-100 border-b border-gray-700 pb-2">
-                                    {sections.find(s => s.id === activeSection)?.label}
-                                </h2>
+                                <div className="flex items-center justify-between border-b border-gray-700 pb-2">
+                                    <h2 className="text-sm font-semibold text-gray-100">
+                                        {sections.find(s => s.id === activeSection)?.label}
+                                    </h2>
+                                    {/* Progress Bar - only show on Executive Summary when generating */}
+                                    {(activeSection === "scorecard" || activeSection === "overall_score") && loading && progressPercentage > 0 && (
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex flex-col items-end">
+                                                <div className="text-xs text-gray-400">{progressStep}</div>
+                                                <div className="text-xs font-mono text-blue-400">{progressPercentage}%</div>
+                                            </div>
+                                            <div className="w-48 h-2 bg-gray-700 rounded-full overflow-hidden">
+                                                <div 
+                                                    className="h-full bg-gradient-to-r from-blue-600 to-blue-400 transition-all duration-300 ease-out"
+                                                    style={{ width: `${progressPercentage}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                                 
                                 {/* Special rendering for specific sections */}
                                 {activeSection === "scorecard" && assessment.scorecard ? (
