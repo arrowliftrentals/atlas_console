@@ -147,7 +147,9 @@ const SandboxView: React.FC = () => {
     try {
       const res = await fetch("/api/sandbox/proposals");
       const data = await res.json();
-      setProposals(data.proposals || []);
+      // Filter out auto-rejected proposals (those with status="rejected")
+      const validProposals = (data.proposals || []).filter((p: any) => p.status !== "rejected");
+      setProposals(validProposals);
     } catch (e) {
       console.error("Failed to load proposals:", e);
     } finally {
