@@ -84,8 +84,12 @@ const CodeAnalysisDashboard: React.FC = () => {
   const fixPollRef = useRef<any>(null);
   const fixLogsEndRef = useRef<HTMLDivElement>(null);
   
-  // Restore active fix job from localStorage on mount
+  // Restore active fix job from localStorage
+  // Check whenever we don't have an active job (component might stay mounted)
   useEffect(() => {
+    // Only check if we don't already have an active job
+    if (fixJobId) return;
+    
     const stored = localStorage.getItem('active_fix_job_dashboard');
     if (stored) {
       try {
@@ -100,7 +104,7 @@ const CodeAnalysisDashboard: React.FC = () => {
         localStorage.removeItem('active_fix_job_dashboard');
       }
     }
-  }, []);
+  }, [fixJobId]); // Re-check when fixJobId changes
 
   // Polling fallback for analysis progress (WS fallback)
   const startProgressPolling = (runId: string) => {
