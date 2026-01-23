@@ -122,7 +122,7 @@ const MetaView: React.FC = () => {
         }, 500); // Poll every 500ms
         
         try {
-            const response = await fetch(`${BACKEND_URL}/v1/meta/assess`, {
+            const response = await fetch(`${BACKEND_URL}/v1/meta/assess?run_tests=true`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
             });
