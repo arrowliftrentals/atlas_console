@@ -2687,7 +2687,7 @@ const MetaView: React.FC = () => {
                                         {sections.find(s => s.id === activeSection)?.label}
                                     </h2>
                                     {/* Progress Bar - only show on Executive Summary when generating */}
-                                    {(activeSection === "scorecard" || activeSection === "overall_score") && loading && progressPercentage > 0 && (
+                                    {(activeSection === "scorecard" || activeSection === "overall_score") && loading && (
                                         <div className="flex items-center gap-3">
                                             <div className="flex flex-col items-end">
                                                 <div className="text-xs text-gray-400">{progressStep}</div>
