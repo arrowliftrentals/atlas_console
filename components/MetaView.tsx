@@ -102,27 +102,24 @@ const MetaView: React.FC = () => {
         setProgressPercentage(0);
         setProgressStep("Starting...");
         
-        // Connect to SSE progress stream
-        const eventSource = new EventSource(`${BACKEND_URL}/v1/meta/progress`);
-        
-        eventSource.addEventListener("progress", (event) => {
+        // Poll for progress updates
+        const pollInterval = setInterval(async () => {
             try {
-                const progress = JSON.parse(event.data);
-                setProgressPercentage(progress.percentage);
-                setProgressStep(progress.step);
+                const response = await fetch(`${BACKEND_URL}/v1/meta/progress/status`);
+                if (response.ok) {
+                    const progress = await response.json();
+                    setProgressPercentage(progress.percentage);
+                    setProgressStep(progress.step || "Processing...");
+                    
+                    // Stop polling when complete
+                    if (progress.percentage >= 100) {
+                        clearInterval(pollInterval);
+                    }
+                }
             } catch (e) {
-                console.error("Failed to parse progress:", e);
+                // Silently ignore polling errors
             }
-        });
-        
-        eventSource.addEventListener("complete", () => {
-            eventSource.close();
-        });
-        
-        eventSource.addEventListener("error", (e) => {
-            console.error("SSE error:", e);
-            eventSource.close();
-        });
+        }, 500); // Poll every 500ms
         
         try {
             const response = await fetch(`${BACKEND_URL}/v1/meta/assess`, {
@@ -143,7 +140,7 @@ const MetaView: React.FC = () => {
             console.error("Meta-assessment generation error:", e);
             setError(`Failed to generate meta-assessment: ${e.message}`);
         } finally {
-            eventSource.close();
+            clearInterval(pollInterval);
             setLoading(false);
             // Reset progress after 2 seconds
             setTimeout(() => {
