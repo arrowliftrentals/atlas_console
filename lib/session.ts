@@ -42,14 +42,12 @@ function createRandomId(): string {
  */
 export function getStoredSessionId(): string | null {
     if (!isBrowser()) {
-        // eslint-disable-next-line no-console
-        console.debug('[session] getStoredSessionId(): not in browser, returning null');
+        console.log('[session] getStoredSessionId(): not in browser, returning null');
         return null;
     }
     try {
         const value = window.localStorage.getItem(SESSION_STORAGE_KEY);
-        // eslint-disable-next-line no-console
-        console.debug('[session] getStoredSessionId(): existing value =', value);
+        console.log('[session] getStoredSessionId(): existing value =', value);
         return value;
     } catch (err) {
         console.warn('Failed to read session_id from localStorage', err);
@@ -62,8 +60,7 @@ export function getStoredSessionId(): string | null {
  */
 export function storeSessionId(sessionId: string): void {
     if (!isBrowser()) {
-        // eslint-disable-next-line no-console
-        console.debug(
+        console.log(
             '[session] storeSessionId(): not in browser, skipping localStorage write for',
             sessionId,
         );
@@ -71,8 +68,7 @@ export function storeSessionId(sessionId: string): void {
     }
     try {
         window.localStorage.setItem(SESSION_STORAGE_KEY, sessionId);
-        // eslint-disable-next-line no-console
-        console.debug('[session] storeSessionId(): stored session_id =', sessionId);
+        console.log('[session] storeSessionId(): stored session_id =', sessionId);
     } catch (err) {
         console.warn('Failed to store session_id in localStorage', err);
     }

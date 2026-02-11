@@ -176,6 +176,78 @@ export async function atlasChat(
 }
 
 /**
+ * ApprovedUtterance response interface
+ */
+export interface ApprovedUtterance {
+  utterance_id: string;
+  content: string;
+  content_sha256: string;
+  mode: 'conversational' | 'operational' | 'diagnostic' | 'speculative';
+  authority_level: 'grounded' | 'advisory' | 'speculative';
+  approved_by: string[];
+  allowed_modalities: string[];
+  grounding_refs?: string[];
+  created_at: string;
+}
+
+export interface VoiceApprovedResponse {
+  session_id: string;
+  utterance: ApprovedUtterance;
+  tool_calls?: any[];
+  notes?: string;
+}
+
+/**
+ * Get voice-approved chat response with full governance validation
+ * 
+ * Returns ApprovedUtterance with approval stamps, content hash, and provenance.
+ * Per Voice Governance Spec V1, only these may be sent to TTS.
+ */
+export async function atlasChatVoiceApproved(
+  payload: AtlasChatRequest,
+  apiUrl?: string
+): Promise<VoiceApprovedResponse> {
+  const url = apiUrl || defaultApiUrl.replace('/atlasChat', '/atlasChat/voice-approved');
+  
+  const sessionId = payload.session_id ?? getOrCreateSessionId();
+  
+  const payloadWithSession: AtlasChatRequest = {
+    ...payload,
+    session_id: sessionId,
+  };
+  
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payloadWithSession),
+  });
+  
+  if (!res.ok) {
+    let msg = `Voice-approved API error: ${res.status} ${res.statusText}`;
+    try {
+      const data = await res.json();
+      if (data?.detail) {
+        msg = `${msg} – ${data.detail}`;
+      }
+    } catch {
+      // ignore parse errors
+    }
+    throw new Error(msg);
+  }
+  
+  const data = await res.json() as VoiceApprovedResponse;
+  
+  // Update session ID if changed
+  if (data.session_id && data.session_id !== sessionId) {
+    storeSessionId(data.session_id);
+  }
+  
+  return data;
+}
+
+/**
  * Stream chat responses using Server-Sent Events (SSE)
  */
 export async function atlasChatStream(
@@ -278,6 +350,147 @@ export async function atlasChatStream(
 }
 
 // -----------------
+// OpenAI TTS (Default)
+// -----------------
+
+/**
+ * Synthesize speech using OpenAI TTS API.
+ * 
+ * Fast, reliable, always available. Uses the "onyx" voice by default
+ * for a professional male assistant sound.
+ * 
+ * @param text - Text to synthesize
+ * @param voice - OpenAI voice: alloy, echo, fable, onyx, nova, shimmer
+ * @param speed - Speech speed (0.25-4.0, default 1.0)
+ * @returns Audio blob (MP3 format)
+ */
+export async function synthesizeOpenAITTS(
+  text: string,
+  voice: 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer' = 'onyx',
+  speed: number = 1.0
+): Promise<{ audio: Blob; duration: number }> {
+  const response = await fetch('/api/tts', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ text, voice, speed }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`OpenAI TTS failed: ${response.status} - ${error}`);
+  }
+
+  const audioBlob = await response.blob();
+  // Estimate duration (OpenAI doesn't return it directly)
+  // Rough estimate: ~150 words per minute, ~5 chars per word
+  const estimatedDuration = (text.length / 5) / 150 * 60;
+
+  return { audio: audioBlob, duration: estimatedDuration };
+}
+
+// -----------------
+// JARVIS Local TTS (Optional - for future cloud GPU deployment)
+// -----------------
+
+// Direct connection to JARVIS TTS server (XTTS with Paul Bettany voice)
+// Currently disabled due to CPU latency. Will re-enable with Modal cloud GPU.
+const JARVIS_TTS_URL = "http://127.0.0.1:5050";
+
+/**
+ * Synthesize speech using local JARVIS voice model (XTTS v2).
+ * 
+ * Calls the JARVIS TTS server directly for best voice quality.
+ * Uses Paul Bettany voice clone via XTTS v2.
+ * No external API calls - runs entirely locally.
+ * 
+ * @param text - Text to synthesize
+ * @param speed - Speech speed multiplier (0.5-2.0, default 1.1)
+ * @returns Audio blob (WAV format)
+ */
+export async function synthesizeJarvisTTS(
+  text: string,
+  speed: number = 1.1
+): Promise<{ audio: Blob; duration: number }> {
+  const response = await fetch(`${JARVIS_TTS_URL}/synthesize`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ 
+      text, 
+      speed,
+      temperature: 0.6,
+      top_p: 0.8
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`JARVIS TTS failed: ${response.status} - ${error}`);
+  }
+
+  const audioBlob = await response.blob();
+  const duration = parseFloat(response.headers.get("X-Audio-Duration") || "0");
+
+  return { audio: audioBlob, duration };
+}
+
+/**
+ * Play audio blob through the browser.
+ * 
+ * @param audioBlob - Audio blob to play
+ * @returns Promise that resolves when audio finishes playing
+ */
+export function playAudioBlob(audioBlob: Blob): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const audioUrl = URL.createObjectURL(audioBlob);
+    const audio = new Audio(audioUrl);
+    
+    audio.onended = () => {
+      URL.revokeObjectURL(audioUrl);
+      resolve();
+    };
+    
+    audio.onerror = (e) => {
+      URL.revokeObjectURL(audioUrl);
+      reject(new Error(`Audio playback failed: ${e}`));
+    };
+    
+    audio.play().catch(reject);
+  });
+}
+
+/**
+ * Check JARVIS TTS service status.
+ */
+export async function getJarvisTTSStatus(): Promise<{
+  available: boolean;
+  initialized: boolean;
+  model?: string;
+  voice?: string;
+  error?: string;
+}> {
+  try {
+    const response = await fetch(`${JARVIS_TTS_URL}/health`);
+    const data = await response.json();
+    return {
+      available: data.status === "ready",
+      initialized: data.status === "ready",
+      model: data.model,
+      voice: data.voice,
+    };
+  } catch (e) {
+    return {
+      available: false,
+      initialized: false,
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+// -----------------
 // Types for logs
 // -----------------
 
@@ -356,7 +569,7 @@ export async function fetchLogs(): Promise<AtlasLogEntry[]> {
  */
 export async function fetchTasks(): Promise<AtlasTask[]> {
   try {
-    const response = await fetch("/api/tasks", {
+    const response = await fetch(`${atlasApiBase}/v1/atlas/tasks`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -374,5 +587,79 @@ export async function fetchTasks(): Promise<AtlasTask[]> {
   } catch (error) {
     console.error("[fetchTasks] Error:", error);
     return [];
+  }
+}
+
+/**
+ * Create a new task in L8 Planning Memory.
+ */
+export async function createTask(name: string, priority: string = "MEDIUM"): Promise<AtlasTask | null> {
+  try {
+    const response = await fetch(`${atlasApiBase}/v1/atlas/tasks`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name, priority }),
+    });
+
+    if (!response.ok) {
+      console.error(`[createTask] Failed: ${response.status}`);
+      return null;
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("[createTask] Error:", error);
+    return null;
+  }
+}
+
+/**
+ * Update task status.
+ */
+export async function updateTaskStatus(taskId: string, status: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${atlasApiBase}/v1/atlas/tasks/${taskId}/status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status }),
+    });
+
+    if (!response.ok) {
+      console.error(`[updateTaskStatus] Failed: ${response.status}`);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("[updateTaskStatus] Error:", error);
+    return false;
+  }
+}
+
+/**
+ * Delete a task from L8 Planning Memory.
+ */
+export async function deleteTask(taskId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${atlasApiBase}/v1/atlas/tasks/${taskId}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      console.error(`[deleteTask] Failed: ${response.status}`);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("[deleteTask] Error:", error);
+    return false;
   }
 }

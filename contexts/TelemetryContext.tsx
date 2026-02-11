@@ -3,7 +3,22 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 
 export type TelemetryFrame = {
-  type: 'initial_state' | 'update';
+  type: 'initial_state' | 'update' | 'execution_flow' | 'batch' | 'connected';
+  // Actual backend format (execution_flow)
+  source?: string;
+  target?: string;
+  duration_ms?: number;
+  success?: boolean;
+  conversation_id?: string;
+  intent_type?: string;
+  // Batch format
+  events?: Array<{
+    source: string;
+    target: string;
+    duration_ms?: number;
+    success?: boolean;
+  }>;
+  // Legacy format
   active_traces?: any[];
   metrics?: Record<string, any>;
 };

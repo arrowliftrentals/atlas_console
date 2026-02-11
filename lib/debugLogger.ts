@@ -1,26 +1,47 @@
 // Debug logger that writes to a file via API
 // This allows the AI to review browser-side logs
 
+// Set to true to enable verbose debug logging
+const DEBUG_ENABLED = false;
+
+// Safe stringify that handles circular references
+function safeStringify(obj: any, maxDepth = 2): string {
+  const seen = new WeakSet();
+  return JSON.stringify(obj, (key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) return '[Circular]';
+      seen.add(value);
+    }
+    // Truncate large arrays/objects
+    if (Array.isArray(value) && value.length > 10) {
+      return `[Array(${value.length})]`;
+    }
+    if (value instanceof Map) return `[Map(${value.size})]`;
+    if (value instanceof Set) return `[Set(${value.size})]`;
+    return value;
+  });
+}
+
 class DebugLogger {
   private logs: string[] = [];
-  private maxLogs = 1000;
-  private flushInterval = 2000; // ms
+  private maxLogs = 500;
+  private flushInterval = 5000; // ms
   private timer: NodeJS.Timeout | null = null;
 
   constructor() {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && DEBUG_ENABLED) {
       this.startFlushing();
     }
   }
 
   log(category: string, message: string, ...args: any[]) {
+    if (!DEBUG_ENABLED) return;
+    
     const timestamp = new Date().toISOString();
-    const logEntry = `[${timestamp}] [${category}] ${message} ${args.length > 0 ? JSON.stringify(args) : ''}`;
+    const argsStr = args.length > 0 ? safeStringify(args) : '';
+    const logEntry = `[${timestamp}] [${category}] ${message} ${argsStr}`;
     
-    // Also log to console
-    console.log(`[DEBUG ${category}]`, message, ...args);
-    
-    // Store for file writing
+    // Store for file writing (skip console.log to prevent memory issues)
     this.logs.push(logEntry);
     
     // Keep only last N logs

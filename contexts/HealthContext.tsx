@@ -1,8 +1,29 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 
 type HealthState = 'connected' | 'disconnected' | 'error';
+
+/**
+ * Silent fetch wrapper with built-in timeout that suppresses all errors.
+ * Returns null on any error (including abort) to avoid console spam.
+ * Uses custom AbortController to prevent AbortSignal.timeout() browser issues.
+ */
+async function silentFetch(url: string, timeoutMs: number = 2000): Promise<Response | null> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    return response;
+  } catch {
+    // Silently ignore ALL errors (AbortError, network errors, etc.)
+    // This prevents "Fetch is aborted" console spam
+    clearTimeout(timeoutId);
+    return null;
+  }
+}
 
 interface HealthStatus {
   backend: HealthState;          // /health endpoint
@@ -26,8 +47,10 @@ interface HealthContextType {
 const HealthContext = createContext<HealthContextType | undefined>(undefined);
 
 const BACKEND_URL = 'http://localhost:8000';
-const CHECK_INTERVAL = 10000; // Check every 10 seconds
-const REQUIRED_CONSISTENT_CHECKS = 3; // Require 3 consecutive checks before changing state
+const CHECK_INTERVAL = 15000; // 15 seconds between checks
+const BACKEND_TIMEOUT = 10000; // 10s timeout for backend - generous for loaded systems
+const REQUIRED_FAILURES_FOR_OFFLINE = 4; // Require 4 consecutive failures (1 minute) before showing offline
+const REQUIRED_SUCCESS_FOR_ONLINE = 1; // Single success is enough to show online
 
 export function HealthProvider({ children }: { children: ReactNode }) {
   const [health, setHealth] = useState<HealthStatus>({
@@ -44,10 +67,10 @@ export function HealthProvider({ children }: { children: ReactNode }) {
     lastCheck: Date.now(),
   });
   
-  // Track consecutive check results to debounce flickering
-  const [checkHistory, setCheckHistory] = useState<Record<string, HealthState[]>>({});
+  // Track consecutive failures using ref (avoids state update complexity)
+  const failureCountRef = useRef<Record<string, number>>({});
 
-  const checkHealth = async () => {
+  const checkHealth = useCallback(async () => {
     const newHealth: HealthStatus = {
       backend: 'disconnected',
       chat: 'disconnected',
@@ -63,53 +86,57 @@ export function HealthProvider({ children }: { children: ReactNode }) {
     };
 
     // Run all health checks in parallel for faster response
+    // Using silentFetch with built-in timeout to suppress AbortError console spam
     const checks = await Promise.allSettled([
-      // Priority 1: Backend health (most critical)
-      fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(2000) })
-        .then(res => ({ key: 'backend' as const, status: res.ok ? 'connected' as const : 'error' as const }))
-        .catch(() => ({ key: 'backend' as const, status: 'disconnected' as const })),
+      // Priority 1: Backend health (most critical) - generous timeout for loaded systems
+      silentFetch(`${BACKEND_URL}/health`, BACKEND_TIMEOUT)
+        .then(res => ({ key: 'backend' as const, status: res?.ok ? 'connected' as const : 'disconnected' as const })),
       
-      // Priority 2: Chat endpoint (use backend health as simpler proxy)
-      fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(5000) })
-        .then(res => ({ key: 'chat' as const, status: res.ok ? 'connected' as const : 'error' as const }))
-        .catch(() => ({ key: 'chat' as const, status: 'disconnected' as const })),
+      // Priority 2: Chat endpoint (same as backend for stability)
+      silentFetch(`${BACKEND_URL}/health`, BACKEND_TIMEOUT)
+        .then(res => ({ key: 'chat' as const, status: res?.ok ? 'connected' as const : 'disconnected' as const })),
       
       // Priority 3: Architecture
-      fetch(`${BACKEND_URL}/v1/architecture/graph`, { signal: AbortSignal.timeout(2000) })
-        .then(res => ({ key: 'architecture' as const, status: res.ok ? 'connected' as const : 'error' as const }))
-        .catch(() => ({ key: 'architecture' as const, status: 'disconnected' as const })),
+      silentFetch(`${BACKEND_URL}/v1/architecture/graph`, 2000)
+        .then(res => ({ key: 'architecture' as const, status: res?.ok ? 'connected' as const : 'disconnected' as const })),
       
       // Lower priority checks
-      fetch(`${BACKEND_URL}/v1/atlas/logs`, { signal: AbortSignal.timeout(2000) })
-        .then(res => ({ key: 'logs' as const, status: res.ok ? 'connected' as const : 'error' as const }))
-        .catch(() => ({ key: 'logs' as const, status: 'disconnected' as const })),
+      silentFetch(`${BACKEND_URL}/v1/atlas/logs`, 2000)
+        .then(res => ({ key: 'logs' as const, status: res?.ok ? 'connected' as const : 'disconnected' as const })),
       
-      fetch(`${BACKEND_URL}/v1/atlas/skills`, { signal: AbortSignal.timeout(2000) })
-        .then(res => ({ key: 'skills' as const, status: res.ok ? 'connected' as const : 'error' as const }))
-        .catch(() => ({ key: 'skills' as const, status: 'disconnected' as const })),
+      silentFetch(`${BACKEND_URL}/v1/atlas/skills`, 2000)
+        .then(res => ({ key: 'skills' as const, status: res?.ok ? 'connected' as const : 'disconnected' as const })),
       
       // Learning endpoint
-      fetch(`${BACKEND_URL}/api/learning/patterns`, { signal: AbortSignal.timeout(2000) })
-        .then(res => ({ key: 'learning' as const, status: res.ok ? 'connected' as const : 'error' as const }))
-        .catch(() => ({ key: 'learning' as const, status: 'disconnected' as const })),
+      silentFetch(`${BACKEND_URL}/api/learning/patterns`, 2000)
+        .then(res => ({ key: 'learning' as const, status: res?.ok ? 'connected' as const : 'disconnected' as const })),
       
       // Tasks endpoint (L8 Planning Memory)
-      fetch(`${BACKEND_URL}/v1/atlas/tasks`, { signal: AbortSignal.timeout(2000) })
-        .then(res => ({ key: 'tasks' as const, status: res.ok ? 'connected' as const : 'error' as const }))
-        .catch(() => ({ key: 'tasks' as const, status: 'disconnected' as const })),
+      silentFetch(`${BACKEND_URL}/v1/atlas/tasks`, 2000)
+        .then(res => ({ key: 'tasks' as const, status: res?.ok ? 'connected' as const : 'disconnected' as const })),
       
-      fetch(`${BACKEND_URL}/v1/meta/latest`, { signal: AbortSignal.timeout(2000) })
-        .then(res => ({ key: 'meta' as const, status: res.ok ? 'connected' as const : 'error' as const }))
-        .catch(() => ({ key: 'meta' as const, status: 'disconnected' as const })),
+      silentFetch(`${BACKEND_URL}/v1/meta/latest`, 2000)
+        .then(res => ({
+          key: 'meta' as const,
+          // 404 is OK - means no assessments exist yet, endpoint is working
+          // null response means timeout/error -> disconnected
+          status: res ? ((res.ok || res.status === 404) ? 'connected' as const : 'error' as const) : 'disconnected' as const
+        })),
       
-      // Sandbox health
-      fetch(`${BACKEND_URL}/api/sandbox/health`, { signal: AbortSignal.timeout(2000) })
-        .then(res => res.json())
-        .then(data => ({
-          key: 'sandbox' as const,
-          status: (data.status === 'healthy' && data.docker_available) ? 'connected' as const : 'error' as const
-        }))
-        .catch(() => ({ key: 'sandbox' as const, status: 'disconnected' as const })),
+      // Sandbox health - needs special handling for JSON parsing
+      (async () => {
+        const res = await silentFetch(`${BACKEND_URL}/api/sandbox/health`, 2000);
+        if (!res) return { key: 'sandbox' as const, status: 'disconnected' as const };
+        try {
+          const data = await res.json();
+          return {
+            key: 'sandbox' as const,
+            status: (data.status === 'healthy' && data.docker_available) ? 'connected' as const : 'error' as const
+          };
+        } catch {
+          return { key: 'sandbox' as const, status: 'disconnected' as const };
+        }
+      })(),
     ]);
 
     // Process results into temporary state
@@ -130,10 +157,9 @@ export function HealthProvider({ children }: { children: ReactNode }) {
       rawHealth.telemetry = 'disconnected';
     }
 
-    // Update check history and apply debouncing
-    setCheckHistory(prevHistory => {
-      const newHistory = { ...prevHistory };
-      const debouncedHealth = { ...newHealth };
+    // Apply asymmetric debouncing: quick online, slow offline
+    setHealth(prev => {
+      const updatedHealth = { ...prev, lastCheck: Date.now() };
       
       Object.keys(rawHealth).forEach((key) => {
         const typedKey = key as keyof HealthStatus;
@@ -141,31 +167,29 @@ export function HealthProvider({ children }: { children: ReactNode }) {
         
         const currentState = rawHealth[typedKey] as HealthState;
         
-        // Initialize history for this key if needed
-        if (!newHistory[key]) {
-          newHistory[key] = [];
-        }
-        
-        // Add current check result to history
-        newHistory[key] = [...newHistory[key], currentState].slice(-REQUIRED_CONSISTENT_CHECKS);
-        
-        // Only change state if we have enough consistent checks
-        if (newHistory[key].length >= REQUIRED_CONSISTENT_CHECKS) {
-          const allSame = newHistory[key].every(state => state === currentState);
-          if (allSame) {
-            debouncedHealth[typedKey] = currentState;
+        if (currentState === 'connected') {
+          // Single success = show online immediately, reset failure count
+          updatedHealth[typedKey] = 'connected';
+          failureCountRef.current[key] = 0;
+        } else {
+          // Increment failure count
+          failureCountRef.current[key] = (failureCountRef.current[key] || 0) + 1;
+          
+          // Only show offline after enough consecutive failures
+          if (failureCountRef.current[key] >= REQUIRED_FAILURES_FOR_OFFLINE) {
+            updatedHealth[typedKey] = currentState;
           }
+          // Otherwise keep previous state (stays green)
         }
       });
       
-      setHealth(debouncedHealth);
-      return newHistory;
+      return updatedHealth;
     });
-  };
+  }, []);
 
-  const updateTelemetryStatus = (connected: boolean) => {
+  const updateTelemetryStatus = useCallback((connected: boolean) => {
     setHealth(prev => ({ ...prev, telemetry: connected ? 'connected' : 'disconnected' }));
-  };
+  }, []);
 
   useEffect(() => {
     // Initial check
@@ -176,7 +200,6 @@ export function HealthProvider({ children }: { children: ReactNode }) {
 
     // Listen for telemetry status updates from window events
     const handleTelemetryStatus = (event: CustomEvent) => {
-      console.log('[HealthContext] Received telemetry-status event:', event.detail);
       updateTelemetryStatus(event.detail.connected);
     };
 
@@ -186,7 +209,7 @@ export function HealthProvider({ children }: { children: ReactNode }) {
       clearInterval(interval);
       window.removeEventListener('telemetry-status', handleTelemetryStatus as EventListener);
     };
-  }, []);
+  }, [checkHealth, updateTelemetryStatus]);
 
   return (
     <HealthContext.Provider value={{ health, refreshHealth: checkHealth }}>

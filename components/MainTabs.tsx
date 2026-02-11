@@ -2,7 +2,7 @@
 
 import React from "react";
 
-export type MainTabId = "code" | "meta" | "logs" | "tasks" | "security" | "skills" | "learning" | "simulation" | "sandbox" | "architecture" | "neural-viz";
+export type MainTabId = "code" | "meta" | "logs" | "tasks" | "security" | "skills" | "learning" | "sandbox" | "architecture" | "neural-organism" | "systems" | "drift-review";
 
 interface MainTabsProps {
   activeTab: MainTabId;
@@ -13,15 +13,16 @@ const MainTabs: React.FC<MainTabsProps> = ({ activeTab, onTabChange }) => {
   const tabs: { id: MainTabId; label: string; badge?: number }[] = [
     { id: "code", label: "Code" },
     { id: "architecture", label: "Architecture" },
-    { id: "neural-viz", label: "Neural 3D" },
-    { id: "meta", label: "Meta" },
+    { id: "neural-organism", label: "Cognition" },
+    { id: "meta", label: "Assessment" },
     { id: "logs", label: "Logs" },
     { id: "tasks", label: "Tasks" },
     { id: "security", label: "Security" },
     { id: "skills", label: "Skills" },
     { id: "learning", label: "Learning" },
-    { id: "simulation", label: "Simulation" },
     { id: "sandbox", label: "Sandbox" },
+    { id: "systems", label: "Systems" },
+    { id: "drift-review", label: "Drift Review" },
   ];
 
   const handleKeyDown = (e: React.KeyboardEvent, tabId: MainTabId) => {

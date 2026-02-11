@@ -18,8 +18,6 @@ const LogsView: React.FC = () => {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [levelFilter, setLevelFilter] = useState<string>("ALL");
-  const [autoScroll, setAutoScroll] = useState(true);
-  const logsEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const loadLogs = async () => {
@@ -35,27 +33,19 @@ const LogsView: React.FC = () => {
 
   useEffect(() => {
     loadLogs();
-    const interval = setInterval(loadLogs, 5000); // Poll every 5 seconds for real-time updates
+    const interval = setInterval(loadLogs, 30000); // Poll every 30 seconds (reduced from 5s)
     return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    if (autoScroll) {
-      logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [logs, autoScroll]);
-
-  const handleScroll = () => {
-    if (!containerRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = containerRef.current;
-    const isAtBottom = Math.abs(scrollHeight - clientHeight - scrollTop) < 50;
-    setAutoScroll(isAtBottom);
-  };
+  // Sort logs by timestamp descending (most recent first)
+  const sortedLogs = [...logs].sort((a, b) => 
+    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
 
   const filteredLogs =
     levelFilter === "ALL"
-      ? logs
-      : logs.filter((log) => log.level === levelFilter);
+      ? sortedLogs
+      : sortedLogs.filter((log) => log.level === levelFilter);
 
   const getLevelColor = (level: string) => {
     switch (level) {
@@ -93,7 +83,7 @@ const LogsView: React.FC = () => {
   }, {} as Record<string, number>);
 
   return (
-    <div className="h-full flex flex-col bg-[#1E1E1E]">
+    <div className="h-full flex flex-col bg-[#02030a]">
       <TabHeader
         title="Activity Logs"
         subtitle={`${logs.length} log entries`}
@@ -148,7 +138,6 @@ const LogsView: React.FC = () => {
       {/* Logs List */}
       <div
         ref={containerRef}
-        onScroll={handleScroll}
         className="flex-1 overflow-auto px-4 py-3"
       >
         {loading ? (
@@ -163,7 +152,7 @@ const LogsView: React.FC = () => {
           <div className="space-y-1">
             {filteredLogs.map((log, idx) => (
               <div
-                key={idx}
+                key={`${log.timestamp}-${idx}`}
                 className="flex items-start gap-3 py-1.5 px-2 hover:bg-[var(--atlas-bg-hover)] rounded transition-colors text-xs"
               >
                 <span className="text-[var(--atlas-text-muted)] whitespace-nowrap font-mono text-[10px]">
@@ -182,7 +171,6 @@ const LogsView: React.FC = () => {
                 </div>
               </div>
             ))}
-            <div ref={logsEndRef} />
           </div>
         )}
       </div>
@@ -190,17 +178,14 @@ const LogsView: React.FC = () => {
       {/* Footer */}
       <div className="px-4 py-2 border-t border-[var(--atlas-border-subtle)] flex items-center justify-between text-xs">
         <span className="text-[var(--atlas-text-muted)]">
-          {filteredLogs.length} of {logs.length} logs
+          {filteredLogs.length} of {logs.length} logs • Most recent first
         </span>
-        <label className="flex items-center gap-2 text-[var(--atlas-text-secondary)] cursor-pointer">
-          <input
-            type="checkbox"
-            checked={autoScroll}
-            onChange={(e) => setAutoScroll(e.target.checked)}
-            className="atlas-focus-ring"
-          />
-          Auto-scroll
-        </label>
+        <button
+          onClick={() => containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="text-[var(--atlas-text-secondary)] hover:text-white transition-colors"
+        >
+          ↑ Scroll to top
+        </button>
       </div>
     </div>
   );

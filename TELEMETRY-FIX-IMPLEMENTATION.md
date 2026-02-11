@@ -207,18 +207,18 @@ if (data.type === 'execution_flow') {
 
 ### What Still Needs Work
 
-1. **Neural 3D Visualizer**:
-   - Similar fix needed in `NeuralArchitecture3DV2.tsx`
-   - Uses same telemetry consumption pattern
-   - Currently: Particles won't flow with actual data
+~~1. **Neural 3D Visualizer**~~ ✅ **FIXED (2026-02-11)**
+   - `NeuralOrganismView.tsx` now handles `execution_flow` events
+   - Real telemetry mode shows actual neural activity
+   - Demo mode shows animated pulses on all connections
 
 2. **Timeline Component**:
    - May need updates for new telemetry format
    - Check if it expects `active_traces`
 
 3. **Type Definitions**:
-   - Update `lib/types.ts` if shared types exist
-   - Ensure consistency across components
+   - `TelemetryContext.tsx` updated with `execution_flow` and `batch` types
+   - Includes `source`, `target`, `duration_ms`, `success` fields
 
 ## Backwards Compatibility
 
@@ -257,8 +257,40 @@ The fix maintains **full backwards compatibility**:
    - Show duration visually (thicker edges = slower)
    - Group flows by conversation_id
 
+## Backend Telemetry ID Consistency Fix (2026-02-11)
+
+A second fix was required to ensure telemetry component IDs match architecture graph node IDs.
+
+### Problem
+Telemetry emissions used inconsistent component names:
+- `memory_manager` vs graph's `memory`
+- `memory_context` vs graph's `memory_retriever`
+- `apiserver` not in graph
+
+### Solution
+Standardized all telemetry emissions in ATLAS backend:
+
+| Before | After | Files Changed |
+|--------|-------|---------------|
+| `memory_manager` | `memory` | 29 occurrences |
+| `memory_context` | `memory_retriever` | 6 occurrences |
+| `apiserver` | Added to graph | architecture_discovery.py |
+| `intentparser` | `intent_parser` | Typo fix |
+| `personalization` | `personalizer` | Consistency |
+
+### Files Modified (Backend)
+- `src/memory/memory_manager.py`
+- `src/orchestrator/memory_context.py`
+- `src/orchestrator/atlas.py`
+- `src/orchestrator/architecture_discovery.py`
+- `src/monitoring/telemetry.py`
+- Various personality/learning modules
+
+### Result
+Telemetry IDs now directly match graph node IDs. No frontend mapping required.
+
 ## Conclusion
 
 The console now correctly processes real telemetry data from the ATLAS backend. The visualizations will show **actual, live system behavior** instead of appearing static and broken.
 
-This was a **data format mismatch**, not a fundamental design issue. The fix is straightforward and effective.
+This was a **data format mismatch** (fixed Jan 2026) and a **component ID inconsistency** (fixed Feb 2026). Both fixes are now complete.

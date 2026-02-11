@@ -93,7 +93,7 @@ export default function ArchitectureViewV2() {
   const [selectedNode, setSelectedNode] = useState<ComponentNode | null>(null);
   const [telemetryConnected, setTelemetryConnected] = useState(false);
   const [flowParticles, setFlowParticles] = useState<FlowParticle[]>([]);
-  const [layoutType, setLayoutType] = useState<'dagre' | 'klay' | 'cola'>('dagre');
+  const [layoutType, setLayoutType] = useState<'dagre' | 'klay' | 'cola' | 'elk'>('elk');
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [showMatrix, setShowMatrix] = useState(false);
   const [showTimeline, setShowTimeline] = useState(false);
@@ -178,8 +178,8 @@ export default function ArchitectureViewV2() {
     fetchArchitectureData();
     fetchErrorEdges();
     
-    // Poll for error edges every 5 seconds
-    const interval = setInterval(fetchErrorEdges, 5000);
+    // Poll for error edges every 30 seconds (reduced from 5s)
+    const interval = setInterval(fetchErrorEdges, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -264,6 +264,10 @@ export default function ArchitectureViewV2() {
           import('cytoscape-cola').then(cola => {
             cytoscape.use(cola.default || cola);
             console.log('✅ Cola layout registered');
+          }),
+          import('cytoscape-elk').then(elk => {
+            cytoscape.use(elk.default || elk);
+            console.log('✅ ELK layout registered');
           })
         ]);
         
@@ -307,11 +311,25 @@ export default function ArchitectureViewV2() {
         console.log('🎨 Initializing Cytoscape visualization...');
       const elements: ElementDefinition[] = [];
 
-      // Add nodes with cognitive region classification
+      // Compute node degrees (connection counts) for hub-centric layout
+      const nodeDegrees = new Map<string, number>();
+      data.edges.forEach(edge => {
+        nodeDegrees.set(edge.source, (nodeDegrees.get(edge.source) || 0) + 1);
+        nodeDegrees.set(edge.target, (nodeDegrees.get(edge.target) || 0) + 1);
+      });
+      
+      // Find max degree for normalization
+      const maxDegree = Math.max(...Array.from(nodeDegrees.values()), 1);
+      console.log('📊 Node degrees computed:', { maxDegree, totalNodes: data.nodes.length });
+
+      // Add nodes with cognitive region classification and degree data
       console.log('🎨 Classifying nodes by cognitive region:');
       data.nodes.forEach(node => {
         const cognitiveMetadata = classifyNode(node.id);
-        console.log(`  ${node.id.padEnd(25)} -> ${cognitiveMetadata.region}`);
+        const degree = nodeDegrees.get(node.id) || 0;
+        const normalizedDegree = degree / maxDegree; // 0-1 scale
+        
+        console.log(`  ${node.id.padEnd(25)} -> ${cognitiveMetadata.region} (degree: ${degree})`);
         elements.push({
           data: {
             id: node.id,
@@ -322,6 +340,8 @@ export default function ArchitectureViewV2() {
             description: node.description,
             file_path: node.file_path,
             region: cognitiveMetadata.region,
+            degree: degree,
+            normalizedDegree: normalizedDegree,
           },
         });
       });
@@ -362,6 +382,7 @@ export default function ArchitectureViewV2() {
     // Cytoscape stylesheet
     const stylesheet: any[] = [
       // Nodes base style with plastic appearance
+      // Node size scales with connectivity (degree) - hubs are larger
       {
         selector: 'node',
         style: {
@@ -379,8 +400,15 @@ export default function ArchitectureViewV2() {
           'color': '#E2E8F0',
           'font-size': '12px',
           'font-weight': 'bold',
-          'width': 120,
-          'height': 60,
+          // Scale node size based on connectivity (1.0x to 1.2x) - reduced to prevent overlap
+          'width': (ele: any) => {
+            const normalizedDegree = ele.data('normalizedDegree') || 0;
+            return 120 * (1 + normalizedDegree * 0.2);
+          },
+          'height': (ele: any) => {
+            const normalizedDegree = ele.data('normalizedDegree') || 0;
+            return 60 * (1 + normalizedDegree * 0.2);
+          },
           'shape': 'roundrectangle',
           'text-wrap': 'wrap',
           'text-max-width': '110px',
@@ -424,14 +452,54 @@ export default function ArchitectureViewV2() {
       {
         selector: 'edge',
         style: {
-          'width': 2,
-          'line-color': '#4A5568',
-          'source-arrow-color': '#4A5568',
+          // Width scales with call count: 2px base, up to 5px for high traffic
+          'width': (ele: any) => {
+            const callCount = ele.data('call_count') || 0;
+            if (callCount === 0) return 1.5;
+            const normalizedLog = Math.min(Math.log10(callCount + 1) / 3, 1);
+            return 2 + normalizedLog * 3; // 2px to 5px
+          },
+          // Color transitions from gray to vibrant neon blue based on call count
+          'line-color': (ele: any) => {
+            const callCount = ele.data('call_count') || 0;
+            if (callCount === 0) return '#3a3f4b'; // Dim gray for unused
+            // Interpolate from dull blue-gray to vibrant neon blue
+            const normalizedLog = Math.min(Math.log10(callCount + 1) / 3, 1);
+            // Low: #4A5568 (gray-blue), High: #00D4FF (neon cyan-blue)
+            const r = Math.round(74 - normalizedLog * 74); // 74 -> 0
+            const g = Math.round(85 + normalizedLog * 127); // 85 -> 212
+            const b = Math.round(104 + normalizedLog * 151); // 104 -> 255
+            return `rgb(${r}, ${g}, ${b})`;
+          },
+          'source-arrow-color': (ele: any) => {
+            const callCount = ele.data('call_count') || 0;
+            if (callCount === 0) return '#3a3f4b';
+            const normalizedLog = Math.min(Math.log10(callCount + 1) / 3, 1);
+            const r = Math.round(74 - normalizedLog * 74);
+            const g = Math.round(85 + normalizedLog * 127);
+            const b = Math.round(104 + normalizedLog * 151);
+            return `rgb(${r}, ${g}, ${b})`;
+          },
           'source-arrow-shape': 'triangle',
-          'target-arrow-color': '#4A5568',
+          'target-arrow-color': (ele: any) => {
+            const callCount = ele.data('call_count') || 0;
+            if (callCount === 0) return '#3a3f4b';
+            const normalizedLog = Math.min(Math.log10(callCount + 1) / 3, 1);
+            const r = Math.round(74 - normalizedLog * 74);
+            const g = Math.round(85 + normalizedLog * 127);
+            const b = Math.round(104 + normalizedLog * 151);
+            return `rgb(${r}, ${g}, ${b})`;
+          },
           'target-arrow-shape': 'triangle',
           'curve-style': 'bezier',
           'arrow-scale': 1.2,
+          // Opacity based on call count
+          'opacity': (ele: any) => {
+            const callCount = ele.data('call_count') || 0;
+            if (callCount === 0) return 0.25;
+            const normalizedLog = Math.min(Math.log10(callCount + 1) / 3, 1);
+            return 0.5 + normalizedLog * 0.5; // 0.5 to 1.0
+          },
           // Show call count label if available (from telemetry)
           'label': (ele: any) => {
             const callCount = ele.data('call_count');
@@ -547,22 +615,32 @@ export default function ArchitectureViewV2() {
       animationDuration: 500,
     };
     
-    // Layout-specific parameters
+    // Layout-specific parameters with optimized settings for crossing minimization
     if (layoutType === 'dagre') {
       layoutConfig.rankDir = 'LR';
-      layoutConfig.nodeSep = 100;
-      layoutConfig.rankSep = 200;
+      layoutConfig.nodeSep = 120;      // Increased vertical separation
+      layoutConfig.rankSep = 220;      // Increased horizontal separation
+      layoutConfig.edgeSep = 30;       // Edge separation to reduce overlaps
+      layoutConfig.ranker = 'tight-tree'; // Better crossing reduction algorithm
+      layoutConfig.align = 'UL';       // Consistent node alignment
     } else if (layoutType === 'klay') {
       layoutConfig.klay = {
         direction: 'RIGHT',
-        spacing: 100,
+        spacing: 120,
+        edgeSpacingFactor: 0.5,           // Reduces edge crowding
+        compactComponents: true,
+        thoroughness: 10,                  // Higher = better layout quality
+        crossingMinimization: 'LAYER_SWEEP', // Explicit crossing minimization
+        nodeLayering: 'NETWORK_SIMPLEX',
+        nodePlacement: 'BRANDES_KOEPF',    // Better node placement
+        fixedAlignment: 'BALANCED',
       };
     } else if (layoutType === 'cola') {
       // Force-directed layout with better spacing
-      layoutConfig.nodeSpacing = 80;
-      layoutConfig.edgeLength = 120;
-      layoutConfig.edgeSymDiffLength = 60;
-      layoutConfig.edgeJaccardLength = 80;
+      layoutConfig.nodeSpacing = 100;   // Increased node spacing
+      layoutConfig.edgeLength = 150;    // Longer edges for clarity
+      layoutConfig.edgeSymDiffLength = 80;
+      layoutConfig.edgeJaccardLength = 100;
       layoutConfig.unconstrIter = 500;
       layoutConfig.userConstIter = 250;
       layoutConfig.allConstIter = 250;
@@ -570,7 +648,22 @@ export default function ArchitectureViewV2() {
       layoutConfig.centerGraph = true;
       layoutConfig.avoidOverlap = true;
       layoutConfig.fit = true;
-      layoutConfig.padding = 50;
+      layoutConfig.padding = 60;
+      layoutConfig.randomize = false;   // Deterministic layout
+    } else if (layoutType === 'elk') {
+      // ELK Stress: Hub-centric layout - high-connectivity nodes in center
+      // Uses stress majorization which naturally places hubs centrally
+      layoutConfig.name = 'elk';
+      layoutConfig.elk = {
+        algorithm: 'stress',
+        'elk.stress.desiredEdgeLength': 600,
+        'elk.stress.epsilon': 0.00001,
+        'elk.stress.iterationLimit': 1000,
+        'elk.spacing.nodeNode': 500,
+        'elk.spacing.edgeNode': 250,
+        'elk.spacing.componentComponent': 300,
+        'elk.aspectRatio': 2.0,
+      };
     }
     
     const cy = cytoscape({
@@ -755,6 +848,18 @@ export default function ArchitectureViewV2() {
 
       cyRef.current = cy;
 
+      // Fit all nodes into view after layout completes
+      cy.on('layoutstop', () => {
+        cy.fit(undefined, 50); // 50px padding
+      });
+      
+      // Fallback: fit after a short delay in case layoutstop doesn't fire
+      setTimeout(() => {
+        if (cy && !cy.destroyed()) {
+          cy.fit(undefined, 50);
+        }
+      }, 800);
+
       setInitError(null);
       setRetryCount(0);
       console.log('✅ Cytoscape initialized successfully');
@@ -826,9 +931,8 @@ export default function ArchitectureViewV2() {
       if (isUnmounted) return;
 
       try {
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        // Use localhost:8000 explicitly for backend since frontend runs on 3000
-        const wsUrl = `${wsProtocol}://localhost:8000/v1/telemetry/stream`;
+        // Force ws:// for localhost since backend doesn't support TLS
+        const wsUrl = 'ws://localhost:8000/v1/telemetry/stream';
         
         console.log('🔌 Attempting WebSocket connection to', wsUrl);
         const ws = new WebSocket(wsUrl);
@@ -839,6 +943,12 @@ export default function ArchitectureViewV2() {
           if (isUnmounted) return;
           console.log('✅ Telemetry WebSocket connected');
           setTelemetryConnected(true);
+          // Set global state for HealthContext
+          if (typeof window !== 'undefined') {
+            (window as any).__atlasWebSocketState = { connected: true, error: false };
+          }
+          // Dispatch telemetry status event
+          window.dispatchEvent(new CustomEvent('telemetry-status', { detail: { connected: true } }));
         };
 
         ws.onmessage = (event) => {
@@ -867,12 +977,24 @@ export default function ArchitectureViewV2() {
           if (isUnmounted) return;
           console.error('❌ WebSocket connection error:', error);
           setTelemetryConnected(false);
+          // Set global state for HealthContext
+          if (typeof window !== 'undefined') {
+            (window as any).__atlasWebSocketState = { connected: false, error: true };
+          }
+          // Dispatch telemetry status event
+          window.dispatchEvent(new CustomEvent('telemetry-status', { detail: { connected: false } }));
         };
 
         ws.onclose = () => {
           if (isUnmounted) return;
           console.log('Telemetry WebSocket closed');
           setTelemetryConnected(false);
+          // Set global state for HealthContext
+          if (typeof window !== 'undefined') {
+            (window as any).__atlasWebSocketState = { connected: false, error: false };
+          }
+          // Dispatch telemetry status event
+          window.dispatchEvent(new CustomEvent('telemetry-status', { detail: { connected: false } }));
 
           // Simple reconnect with backoff
           reconnectTimeout = setTimeout(() => {
@@ -962,15 +1084,24 @@ export default function ArchitectureViewV2() {
       return;
     }
     
+    // Architecture graph now uses telemetry-compatible IDs directly
     const edgeId = `${source}-${target}`;
     const edge = cyRef.current.$id(edgeId);
     
-    console.log('  🔍 Looking for edge:', edgeId, 'found:', edge.length > 0);
+    // Also try reverse direction (bidirectional edges)
+    const reverseEdgeId = `${target}-${source}`;
+    const reverseEdge = cyRef.current.$id(reverseEdgeId);
     
-    if (edge.length > 0) {
-      console.log('  ✨ Animating edge:', edgeId);
+    console.log('  🔍 Looking for edge:', edgeId, 'found:', edge.length > 0, 'or reverse:', reverseEdgeId, 'found:', reverseEdge.length > 0);
+    
+    // Animate whichever edge exists
+    const targetEdge = edge.length > 0 ? edge : reverseEdge;
+    const foundEdgeId = edge.length > 0 ? edgeId : reverseEdgeId;
+    
+    if (targetEdge.length > 0) {
+      console.log('  ✨ Animating edge:', foundEdgeId);
       // Pulse the edge with bright color
-      edge.animate({
+      targetEdge.animate({
         style: {
           'width': 5,
           'line-color': '#3B82F6',
@@ -983,6 +1114,8 @@ export default function ArchitectureViewV2() {
         },
         duration: 400,
       });
+    } else {
+      console.log('  ⚠️ Edge not found:', source, '->', target);
     }
     
     // Pulse source and target nodes
@@ -1012,7 +1145,7 @@ export default function ArchitectureViewV2() {
     }
   };
 
-  const changeLayout = (type: 'dagre' | 'klay' | 'cola') => {
+  const changeLayout = (type: 'dagre' | 'klay' | 'cola' | 'elk') => {
     setLayoutType(type);
   };
   
@@ -1026,22 +1159,46 @@ export default function ArchitectureViewV2() {
       animationDuration: 500,
     };
     
-    // Layout-specific parameters
+    // Layout-specific parameters with optimized settings
     if (layoutType === 'dagre') {
       layoutConfig.rankDir = 'LR';
-      layoutConfig.nodeSep = 100;
-      layoutConfig.rankSep = 200;
+      layoutConfig.nodeSep = 120;
+      layoutConfig.rankSep = 220;
+      layoutConfig.edgeSep = 30;
+      layoutConfig.ranker = 'tight-tree';
+      layoutConfig.align = 'UL';
     } else if (layoutType === 'klay') {
       layoutConfig.klay = {
         direction: 'RIGHT',
-        spacing: 100,
+        spacing: 120,
+        edgeSpacingFactor: 0.5,
+        compactComponents: true,
+        thoroughness: 10,
+        crossingMinimization: 'LAYER_SWEEP',
+        nodeLayering: 'NETWORK_SIMPLEX',
+        nodePlacement: 'BRANDES_KOEPF',
+        fixedAlignment: 'BALANCED',
       };
     } else if (layoutType === 'cola') {
-      layoutConfig.nodeSpacing = 80;
-      layoutConfig.edgeLength = 120;
+      layoutConfig.nodeSpacing = 100;
+      layoutConfig.edgeLength = 150;
       layoutConfig.avoidOverlap = true;
       layoutConfig.fit = true;
-      layoutConfig.padding = 50;
+      layoutConfig.padding = 60;
+      layoutConfig.randomize = false;
+    } else if (layoutType === 'elk') {
+      // ELK Stress: Hub-centric layout - high-connectivity nodes in center
+      layoutConfig.name = 'elk';
+      layoutConfig.elk = {
+        algorithm: 'stress',
+        'elk.stress.desiredEdgeLength': 600,
+        'elk.stress.epsilon': 0.00001,
+        'elk.stress.iterationLimit': 1000,
+        'elk.spacing.nodeNode': 500,
+        'elk.spacing.edgeNode': 250,
+        'elk.spacing.componentComponent': 300,
+        'elk.aspectRatio': 2.0,
+      };
     }
     
     try {
@@ -1054,19 +1211,8 @@ export default function ArchitectureViewV2() {
   const highlightComponent = (componentId: string) => {
     if (!cyRef.current) return;
     
-    // Normalize component ID - backend telemetry may use shortened names
-    const normalizeId = (id: string): string => {
-      const idMap: Record<string, string> = {
-        'memory': 'memorymanager',
-        'memory_l3_episodic': 'episodicstore',
-        'memory_l6_attention': 'attentionstore',
-        // Add more mappings if needed
-      };
-      return idMap[id] || id;
-    };
-    
-    const normalizedId = normalizeId(componentId);
-    const node = cyRef.current.$id(normalizedId);
+    // Architecture graph now uses telemetry-compatible IDs directly
+    const node = cyRef.current.$id(componentId);
     if (node.length > 0) {
       cyRef.current.animate({
         center: { eles: node },
@@ -1077,7 +1223,7 @@ export default function ArchitectureViewV2() {
       node.select();
       setTimeout(() => node.unselect(), 2000);
     } else {
-      console.warn(`Component not found: ${componentId} (normalized: ${normalizedId})`);
+      console.warn(`Component not found: ${componentId}`);
     }
   };
 
@@ -1106,7 +1252,7 @@ export default function ArchitectureViewV2() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#1E1E1E] overflow-hidden">
+    <div className="h-full flex flex-col bg-[#02030a] overflow-hidden">
       {/* Header */}
       <TabHeader
         title="Cognitive Architecture"
@@ -1229,6 +1375,20 @@ export default function ArchitectureViewV2() {
                     Matrix
                   </button>
                   <button
+                    onClick={() => !showMatrix && changeLayout('elk')}
+                    disabled={showMatrix}
+                    className={`px-3 py-1 text-xs rounded ${
+                      showMatrix
+                        ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                        : layoutType === 'elk'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                    }`}
+                    title="ELK Hub: High-connectivity nodes centered, minimal crossings"
+                  >
+                    Hub
+                  </button>
+                  <button
                     onClick={() => !showMatrix && changeLayout('dagre')}
                     disabled={showMatrix}
                     className={`px-3 py-1 text-xs rounded ${
@@ -1238,6 +1398,7 @@ export default function ArchitectureViewV2() {
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                     }`}
+                    title="Dagre: Hierarchical layout"
                   >
                     Hierarchical
                   </button>
@@ -1251,6 +1412,7 @@ export default function ArchitectureViewV2() {
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                     }`}
+                    title="Klay: Optimized layered layout"
                   >
                     Layered
                   </button>
@@ -1264,6 +1426,7 @@ export default function ArchitectureViewV2() {
                         ? 'bg-blue-600 text-white'
                         : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                     }`}
+                    title="Cola: Force-directed layout"
                   >
                     Force
                   </button>
@@ -1276,7 +1439,7 @@ export default function ArchitectureViewV2() {
       <div className="flex-1 flex relative overflow-hidden" style={{ minHeight: 0 }}>
         {/* Matrix View (Full Screen) */}
         {showMatrix && (
-          <div className="absolute inset-0 z-30 bg-[#1E1E1E]">
+          <div className="absolute inset-0 z-30 bg-[#02030a]">
             <DependencyMatrix />
           </div>
         )}
@@ -1284,7 +1447,7 @@ export default function ArchitectureViewV2() {
         {/* Graph Container */}
         <div 
           ref={containerRef}
-          className={`flex-1 bg-[#1E1E1E] ${showMatrix ? 'hidden' : ''} relative`}
+          className={`flex-1 bg-[#02030a] ${showMatrix ? 'hidden' : ''} relative`}
           style={{ height: '100%' }}
         >
           {initError && !isRecovering && (

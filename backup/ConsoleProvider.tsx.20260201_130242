@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { ConsoleSession, AgentResponse } from '@/lib/types';
 import { fetchConsoleSessions, createConsoleSession } from '@/lib/atlasConsoleClient';
 import { getStoredSessionId, storeSessionId } from '@/lib/session';
@@ -9,14 +9,6 @@ export interface ChatMessage {
   type: 'user' | 'assistant';
   content: string;
   response?: AgentResponse;
-  tasks?: Array<{
-    id: string;
-    description: string;
-    status: 'pending' | 'running' | 'completed' | 'failed';
-    tool?: string;
-    startTime?: number;
-    endTime?: number;
-  }>;
 }
 
 interface ConsoleContextType {
@@ -48,88 +40,91 @@ export const useConsole = () => {
 
 export function ConsoleProvider({ children }: { children: ReactNode }) {
   const [sessions, setSessions] = useState<ConsoleSession[]>([]);
-  
-  // Initialize as null to avoid hydration mismatch
-  // localStorage will be read in useEffect after mount
-  const [activeSessionId, setActiveSessionIdState] = useState<string | null>(null);
-  const [hasHydrated, setHasHydrated] = useState(false);
-  
+  // Initialize activeSessionId from localStorage on first render
+  const [activeSessionId, setActiveSessionIdState] = useState<string | null>(() => {
+    // This only runs once on mount
+    const stored = getStoredSessionId();
+    if (stored) {
+      console.log('[ConsoleProvider] Initializing with stored session:', stored);
+    }
+    return stored;
+  });
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [messagesBySession, setMessagesBySession] = useState<Map<string, ChatMessage[]>>(new Map());
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  
-  // Use ref to track latest activeSessionId for refreshSessions
-  const activeSessionIdRef = useRef<string | null>(null);
-  useEffect(() => {
-    activeSessionIdRef.current = activeSessionId;
-  }, [activeSessionId]);
-
-  // Hydration effect: restore session from localStorage after mount
-  useEffect(() => {
-    if (!hasHydrated) {
-      const stored = getStoredSessionId();
-      console.log('[ConsoleProvider] Hydration - stored session:', stored);
-      if (stored) {
-        setActiveSessionIdState(stored);
-      }
-      setHasHydrated(true);
-    }
-  }, [hasHydrated]);
 
   // Wrapper to persist activeSessionId to localStorage whenever it changes
-  const setActiveSessionId = useCallback((id: string | null) => {
+  const setActiveSessionId = (id: string | null) => {
     setActiveSessionIdState(id);
     if (id) {
       storeSessionId(id);
+      console.log('[ConsoleProvider] Persisting session to localStorage:', id);
     }
-  }, []);
+  };
 
-  // Simplified refreshSessions - only fetches data, no session selection logic
   const refreshSessions = useCallback(async () => {
     setLoadingSessions(true);
     setError(null);
     try {
       const data = await fetchConsoleSessions();
-      console.log('[ConsoleProvider] Fetched sessions:', data.sessions.length, data.sessions.map(s => s.session_id));
       setSessions(data.sessions);
       
-      // Use ref to get current activeSessionId without adding it to dependencies
-      const currentActiveId = activeSessionIdRef.current;
+      // Validate and potentially update the active session
+      // Priority:
+      // 1. If activeSessionId is valid (exists in backend), keep it
+      // 2. If activeSessionId is invalid/missing, select first available
+      // 3. If no sessions exist, create a new one
       
-      // If no sessions exist at all, create a default one
-      if (data.sessions.length === 0) {
-        console.log('[ConsoleProvider] No sessions found, creating default');
-        const newSession = await createConsoleSession({
-          session_id: `session_${Date.now()}`,
-        });
-        setActiveSessionId(newSession.session_id);
-        // Fetch again to update sessions list
-        const updatedData = await fetchConsoleSessions();
-        setSessions(updatedData.sessions);
-      } else if (!currentActiveId || !data.sessions.some(s => s.session_id === currentActiveId)) {
-        // If current activeSessionId is invalid or null, set to first session
-        console.log('[ConsoleProvider] Setting active session to first available:', data.sessions[0].session_id);
-        setActiveSessionId(data.sessions[0].session_id);
+      if (activeSessionId) {
+        // Verify the current active session still exists in backend
+        const sessionStillExists = data.sessions.some(s => s.session_id === activeSessionId);
+        if (sessionStillExists) {
+          console.log('[ConsoleProvider] Active session validated:', activeSessionId);
+          // Session is valid, no action needed
+        } else {
+          console.warn('[ConsoleProvider] Active session not found in backend, selecting new session');
+          // Fall through to selection logic below
+          if (data.sessions.length > 0) {
+            setActiveSessionId(data.sessions[0].session_id);
+          } else {
+            // No sessions exist, create one
+            const newSession = await createConsoleSession({
+              session_id: `session_${Date.now()}`,
+            });
+            setActiveSessionId(newSession.session_id);
+            const updatedData = await fetchConsoleSessions();
+            setSessions(updatedData.sessions);
+          }
+        }
+      } else {
+        // No active session - select or create one
+        if (data.sessions.length > 0) {
+          console.log('[ConsoleProvider] No active session, selecting first available');
+          setActiveSessionId(data.sessions[0].session_id);
+        } else {
+          console.log('[ConsoleProvider] No sessions found, creating default session');
+          const newSession = await createConsoleSession({
+            session_id: `session_${Date.now()}`,
+          });
+          setActiveSessionId(newSession.session_id);
+          const updatedData = await fetchConsoleSessions();
+          setSessions(updatedData.sessions);
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Failed to load sessions');
-      console.error('[ConsoleProvider] Error loading sessions:', err);
+      console.error('Error loading sessions:', err);
     } finally {
       setLoadingSessions(false);
     }
-  }, [setActiveSessionId]); // Removed activeSessionId from deps, using ref instead
-
-  // Removed complex validation effect - all logic now in refreshSessions
+  }, [activeSessionId]);
 
   const addMessage = (sessionId: string, message: ChatMessage) => {
     setMessagesBySession(prev => {
       const updated = new Map(prev);
       const existing = updated.get(sessionId) || [];
-      const newMessages = [...existing, message];
-      // Keep only last 100 messages per session to prevent memory bloat
-      const trimmed = newMessages.slice(-100);
-      updated.set(sessionId, trimmed);
+      updated.set(sessionId, [...existing, message]);
       return updated;
     });
   };
@@ -184,21 +179,10 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Initial session load after hydration
   useEffect(() => {
-    if (hasHydrated) {
-      console.log('[ConsoleProvider] Hydrated, calling refreshSessions');
-      refreshSessions();
-    }
-  }, [hasHydrated, refreshSessions]); // Run after hydration or when refreshSessions changes
-  
-  // Guarantee: if we have sessions but no active session, select first
-  useEffect(() => {
-    if (sessions.length > 0 && !activeSessionId && !loadingSessions) {
-      console.log('[ConsoleProvider] GUARANTEE: Forcing first session selection:', sessions[0].session_id);
-      setActiveSessionId(sessions[0].session_id);
-    }
-  }, [sessions, activeSessionId, loadingSessions, setActiveSessionId]);
+    refreshSessions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount - refreshSessions has activeSessionId in its closure
 
   return (
     <ConsoleContext.Provider

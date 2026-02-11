@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useHealth } from "@/contexts/HealthContext";
+import type { MainTabId } from "@/components/MainTabs";
 
 interface MetaAssessment {
     _storage_id?: number;
@@ -15,6 +16,22 @@ interface MetaAssessment {
     jarvis_benchmark?: any;
     scorecard?: any;
     reliability?: any;
+    live_exercise_results?: {
+        capabilities_exercised: Record<string, boolean>;
+        category_scores: Record<string, number>;
+        results: Array<{
+            exercise_id: string;
+            success: boolean;
+            capability_exercised: string;
+            duration_ms: number;
+            telemetry_events?: string[];
+            response_preview?: string;
+            error?: string;
+        }>;
+        total_exercises: number;
+        successful_exercises: number;
+        overall_success_rate: number;
+    };
     
     // V1/V2 fields (backward compatibility)
     system_info?: {
@@ -53,7 +70,11 @@ interface AssessmentChange {
 
 const BACKEND_URL = "http://localhost:8000";
 
-const MetaView: React.FC = () => {
+interface MetaViewProps {
+    onNavigateToTab?: (tab: MainTabId) => void;
+}
+
+const MetaView: React.FC<MetaViewProps> = ({ onNavigateToTab }) => {
     const { health } = useHealth();
     const [assessment, setAssessment] = useState<MetaAssessment | null>(null);
     const [history, setHistory] = useState<HistorySummary[]>([]);
@@ -61,13 +82,17 @@ const MetaView: React.FC = () => {
     const [changes, setChanges] = useState<AssessmentChange[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [activeSection, setActiveSection] = useState<string | null>("capability_inventory");
+    const [activeSection, setActiveSection] = useState<string | null>("scorecard"); // Default to Executive Summary
     const [showHistory, setShowHistory] = useState(false);
     const [selectedForDelete, setSelectedForDelete] = useState<Set<number>>(new Set());
     const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
     const [expandedSubsystems, setExpandedSubsystems] = useState<Set<string>>(new Set());
     const [progressPercentage, setProgressPercentage] = useState<number>(0);
     const [progressStep, setProgressStep] = useState<string>("");
+    
+    // Live exercise mode
+    const [runLiveExercises, setRunLiveExercises] = useState(false);
+    const [exerciseSet, setExerciseSet] = useState<"standard" | "minimal">("minimal");
 
     const loadLatestAssessment = async () => {
         setLoading(true);
@@ -119,10 +144,18 @@ const MetaView: React.FC = () => {
             } catch (e) {
                 // Silently ignore polling errors
             }
-        }, 500); // Poll every 500ms
+        }, 2000); // Poll every 2s (reduced from 500ms)
         
         try {
-            const response = await fetch(`${BACKEND_URL}/v1/meta/assess?run_tests=true`, {
+            // Build query params including live exercise options
+            const params = new URLSearchParams({
+                run_tests: 'true',
+                run_live_exercises: runLiveExercises.toString(),
+                exercise_set: exerciseSet,
+                skip_llm_exercises: 'true',
+            });
+            
+            const response = await fetch(`${BACKEND_URL}/v1/meta/assess?${params}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
             });
@@ -164,7 +197,8 @@ const MetaView: React.FC = () => {
     const loadHistoricalAssessment = async (assessmentId: number) => {
         setLoading(true);
         try {
-            const response = await fetch(`${BACKEND_URL}/v1/meta/assess/${assessmentId}`);
+            // Load lightweight summary first for faster initial rendering
+            const response = await fetch(`${BACKEND_URL}/v1/meta/assess/${assessmentId}?summary=true`);
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
@@ -249,8 +283,58 @@ const MetaView: React.FC = () => {
         }
     };
 
+    // Check for in-progress assessment on mount
     useEffect(() => {
-        loadLatestAssessment();
+        const init = async () => {
+            // Always load the latest assessment first
+            await loadLatestAssessment();
+            
+            // Then check if there's an assessment in progress and start polling
+            try {
+                const response = await fetch(`${BACKEND_URL}/v1/meta/progress/status`);
+                if (response.ok) {
+                    const progress = await response.json();
+                    // If assessment is in progress (not 0 or 100), resume polling
+                    if (progress.percentage > 0 && progress.percentage < 100) {
+                        setLoading(true);
+                        setProgressPercentage(progress.percentage);
+                        setProgressStep(progress.step || "Processing...");
+                        
+                        // Start polling
+                        const pollInterval = setInterval(async () => {
+                            try {
+                                const progressResponse = await fetch(`${BACKEND_URL}/v1/meta/progress/status`);
+                                if (progressResponse.ok) {
+                                    const progressData = await progressResponse.json();
+                                    setProgressPercentage(progressData.percentage);
+                                    setProgressStep(progressData.step || "Processing...");
+                                    
+                                    // Stop polling when complete
+                                    if (progressData.percentage >= 100) {
+                                        clearInterval(pollInterval);
+                                        setLoading(false);
+                                        // Reload assessment list
+                                        await fetchHistory();
+                                        await loadLatestAssessment();
+                                        // Reset progress after 2 seconds
+                                        setTimeout(() => {
+                                            setProgressPercentage(0);
+                                            setProgressStep("");
+                                        }, 2000);
+                                    }
+                                }
+                            } catch (e) {
+                                // Silently ignore polling errors
+                            }
+                        }, 2000); // Poll every 2s (reduced from 500ms)
+                    }
+                }
+            } catch (e) {
+                // Silently ignore - no assessment in progress
+            }
+        };
+        
+        init();
     }, []);
 
     const getChangesForPath = (path: string): AssessmentChange | null => {
@@ -370,6 +454,7 @@ const MetaView: React.FC = () => {
             'jarvis_readiness': 'jarvis_benchmark',
             'architectural_maturity': 'architectural_maturity',
             'reliability': 'reliability',
+            'learning': 'ml_infrastructure', // Learning Infrastructure section
         };
 
         const getScoreColor = (score: number) => {
@@ -388,44 +473,98 @@ const MetaView: React.FC = () => {
             return "text-red-400";
         };
 
+        // Check if meta-system scores are available
+        const hasMetaSystem = scorecard.meta_system_score !== null && scorecard.meta_system_score !== undefined;
+        const metaSystemScore = scorecard.meta_system_score || 0;
+        const metaSystemPhase = scorecard.meta_system_phase || "Unknown";
+
         return (
             <div className="space-y-6 max-w-5xl">
                 {/* Hero Card */}
                 <div className="bg-gradient-to-br from-blue-900/40 via-purple-900/30 to-indigo-900/40 border-2 border-blue-600/50 rounded-xl p-6 shadow-2xl">
-                    <div className="grid grid-cols-3 gap-6">
-                        {/* Overall Score */}
-                        <button 
-                            onClick={() => setActiveSection("scorecard")}
-                            className="text-center hover:bg-white/5 rounded-lg p-2 transition-colors cursor-pointer"
-                            title="Weighted average across all system dimensions. Reflects ATLAS's overall health, capability maturity, and readiness for production use."
-                        >
-                            <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Overall Score</p>
-                            <p className={`text-5xl font-bold ${getScoreColor(overallScore)} mb-1`}>{overallScore}</p>
-                            <p className="text-xs text-gray-500">out of 100</p>
-                        </button>
-                        
-                        {/* Jarvis Gap */}
-                        <button 
-                            onClick={() => setActiveSection("jarvis_benchmark")}
-                            className="text-center border-x border-gray-700/50 hover:bg-white/5 rounded-lg p-2 transition-colors cursor-pointer"
-                            title="Measures how close ATLAS is to Jarvis-level AI capabilities across 8 dimensions: reasoning, autonomy, learning, multimodality, context awareness, tool use, planning, and NLU."
-                        >
-                            <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Jarvis Readiness</p>
-                            <p className={`text-5xl font-bold ${getScoreColor(jarvisScore)} mb-1`}>{jarvisScore}</p>
-                            <p className="text-xs text-gray-500">out of 100</p>
-                        </button>
-                        
-                        {/* Maturity Stage */}
-                        <button 
-                            onClick={() => setActiveSection("architectural_maturity")}
-                            className="text-center hover:bg-white/5 rounded-lg p-2 transition-colors cursor-pointer"
-                            title="Developmental stage assessment (Embryonic → Infant → Child → Adolescent → Adult → Jarvis-level). Indicates architectural sophistication and production readiness."
-                        >
-                            <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Maturity Stage</p>
-                            <p className={`text-2xl font-bold ${getMaturityColor(maturityStage)}`}>{maturityStage}</p>
-                            <p className="text-xs text-gray-500 mt-1">{scorecard.estimated_time_to_jarvis}</p>
-                        </button>
-                    </div>
+                    {hasMetaSystem ? (
+                        <div className="grid grid-cols-4 gap-4">
+                            {/* Meta-System Score - Most Important */}
+                            <button 
+                                onClick={() => setActiveSection("meta_system_assessment")}
+                                className="text-center hover:bg-white/5 rounded-lg p-2 transition-colors cursor-pointer"
+                                title="Measures ATLAS's ability to build and improve AI systems (including itself). This is the primary metric for a meta-system."
+                            >
+                                <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Meta-System</p>
+                                <p className={`text-4xl font-bold ${getScoreColor(metaSystemScore)} mb-1`}>{metaSystemScore}</p>
+                                <p className="text-xs text-gray-500">{metaSystemPhase}</p>
+                            </button>
+                            
+                            {/* Overall Score */}
+                            <button 
+                                onClick={() => setActiveSection("scorecard")}
+                                className="text-center hover:bg-white/5 rounded-lg p-2 transition-colors cursor-pointer"
+                                title="Weighted average across all system dimensions. Reflects ATLAS's overall health, capability maturity, and readiness for production use."
+                            >
+                                <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Overall</p>
+                                <p className={`text-4xl font-bold ${getScoreColor(overallScore)} mb-1`}>{overallScore}</p>
+                                <p className="text-xs text-gray-500">System Health</p>
+                            </button>
+                            
+                            {/* Jarvis Gap */}
+                            <button 
+                                onClick={() => setActiveSection("jarvis_benchmark")}
+                                className="text-center hover:bg-white/5 rounded-lg p-2 transition-colors cursor-pointer"
+                                title="Measures how close ATLAS is to Jarvis-level AI capabilities across 8 dimensions: reasoning, autonomy, learning, multimodality, context awareness, tool use, planning, and NLU."
+                            >
+                                <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Jarvis</p>
+                                <p className={`text-4xl font-bold ${getScoreColor(jarvisScore)} mb-1`}>{jarvisScore}</p>
+                                <p className="text-xs text-gray-500">Readiness</p>
+                            </button>
+                            
+                            {/* Maturity Stage */}
+                            <button 
+                                onClick={() => setActiveSection("architectural_maturity")}
+                                className="text-center hover:bg-white/5 rounded-lg p-2 transition-colors cursor-pointer"
+                                title="Developmental stage assessment (Embryonic → Infant → Child → Adolescent → Adult → Jarvis-level). Indicates architectural sophistication and production readiness."
+                            >
+                                <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Stage</p>
+                                <p className={`text-lg font-bold ${getMaturityColor(maturityStage)}`}>{maturityStage}</p>
+                                <p className="text-xs text-gray-500 mt-1">{scorecard.estimated_time_to_jarvis}</p>
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-3 gap-6">
+                            {/* Original 3-column layout for backward compatibility */}
+                            {/* Overall Score */}
+                            <button 
+                                onClick={() => setActiveSection("scorecard")}
+                                className="text-center hover:bg-white/5 rounded-lg p-2 transition-colors cursor-pointer"
+                                title="Weighted average across all system dimensions. Reflects ATLAS's overall health, capability maturity, and readiness for production use."
+                            >
+                                <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Overall Score</p>
+                                <p className={`text-5xl font-bold ${getScoreColor(overallScore)} mb-1`}>{overallScore}</p>
+                                <p className="text-xs text-gray-500">out of 100</p>
+                            </button>
+                            
+                            {/* Jarvis Gap */}
+                            <button 
+                                onClick={() => setActiveSection("jarvis_benchmark")}
+                                className="text-center border-x border-gray-700/50 hover:bg-white/5 rounded-lg p-2 transition-colors cursor-pointer"
+                                title="Measures how close ATLAS is to Jarvis-level AI capabilities across 8 dimensions: reasoning, autonomy, learning, multimodality, context awareness, tool use, planning, and NLU."
+                            >
+                                <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Jarvis Readiness</p>
+                                <p className={`text-5xl font-bold ${getScoreColor(jarvisScore)} mb-1`}>{jarvisScore}</p>
+                                <p className="text-xs text-gray-500">out of 100</p>
+                            </button>
+                            
+                            {/* Maturity Stage */}
+                            <button 
+                                onClick={() => setActiveSection("architectural_maturity")}
+                                className="text-center hover:bg-white/5 rounded-lg p-2 transition-colors cursor-pointer"
+                                title="Developmental stage assessment (Embryonic → Infant → Child → Adolescent → Adult → Jarvis-level). Indicates architectural sophistication and production readiness."
+                            >
+                                <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Maturity Stage</p>
+                                <p className={`text-2xl font-bold ${getMaturityColor(maturityStage)}`}>{maturityStage}</p>
+                                <p className="text-xs text-gray-500 mt-1">{scorecard.estimated_time_to_jarvis}</p>
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* System Metrics Grid */}
@@ -562,25 +701,25 @@ const MetaView: React.FC = () => {
                     <div className="bg-gray-800/30 border border-gray-700/50 rounded-lg p-4">
                         <h4 className="text-xs font-bold text-gray-300 uppercase tracking-wider mb-3">Score Scale Reference</h4>
                         <div className="grid grid-cols-5 gap-2 text-xs">
-                            <div className="bg-green-900/20 border border-green-700/30 rounded p-2">
-                                <p className="font-semibold text-green-400 mb-1">90-100</p>
-                                <p className="text-gray-400 text-[10px]">Jarvis-level</p>
-                            </div>
-                            <div className="bg-blue-900/20 border border-blue-700/30 rounded p-2">
-                                <p className="font-semibold text-blue-400 mb-1">70-89</p>
-                                <p className="text-gray-400 text-[10px]">Adult stage</p>
-                            </div>
-                            <div className="bg-yellow-900/20 border border-yellow-700/30 rounded p-2">
-                                <p className="font-semibold text-yellow-400 mb-1">50-69</p>
-                                <p className="text-gray-400 text-[10px]">Adolescent</p>
+                            <div className="bg-red-900/20 border border-red-700/30 rounded p-2">
+                                <p className="font-semibold text-red-400 mb-1">0-29</p>
+                                <p className="text-gray-400 text-[10px]">Infant stage</p>
                             </div>
                             <div className="bg-orange-900/20 border border-orange-700/30 rounded p-2">
                                 <p className="font-semibold text-orange-400 mb-1">30-49</p>
                                 <p className="text-gray-400 text-[10px]">Child stage</p>
                             </div>
-                            <div className="bg-red-900/20 border border-red-700/30 rounded p-2">
-                                <p className="font-semibold text-red-400 mb-1">0-29</p>
-                                <p className="text-gray-400 text-[10px]">Infant stage</p>
+                            <div className="bg-yellow-900/20 border border-yellow-700/30 rounded p-2">
+                                <p className="font-semibold text-yellow-400 mb-1">50-69</p>
+                                <p className="text-gray-400 text-[10px]">Adolescent</p>
+                            </div>
+                            <div className="bg-blue-900/20 border border-blue-700/30 rounded p-2">
+                                <p className="font-semibold text-blue-400 mb-1">70-89</p>
+                                <p className="text-gray-400 text-[10px]">Adult stage</p>
+                            </div>
+                            <div className="bg-green-900/20 border border-green-700/30 rounded p-2">
+                                <p className="font-semibold text-green-400 mb-1">90-100</p>
+                                <p className="text-gray-400 text-[10px]">Jarvis-level</p>
                             </div>
                         </div>
                         {jarvisBenchmark.scale_definition.important_note && (
@@ -778,26 +917,102 @@ const MetaView: React.FC = () => {
     const renderMemoryArchitectureSection = (content: any) => {
         if (!content) return null;
 
-        const score = content.score;
+        const scores = content.scores || {};
+        const overallScore = scores.overall_memory_score || content.score || 0;
+        const implScore = scores.implementation_completeness || 0;
+        const dataFlowScore = scores.data_flow_verification || 0;
+        const integrationScore = scores.integration_maturity || 0;
+        
+        const implGaps = scores.implementation_gaps || [];
+        const dataFlowGaps = scores.data_flow_gaps || [];
+        const integrationGaps = scores.integration_gaps || [];
+
+        const getScoreColor = (score: number) => {
+            if (score >= 70) return 'text-green-400';
+            if (score >= 50) return 'text-yellow-400';
+            if (score >= 30) return 'text-orange-400';
+            return 'text-red-400';
+        };
+
+        const getBarColor = (score: number) => {
+            if (score >= 70) return 'bg-green-500';
+            if (score >= 50) return 'bg-yellow-500';
+            if (score >= 30) return 'bg-orange-500';
+            return 'bg-red-500';
+        };
 
         return (
             <div className="space-y-4">
-                {/* Score Display */}
-                {score !== undefined && (
-                    <div className="bg-gray-800/50 rounded-lg p-3 border-l-4 border-blue-500">
-                        <div className="flex items-center justify-between">
-                            <p className="text-xs font-semibold text-gray-300">Section Score</p>
-                            <p className={`text-xl font-bold ${
-                                score >= 70 ? 'text-green-400' :
-                                score >= 50 ? 'text-yellow-400' :
-                                score >= 30 ? 'text-orange-400' :
-                                'text-red-400'
-                            }`}>
-                                {score}/100
-                            </p>
+                {/* Overall Score Card */}
+                <div className="bg-gradient-to-br from-blue-900/30 via-purple-900/20 to-indigo-900/30 border border-blue-700/50 rounded-xl p-5">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <p className="text-sm font-semibold text-gray-200">Memory Architecture Score</p>
+                            <p className="text-xs text-gray-400">Overall memory system health</p>
+                        </div>
+                        <div className="text-right">
+                            <p className={`text-4xl font-bold ${getScoreColor(overallScore)}`}>{overallScore}</p>
+                            <p className="text-xs text-gray-500">out of 100</p>
                         </div>
                     </div>
-                )}
+                    
+                    {/* Sub-scores with progress bars */}
+                    <div className="space-y-3">
+                        {/* Implementation Score */}
+                        <div>
+                            <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs text-gray-400">Implementation Completeness</span>
+                                <span className={`text-sm font-bold ${getScoreColor(implScore)}`}>{implScore}/100</span>
+                            </div>
+                            <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div className={`h-full ${getBarColor(implScore)} rounded-full transition-all`} style={{ width: `${implScore}%` }} />
+                            </div>
+                            {implGaps.length > 0 && (
+                                <div className="mt-1">
+                                    {implGaps.map((gap: string, i: number) => (
+                                        <p key={i} className="text-xs text-red-400/80">⚠ {gap}</p>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        
+                        {/* Data Flow Score */}
+                        <div>
+                            <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs text-gray-400">Data Flow Verification</span>
+                                <span className={`text-sm font-bold ${getScoreColor(dataFlowScore)}`}>{dataFlowScore}/100</span>
+                            </div>
+                            <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div className={`h-full ${getBarColor(dataFlowScore)} rounded-full transition-all`} style={{ width: `${dataFlowScore}%` }} />
+                            </div>
+                            {dataFlowGaps.length > 0 && (
+                                <div className="mt-1">
+                                    {dataFlowGaps.map((gap: string, i: number) => (
+                                        <p key={i} className="text-xs text-red-400/80">⚠ {gap}</p>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        
+                        {/* Integration Score */}
+                        <div>
+                            <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs text-gray-400">Integration Maturity</span>
+                                <span className={`text-sm font-bold ${getScoreColor(integrationScore)}`}>{integrationScore}/100</span>
+                            </div>
+                            <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                <div className={`h-full ${getBarColor(integrationScore)} rounded-full transition-all`} style={{ width: `${integrationScore}%` }} />
+                            </div>
+                            {integrationGaps.length > 0 && (
+                                <div className="mt-1">
+                                    {integrationGaps.map((gap: string, i: number) => (
+                                        <p key={i} className="text-xs text-red-400/80">⚠ {gap}</p>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
 
                 {/* Section Content */}
                 <div className="space-y-3">
@@ -855,7 +1070,7 @@ const MetaView: React.FC = () => {
 
                     {/* 5. Other fields */}
                     {Object.entries(content)
-                        .filter(([key]) => !['score', 'implementation_score', 'usage_score', 'cognitive_design_summary', 'implementation_status', 'actual_usage', 'missed_opportunities'].includes(key))
+                        .filter(([key]) => !['score', 'scores', 'implementation_score', 'usage_score', 'cognitive_design_summary', 'implementation_status', 'actual_usage', 'missed_opportunities'].includes(key))
                         .map(([key, value], idx) => {
                             const heading = key.replace(/_/g, " ").split(" ").map(w => 
                                 w.charAt(0).toUpperCase() + w.slice(1)
@@ -878,12 +1093,171 @@ const MetaView: React.FC = () => {
         );
     };
 
+    const renderMetaSystemAssessment = (content: any) => {
+        if (!content) return <p className="text-xs text-gray-400">No meta-system assessment available.</p>;
+
+        const overallScore = content.overall_meta_score || 0;
+        const phase = content.phase || content.current_phase || "Unknown";
+        const phaseDescription = content.phase_description || "";
+        
+        const getScoreColor = (score: number) => {
+            if (score >= 85) return "text-green-400";
+            if (score >= 70) return "text-blue-400";
+            if (score >= 50) return "text-yellow-400";
+            if (score >= 30) return "text-orange-400";
+            return "text-red-400";
+        };
+
+        const dimensionKeys = ['self_awareness', 'self_modification', 'learning_about_learning', 'system_design', 'quality_assessment', 'knowledge_transfer'];
+        
+        return (
+            <div className="space-y-6 max-w-5xl">
+                {/* Hero Banner */}
+                <div className="bg-gradient-to-br from-purple-900/40 via-indigo-900/30 to-violet-900/40 border-2 border-purple-600/50 rounded-xl p-6 shadow-2xl">
+                    <div className="grid grid-cols-2 gap-6">
+                        <div className="text-center">
+                            <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Meta-System Score</p>
+                            <p className={`text-6xl font-bold ${getScoreColor(overallScore)} mb-1`}>{overallScore}</p>
+                            <p className="text-xs text-gray-500">out of 100</p>
+                            <p className="text-xs text-gray-400 mt-2">Ability to build AI systems</p>
+                        </div>
+                        <div className="flex flex-col justify-center">
+                            <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Current Phase</p>
+                            <p className="text-2xl font-bold text-purple-400 mb-2">{phase}</p>
+                            <p className="text-xs text-gray-300 leading-relaxed">{phaseDescription}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 6 Meta-Capabilities */}
+                <div>
+                    <h3 className="text-sm font-bold text-gray-200 mb-4 flex items-center gap-2">
+                        <span className="w-1 h-5 bg-purple-500 rounded"></span>
+                        Meta-System Capabilities
+                    </h3>
+                    <div className="space-y-4">
+                        {dimensionKeys.map((dimKey) => {
+                            const dimension = content[dimKey];
+                            if (!dimension) return null;
+                            
+                            const score = dimension.score || 0;
+                            const label = dimKey.replace(/_/g, " ").split(" ").map((w: string) => 
+                                w.charAt(0).toUpperCase() + w.slice(1)
+                            ).join(" ");
+                            
+                            return (
+                                <div key={dimKey} className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50">
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div className="flex-1">
+                                            <h4 className="text-sm font-bold text-gray-200 mb-2">{label}</h4>
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex-1 bg-gray-700 rounded-full h-2 overflow-hidden">
+                                                    <div 
+                                                        className={`h-full rounded-full ${
+                                                            score >= 70 ? "bg-green-500" :
+                                                            score >= 50 ? "bg-yellow-500" :
+                                                            score >= 30 ? "bg-orange-500" :
+                                                            "bg-red-500"
+                                                        }`}
+                                                        style={{ width: `${Math.min(100, score)}%` }}
+                                                    />
+                                                </div>
+                                                <span className={`text-xl font-bold ${getScoreColor(score)}`}>
+                                                    {score}<span className="text-xs text-gray-500 ml-1">/100</span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {/* Status */}
+                                    {dimension.status && (
+                                        <p className="text-xs text-gray-400 mb-2">
+                                            <span className="font-semibold text-gray-300">Status:</span> {dimension.status}
+                                        </p>
+                                    )}
+                                    
+                                    {/* Evidence & Gaps */}
+                                    <div className="grid grid-cols-2 gap-3 mt-3">
+                                        {dimension.evidence && dimension.evidence.length > 0 && (
+                                            <div>
+                                                <p className="text-xs font-semibold text-green-400 mb-1">✓ Evidence</p>
+                                                <ul className="text-xs text-gray-400 space-y-0.5">
+                                                    {dimension.evidence.map((e: string, i: number) => (
+                                                        <li key={i}>• {e}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                        {dimension.gaps && dimension.gaps.length > 0 && (
+                                            <div>
+                                                <p className="text-xs font-semibold text-red-400 mb-1">✗ Gaps</p>
+                                                <ul className="text-xs text-gray-400 space-y-0.5">
+                                                    {dimension.gaps.map((g: string, i: number) => (
+                                                        <li key={i}>• {g}</li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        )}
+                                    </div>
+                                    
+                                    {/* Next Steps */}
+                                    {dimension.next_steps && dimension.next_steps.length > 0 && (
+                                        <div className="mt-3 pt-3 border-t border-gray-700">
+                                            <p className="text-xs font-semibold text-blue-400 mb-1">→ Next Steps</p>
+                                            <ul className="text-xs text-gray-400 space-y-0.5">
+                                                {dimension.next_steps.map((step: string, i: number) => (
+                                                    <li key={i}>• {step}</li>
+                                                ))}
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Roadmap */}
+                {(content.next_phase || content.critical_gaps) && (
+                    <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-5">
+                        <h3 className="text-sm font-bold text-blue-400 mb-4">Development Roadmap</h3>
+                        <div className="space-y-3">
+                            {content.next_phase && (
+                                <div>
+                                    <p className="text-xs font-semibold text-gray-300">Next Phase:</p>
+                                    <p className="text-sm text-gray-200">{content.next_phase}</p>
+                                    {content.estimated_timeline_to_next_phase && (
+                                        <p className="text-xs text-gray-400 mt-1">Timeline: {content.estimated_timeline_to_next_phase}</p>
+                                    )}
+                                </div>
+                            )}
+                            {content.critical_gaps && content.critical_gaps.length > 0 && (
+                                <div>
+                                    <p className="text-xs font-semibold text-gray-300 mb-2">Critical Gaps:</p>
+                                    <ul className="text-xs text-gray-300 space-y-1">
+                                        {content.critical_gaps.map((gap: string, i: number) => (
+                                            <li key={i} className="flex items-start gap-2">
+                                                <span className="text-yellow-500 mt-0.5">⚠</span>
+                                                <span>{gap}</span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     const renderBusinessFormatSection = (sectionKey: string, content: any) => {
         if (!content || typeof content !== 'object') {
             return <div className="bg-gray-800/50 rounded-lg p-4 text-sm text-gray-300">{String(content)}</div>;
         }
 
         // Special renderers for V3 sections
+        if (sectionKey === 'meta_system_assessment') return renderMetaSystemAssessment(content);
         if (sectionKey === 'system_identity') return renderSystemIdentity(content);
         if (sectionKey === 'codebase_analysis') return renderCodebaseAnalysis(content);
         if (sectionKey === 'test_analysis') return renderTestAnalysis(content);
@@ -954,46 +1328,184 @@ const MetaView: React.FC = () => {
     };
 
     const renderMLInfrastructure = (content: any) => {
-        const scores = content.scores || {};
-        const mlScore = scores.overall_ml_score;
+        // Find overall score
+        const overallScore = content.overall_learning_score ?? content.score ?? content.overall_score;
+        
+        // Find dimensions (objects with score property)
+        const dimensions = content.dimensions || {};
+        
+        // Check if we have dimension-style data
+        const hasDimensions = Object.keys(dimensions).length > 0 || 
+            Object.values(content).some((v: any) => v && typeof v === 'object' && 'score' in v);
+        
+        // If content has nested objects with scores, treat them as dimensions
+        const dimensionData: Record<string, any> = Object.keys(dimensions).length > 0 
+            ? dimensions 
+            : Object.fromEntries(
+                Object.entries(content).filter(([key, val]: [string, any]) => 
+                    val && typeof val === 'object' && 'score' in val && 
+                    !['scores', 'scale_definition'].includes(key)
+                )
+            );
+
+        const getScoreColor = (score: number) => {
+            if (score >= 70) return "text-green-400";
+            if (score >= 50) return "text-yellow-400";
+            if (score >= 30) return "text-orange-400";
+            return "text-red-400";
+        };
+
+        const getScoreBarColor = (score: number) => {
+            if (score >= 70) return "bg-green-500";
+            if (score >= 50) return "bg-yellow-500";
+            if (score >= 30) return "bg-orange-500";
+            return "bg-red-500";
+        };
         
         return (
             <div className="space-y-6 max-w-5xl">
                 {/* Score Banner */}
-                {mlScore !== undefined && (
-                    <div className="bg-gradient-to-r from-indigo-900/30 to-violet-900/30 border border-indigo-700/50 rounded-lg p-5">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <h4 className="text-lg font-bold text-gray-100">Learning Infrastructure Score</h4>
-                                <p className="text-xs text-gray-400 mt-1">Data quality, model performance, training pipeline</p>
-                            </div>
-                            <p className="text-5xl font-bold text-indigo-400">{mlScore}</p>
+                <div className="bg-gradient-to-r from-indigo-900/30 to-violet-900/30 border border-indigo-700/50 rounded-lg p-5">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h4 className="text-lg font-bold text-gray-100">Learning Infrastructure Score</h4>
+                            <p className="text-xs text-gray-400 mt-1">{content.subtitle || '4-dimension learning infrastructure assessment'}</p>
                         </div>
+                        <p className={`text-5xl font-bold ${overallScore !== undefined ? getScoreColor(overallScore) : 'text-gray-500'}`}>
+                            {overallScore !== undefined ? overallScore : 'N/A'}
+                        </p>
+                    </div>
+                </div>
+
+                {/* Scale Definition Card */}
+                {content.scale_definition && (
+                    <div className="bg-gray-800/30 border border-gray-700/50 rounded-lg p-4">
+                        <h4 className="text-xs font-bold text-gray-300 uppercase tracking-wider mb-3">Score Scale Reference</h4>
+                        <div className="grid grid-cols-5 gap-2 text-xs">
+                            <div className="bg-red-900/20 border border-red-700/30 rounded p-2">
+                                <p className="font-semibold text-red-400 mb-1">0-29</p>
+                                <p className="text-gray-400 text-[10px]">{content.scale_definition['0-29']?.label || 'Minimal'}</p>
+                            </div>
+                            <div className="bg-orange-900/20 border border-orange-700/30 rounded p-2">
+                                <p className="font-semibold text-orange-400 mb-1">30-49</p>
+                                <p className="text-gray-400 text-[10px]">{content.scale_definition['30-49']?.label || 'Basic'}</p>
+                            </div>
+                            <div className="bg-yellow-900/20 border border-yellow-700/30 rounded p-2">
+                                <p className="font-semibold text-yellow-400 mb-1">50-69</p>
+                                <p className="text-gray-400 text-[10px]">{content.scale_definition['50-69']?.label || 'Developing'}</p>
+                            </div>
+                            <div className="bg-blue-900/20 border border-blue-700/30 rounded p-2">
+                                <p className="font-semibold text-blue-400 mb-1">70-89</p>
+                                <p className="text-gray-400 text-[10px]">{content.scale_definition['70-89']?.label || 'Mature'}</p>
+                            </div>
+                            <div className="bg-green-900/20 border border-green-700/30 rounded p-2">
+                                <p className="font-semibold text-green-400 mb-1">90-100</p>
+                                <p className="text-gray-400 text-[10px]">{content.scale_definition['90-100']?.label || 'Production ML'}</p>
+                            </div>
+                        </div>
+                        {content.scale_definition.important_note && (
+                            <p className="text-xs text-gray-500 mt-3 italic border-l-2 border-gray-600 pl-3">
+                                {content.scale_definition.important_note}
+                            </p>
+                        )}
                     </div>
                 )}
-                
-                {/* ML Infrastructure Content */}
-                <div className="space-y-4">
-                    {Object.entries(content)
-                        .filter(([key]) => key !== 'scores')
-                        .map(([key, value]) => {
-                            const heading = key.replace(/_/g, " ").split(" ").map(w => 
+
+                {/* Dimensions */}
+                {Object.keys(dimensionData).length > 0 && (
+                    <div className="space-y-4">
+                        {Object.entries(dimensionData).map(([dimKey, dimData]: [string, any], index) => {
+                            const score = dimData.score;
+                            const label = dimKey.replace(/_/g, " ").split(" ").map(w => 
                                 w.charAt(0).toUpperCase() + w.slice(1)
                             ).join(" ");
-                            
+
                             return (
-                                <div key={key} className="bg-gray-800/30 rounded-lg p-4 border border-gray-700">
-                                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">
-                                        {heading}
-                                    </h4>
-                                    <div className="pl-2">
-                                        {renderSection(key, value, "ml_infrastructure")}
+                                <div 
+                                    key={dimKey} 
+                                    className="bg-gray-800/50 rounded-lg p-4 border border-gray-700/50"
+                                >
+                                    <div className="flex items-start justify-between mb-3">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <span className="text-gray-500 text-sm font-mono">{index + 1}</span>
+                                                <h4 className="text-sm font-bold text-gray-200">{label}</h4>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex-1 bg-gray-700 rounded-full h-2 overflow-hidden">
+                                                    <div 
+                                                        className={`h-full rounded-full ${getScoreBarColor(score)}`}
+                                                        style={{ width: `${Math.min(100, score || 0)}%` }}
+                                                    />
+                                                </div>
+                                                <span className={`text-xl font-bold ${getScoreColor(score)}`}>
+                                                    {score}<span className="text-xs text-gray-500 ml-1">/100</span>
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
+                                    
+                                    {/* Evidence */}
+                                    {dimData.evidence && (
+                                        <p className="text-xs text-gray-400 mb-2">
+                                            <span className="font-semibold text-gray-300">Evidence:</span> {dimData.evidence}
+                                        </p>
+                                    )}
+                                    
+                                    {/* Strengths & Weaknesses */}
+                                    {(dimData.strengths || dimData.weaknesses) && (
+                                        <div className="grid grid-cols-2 gap-3 mt-3">
+                                            {dimData.strengths && dimData.strengths.length > 0 && (
+                                                <div>
+                                                    <p className="text-xs font-semibold text-green-400 mb-1">✓ Strengths</p>
+                                                    <ul className="text-xs text-gray-400 space-y-0.5">
+                                                        {dimData.strengths.map((s: string, i: number) => (
+                                                            <li key={i}>• {s}</li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                            {dimData.weaknesses && dimData.weaknesses.length > 0 && (
+                                                <div>
+                                                    <p className="text-xs font-semibold text-red-400 mb-1">✗ Weaknesses</p>
+                                                    <ul className="text-xs text-gray-400 space-y-0.5">
+                                                        {dimData.weaknesses.map((w: string, i: number) => (
+                                                            <li key={i}>• {w}</li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Gap & Timeline */}
+                                    {(dimData.gap || dimData.timeline) && (
+                                        <div className="mt-3 pt-3 border-t border-gray-700">
+                                            {dimData.gap && (
+                                                <p className="text-xs text-gray-400 mb-1">
+                                                    <span className="font-semibold text-gray-300">Gap:</span> {dimData.gap}
+                                                </p>
+                                            )}
+                                            {dimData.timeline && (
+                                                <p className="text-xs text-gray-500">
+                                                    <span className="font-semibold">Timeline:</span> {dimData.timeline}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             );
-                        })
-                    }
-                </div>
+                        })}
+                    </div>
+                )}
+
+                {/* Summary/Assessment if present */}
+                {content.honest_assessment && (
+                    <div className="bg-indigo-900/20 border border-indigo-700/50 rounded-lg p-4">
+                        <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">Overall Assessment</h4>
+                        <p className="text-sm text-gray-300 leading-relaxed">{content.honest_assessment}</p>
+                    </div>
+                )}
             </div>
         );
     };
@@ -1467,22 +1979,7 @@ const MetaView: React.FC = () => {
                                             
                                             {isExpanded && testCount > 0 && (
                                                 <div className="mt-3 pt-3 border-t border-gray-600/50">
-                                                    <p className="text-xs font-semibold text-gray-300 mb-2">Test Distribution</p>
-                                                    <div className="space-y-1">
-                                                        <div className="flex justify-between text-xs">
-                                                            <span className="text-gray-400">Unit Tests</span>
-                                                            <span className={textColor}>{Math.round(testCount * 0.6)}</span>
-                                                        </div>
-                                                        <div className="flex justify-between text-xs">
-                                                            <span className="text-gray-400">Integration Tests</span>
-                                                            <span className={textColor}>{Math.round(testCount * 0.3)}</span>
-                                                        </div>
-                                                        <div className="flex justify-between text-xs">
-                                                            <span className="text-gray-400">E2E Tests</span>
-                                                            <span className={textColor}>{Math.round(testCount * 0.1)}</span>
-                                                        </div>
-                                                    </div>
-                                                    <p className="text-xs text-gray-500 mt-2 italic">
+                                                    <p className="text-xs text-gray-500 italic">
                                                         {subsystemDescriptions[subsystem]}
                                                     </p>
                                                 </div>
@@ -1891,19 +2388,51 @@ const MetaView: React.FC = () => {
     };
 
     const renderReliability = (content: any) => {
+        const score = content.score !== undefined && content.score !== null ? content.score : 'N/A';
+        const isPreProduction = content.status === 'pre_production';
+        const scoreColor = 
+            score === 'N/A' ? 'text-gray-400' :
+            score >= 70 ? 'text-green-400' :
+            score >= 50 ? 'text-yellow-400' :
+            score >= 30 ? 'text-orange-400' : 'text-red-400';
+        
         return (
             <div className="space-y-6 max-w-5xl">
                 <div className="bg-gradient-to-r from-emerald-900/30 to-teal-900/30 border border-emerald-700/50 rounded-lg p-5">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between mb-3">
                         <div>
                             <h4 className="text-lg font-bold text-gray-100">Reliability Score</h4>
-                            <p className="text-xs text-gray-400 mt-1">Based on runtime telemetry data</p>
+                            <p className="text-xs text-gray-400 mt-1">
+                                {isPreProduction ? 'Based on test suite pass rate' : 'Based on runtime telemetry data'}
+                            </p>
                         </div>
-                        <p className="text-5xl font-bold text-emerald-400">{content.score || 'N/A'}</p>
+                        <p className={`text-5xl font-bold ${scoreColor}`}>{score}</p>
                     </div>
+                    {content.note && (
+                        <p className="text-xs text-gray-400 italic border-l-2 border-emerald-700 pl-3">{content.note}</p>
+                    )}
                 </div>
 
-                {content.total_operations && (
+                {/* Pre-production indicators */}
+                {isPreProduction && content.pre_production_indicators && (
+                    <div className="bg-blue-900/20 border border-blue-700/30 rounded-lg p-4">
+                        <h4 className="text-xs font-bold text-blue-400 uppercase mb-3">Pre-Production Reliability Indicators</h4>
+                        <ul className="space-y-2">
+                            {content.pre_production_indicators.map((indicator: string, i: number) => (
+                                <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
+                                    <span className="text-blue-400 mt-0.5">✓</span>
+                                    <span>{indicator}</span>
+                                </li>
+                            ))}
+                        </ul>
+                        {content.production_readiness_note && (
+                            <p className="text-xs text-gray-400 mt-3 pt-3 border-t border-blue-700/30">{content.production_readiness_note}</p>
+                        )}
+                    </div>
+                )}
+
+                {/* Production telemetry data */}
+                {content.total_operations !== undefined && content.total_operations > 0 && (
                     <div className="grid grid-cols-3 gap-4">
                         <div className="bg-gray-800/50 rounded-lg p-4 text-center cursor-default" title="Total operations executed by ATLAS since deployment. Reflects system usage and activity volume.">
                             <p className="text-xs text-gray-400 mb-1">Total Operations</p>
@@ -1917,6 +2446,28 @@ const MetaView: React.FC = () => {
                             <p className="text-xs text-gray-400 mb-1">Failed</p>
                             <p className="text-3xl font-bold text-red-400">{content.failed_operations}</p>
                         </div>
+                    </div>
+                )}
+                
+                {/* MTBF and reliability gaps */}
+                {content.mtbf_assessment && (
+                    <div className="bg-gray-800/50 rounded-lg p-4">
+                        <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Mean Time Between Failures</h4>
+                        <p className="text-sm text-gray-300">{content.mtbf_assessment}</p>
+                    </div>
+                )}
+                
+                {content.reliability_gaps && content.reliability_gaps.length > 0 && (
+                    <div className="bg-yellow-900/20 border border-yellow-700/30 rounded-lg p-4">
+                        <h4 className="text-xs font-bold text-yellow-400 uppercase mb-3">Reliability Gaps</h4>
+                        <ul className="space-y-1">
+                            {content.reliability_gaps.map((gap: string, i: number) => (
+                                <li key={i} className="flex items-start gap-2 text-xs text-gray-300">
+                                    <span className="text-yellow-400 mt-0.5">⚠</span>
+                                    <span>{gap}</span>
+                                </li>
+                            ))}
+                        </ul>
                     </div>
                 )}
             </div>
@@ -2340,6 +2891,166 @@ const MetaView: React.FC = () => {
         );
     };
 
+    const renderLiveExerciseResults = (content: any) => {
+        if (!content || !content.results) return <p className="text-xs text-gray-400">No live exercise results.</p>;
+        
+        const successRate = content.overall_success_rate || 0;
+        const totalExercises = content.total_exercises || 0;
+        const successfulExercises = content.successful_exercises || 0;
+        const categoryScores = content.category_scores || {};
+        const results = content.results || [];
+        
+        const getScoreColor = (rate: number) => {
+            if (rate >= 80) return "text-green-400";
+            if (rate >= 60) return "text-blue-400";
+            if (rate >= 40) return "text-yellow-400";
+            return "text-red-400";
+        };
+        
+        const getBarColor = (rate: number) => {
+            if (rate >= 80) return "bg-green-500";
+            if (rate >= 60) return "bg-blue-500";
+            if (rate >= 40) return "bg-yellow-500";
+            return "bg-red-500";
+        };
+        
+        return (
+            <div className="space-y-6 max-w-5xl">
+                {/* Hero Banner */}
+                <div className="bg-gradient-to-br from-green-900/40 via-emerald-900/30 to-teal-900/40 border-2 border-green-600/50 rounded-xl p-6 shadow-2xl">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h3 className="text-lg font-bold text-gray-100 flex items-center gap-2">
+                                <span className="text-2xl">⚡</span>
+                                Live Capability Verification
+                            </h3>
+                            <p className="text-xs text-gray-400 mt-1">
+                                Real telemetry generated by exercising Atlas capabilities
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            <p className={`text-5xl font-bold ${getScoreColor(successRate * 100)}`}>
+                                {Math.round(successRate * 100)}%
+                            </p>
+                            <p className="text-xs text-gray-500 mt-1">
+                                {successfulExercises}/{totalExercises} exercises passed
+                            </p>
+                        </div>
+                    </div>
+                    
+                    {/* Progress Bar */}
+                    <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+                        <div 
+                            className={`h-full rounded-full ${getBarColor(successRate * 100)} transition-all duration-500`}
+                            style={{ width: `${Math.min(100, successRate * 100)}%` }}
+                        />
+                    </div>
+                </div>
+                
+                {/* Category Breakdown */}
+                {Object.keys(categoryScores).length > 0 && (
+                    <div>
+                        <h4 className="text-sm font-bold text-gray-200 mb-4 flex items-center gap-2">
+                            <span className="w-1 h-5 bg-green-500 rounded"></span>
+                            Category Scores
+                        </h4>
+                        <div className="grid grid-cols-3 gap-3">
+                            {Object.entries(categoryScores).map(([category, score]: [string, any]) => {
+                                const percentage = score * 100;
+                                return (
+                                    <div key={category} className="bg-gray-800/70 rounded-lg p-4 border border-gray-700/50">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <p className="text-xs font-semibold text-gray-300 capitalize">
+                                                {category.replace(/_/g, ' ')}
+                                            </p>
+                                            <p className={`text-lg font-bold ${getScoreColor(percentage)}`}>
+                                                {Math.round(percentage)}%
+                                            </p>
+                                        </div>
+                                        <div className="w-full bg-gray-700 rounded-full h-1.5 overflow-hidden">
+                                            <div 
+                                                className={`h-full rounded-full ${getBarColor(percentage)}`}
+                                                style={{ width: `${Math.min(100, percentage)}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+                
+                {/* Individual Exercise Results */}
+                <div>
+                    <h4 className="text-sm font-bold text-gray-200 mb-4 flex items-center gap-2">
+                        <span className="w-1 h-5 bg-blue-500 rounded"></span>
+                        Exercise Details
+                    </h4>
+                    <div className="space-y-2">
+                        {results.map((result: any, idx: number) => (
+                            <div 
+                                key={idx} 
+                                className={`rounded-lg p-4 border ${
+                                    result.success 
+                                        ? 'bg-green-900/10 border-green-700/30' 
+                                        : 'bg-red-900/10 border-red-700/30'
+                                }`}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <span className={`text-lg ${
+                                            result.success ? 'text-green-400' : 'text-red-400'
+                                        }`}>
+                                            {result.success ? '✓' : '✗'}
+                                        </span>
+                                        <div>
+                                            <p className="text-sm font-semibold text-gray-200">
+                                                {result.exercise_id?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                                            </p>
+                                            <p className="text-xs text-gray-500">
+                                                Capability: {result.capability_exercised}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-xs text-gray-400">
+                                            {result.duration_ms}ms
+                                        </p>
+                                        {result.telemetry_events && result.telemetry_events.length > 0 && (
+                                            <p className="text-xs text-blue-400">
+                                                {result.telemetry_events.length} telemetry events
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                                {result.error && (
+                                    <p className="text-xs text-red-400 mt-2 pl-7">
+                                        Error: {result.error}
+                                    </p>
+                                )}
+                                {result.response_preview && (
+                                    <p className="text-xs text-gray-500 mt-2 pl-7 italic truncate">
+                                        "{result.response_preview}"
+                                    </p>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                
+                {/* What This Means */}
+                <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4">
+                    <h4 className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-2">What This Means</h4>
+                    <p className="text-sm text-gray-300 leading-relaxed">
+                        These scores reflect <strong>actual capability execution</strong>, not just static code analysis.
+                        A capability that shows {'>'}80% success rate here has been verified to work in real-time.
+                        Scores from this section add "LIVE-VERIFIED" bonuses to other assessment dimensions.
+                    </p>
+                </div>
+            </div>
+        );
+    };
+
     const renderKnownLimitations = (content: any) => {
         return (
             <div className="space-y-6 max-w-5xl">
@@ -2476,21 +3187,28 @@ const MetaView: React.FC = () => {
     // Determine sections based on assessment version
     const isV3 = assessment?.version?.includes('3.0');
     
+    // Check if live exercise results exist in assessment
+    const hasLiveResults = assessment?.live_exercise_results && 
+        assessment.live_exercise_results.results && 
+        assessment.live_exercise_results.results.length > 0;
+    
     const sections = isV3 ? [
         { id: "scorecard", label: "Executive Summary" },
-        { id: "system_identity", label: "1. System Identity" },
-        { id: "codebase_analysis", label: "2. Codebase Analysis" },
-        { id: "test_analysis", label: "3. Test Coverage" },
-        { id: "memory_architecture", label: "4. Memory Architecture" },
-        { id: "ml_infrastructure", label: "5. Learning Infrastructure" },
-        { id: "capability_inventory", label: "6. Capability Inventory" },
-        { id: "jarvis_benchmark", label: "7. Jarvis Benchmark" },
-        { id: "architectural_maturity", label: "8. Architectural Maturity" },
-        { id: "reliability", label: "9. Reliability & Stability" },
-        { id: "competitive_landscape", label: "10. Competitive Landscape" },
-        { id: "market_valuation", label: "11. Market Valuation" },
-        { id: "known_limitations", label: "12. Known Limitations" },
-        { id: "recommendations", label: "13. Recommendations" },
+        ...(hasLiveResults ? [{ id: "live_exercise_results", label: "⚡ Live Exercise Results" }] : []),
+        { id: "meta_system_assessment", label: "1. Meta-System Capabilities" },
+        { id: "system_identity", label: "2. System Identity" },
+        { id: "codebase_analysis", label: "3. Codebase Analysis" },
+        { id: "test_analysis", label: "4. Test Coverage" },
+        { id: "memory_architecture", label: "5. Memory Architecture" },
+        { id: "ml_infrastructure", label: "6. Learning Infrastructure" },
+        { id: "capability_inventory", label: "7. Capability Inventory" },
+        { id: "jarvis_benchmark", label: "8. Jarvis Benchmark" },
+        { id: "architectural_maturity", label: "9. Architectural Maturity" },
+        { id: "reliability", label: "10. Reliability & Stability" },
+        { id: "competitive_landscape", label: "11. Competitive Landscape" },
+        { id: "market_valuation", label: "12. Market Valuation" },
+        { id: "known_limitations", label: "13. Known Limitations" },
+        { id: "recommendations", label: "14. Recommendations" },
     ] : [
         { id: "overall_score", label: "Executive Summary" },
         { id: "capability_inventory", label: "1. Capability Inventory" },
@@ -2554,12 +3272,50 @@ const MetaView: React.FC = () => {
                     >
                         {showHistory ? "Hide History" : "Show History"}
                     </button>
+                    
+                    {/* Live Exercise Toggle */}
+                    <div className="flex items-center gap-2 border-l border-gray-600 pl-3 ml-1">
+                        <label className="flex items-center gap-2 cursor-pointer" title="Run Atlas through live capability exercises to generate real telemetry">
+                            <span className="text-xs text-gray-400">Live</span>
+                            <div className="relative">
+                                <input
+                                    type="checkbox"
+                                    checked={runLiveExercises}
+                                    onChange={(e) => setRunLiveExercises(e.target.checked)}
+                                    className="sr-only"
+                                />
+                                <div className={`w-8 h-4 rounded-full transition-colors ${
+                                    runLiveExercises ? 'bg-green-600' : 'bg-gray-600'
+                                }`}>
+                                    <div className={`w-3 h-3 rounded-full bg-white shadow-md transform transition-transform mt-0.5 ${
+                                        runLiveExercises ? 'translate-x-4 ml-0.5' : 'translate-x-0.5'
+                                    }`} />
+                                </div>
+                            </div>
+                        </label>
+                        {runLiveExercises && (
+                            <select
+                                value={exerciseSet}
+                                onChange={(e) => setExerciseSet(e.target.value as "standard" | "minimal")}
+                                className="bg-gray-700 text-xs px-2 py-1 rounded border border-gray-600 text-gray-200"
+                                title="Exercise set: minimal (3 quick tests) or standard (16 full tests)"
+                            >
+                                <option value="minimal">Minimal (3)</option>
+                                <option value="standard">Standard (16)</option>
+                            </select>
+                        )}
+                    </div>
+                    
                     <button
-                        className="bg-gray-700 hover:bg-gray-600 text-xs px-3 py-1.5 rounded transition-colors"
+                        className={`text-xs px-3 py-1.5 rounded transition-colors ${
+                            runLiveExercises 
+                                ? 'bg-green-700 hover:bg-green-600 text-white' 
+                                : 'bg-gray-700 hover:bg-gray-600'
+                        }`}
                         onClick={generateNewAssessment}
                         disabled={loading}
                     >
-                        {loading ? "Generating..." : "New Assessment"}
+                        {loading ? "Generating..." : runLiveExercises ? "Run Live Assessment" : "New Assessment"}
                     </button>
                 </div>
             </div>
@@ -2708,6 +3464,8 @@ const MetaView: React.FC = () => {
                                     renderV3ExecutiveSummary(assessment.scorecard, assessment)
                                 ) : activeSection === "overall_score" && assessment.overall_score ? (
                                     renderExecutiveSummary(assessment.overall_score)
+                                ) : activeSection === "live_exercise_results" && assessment.live_exercise_results ? (
+                                    renderLiveExerciseResults(assessment.live_exercise_results)
                                 ) : activeSection === "jarvis_benchmark" && assessment.jarvis_benchmark ? (
                                     renderJarvisBenchmark(assessment.jarvis_benchmark)
                                 ) : activeSection === "recommendations" && assessment.recommendations ? (

@@ -9,12 +9,13 @@ import TasksView from "@/components/TasksView";
 import SecurityView from "@/components/SecurityView";
 import SkillsView from "@/components/SkillsView";
 import LearningView from "@/components/LearningView";
-import SimulationView from "@/components/SimulationView";
 import SandboxView from "@/components/SandboxView";
+import SystemsView from "@/components/SystemsView";
+import DriftReviewView from "@/components/DriftReviewView";
 import dynamic from "next/dynamic";
 
-const NeuralArchitecture3D = dynamic(() => import("@/components/Neural3D/NeuralArchitecture3DV2"), { ssr: false });
 const ArchitectureViewV2 = dynamic(() => import("@/components/ArchitectureViewV2"), { ssr: false });
+const NeuralOrganismView = dynamic(() => import("@/components/NeuralOrganismView"), { ssr: false });
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<MainTabId>("code");
@@ -30,11 +31,11 @@ export default function HomePage() {
         <div style={{ display: activeTab === "architecture" ? "block" : "none", height: "100%" }}>
           <ArchitectureViewV2 />
         </div>
-        <div style={{ display: activeTab === "neural-viz" ? "block" : "none", height: "100%" }}>
-          <NeuralArchitecture3D />
+        <div style={{ display: activeTab === "neural-organism" ? "block" : "none", height: "100%" }}>
+          <NeuralOrganismView />
         </div>
         <div style={{ display: activeTab === "meta" ? "block" : "none", height: "100%" }}>
-          <MetaView />
+          <MetaView onNavigateToTab={setActiveTab} />
         </div>
         <div style={{ display: activeTab === "logs" ? "block" : "none", height: "100%" }}>
           <LogsView />
@@ -51,11 +52,14 @@ export default function HomePage() {
         <div style={{ display: activeTab === "learning" ? "block" : "none", height: "100%" }}>
           <LearningView />
         </div>
-        <div style={{ display: activeTab === "simulation" ? "block" : "none", height: "100%" }}>
-          <SimulationView />
-        </div>
         <div style={{ display: activeTab === "sandbox" ? "block" : "none", height: "100%" }}>
           <SandboxView />
+        </div>
+        <div style={{ display: activeTab === "systems" ? "block" : "none", height: "100%" }}>
+          <SystemsView />
+        </div>
+        <div style={{ display: activeTab === "drift-review" ? "block" : "none", height: "100%" }}>
+          <DriftReviewView />
         </div>
       </div>
     </main>

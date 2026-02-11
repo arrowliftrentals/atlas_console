@@ -45,10 +45,10 @@ export default function SkillsView() {
         }
     };
 
-    // Initial load and auto-refresh every 5 seconds
+    // Initial load and auto-refresh every 30 seconds (reduced from 5s)
     useEffect(() => {
         loadExecutions(true);
-        const interval = setInterval(() => loadExecutions(false), 5000);
+        const interval = setInterval(() => loadExecutions(false), 30000);
         return () => clearInterval(interval);
     }, []);
 

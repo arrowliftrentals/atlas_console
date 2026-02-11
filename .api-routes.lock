@@ -38,5 +38,9 @@
   "sandbox/statistics/route.ts",
   "tasks/route.ts",
   "uiPatch/route.ts",
-  "uiPatchAuto/route.ts"
+  "uiPatchAuto/route.ts",
+  "atlasLearning/patterns/route.ts",
+  "atlasChat/voice-approved/route.ts",
+  "fix/cancel/[job_id]/route.ts",
+  "tts/route.ts"
 ]

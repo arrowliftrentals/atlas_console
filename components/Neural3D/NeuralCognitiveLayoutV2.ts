@@ -107,14 +107,49 @@ export function classifyNode(nodeId: string, subsystem?: NodeSubsystem): Cogniti
     return { region: 'core', importance: 0.85 };
   }
   
-  // Intent parser
+  // Intent parser and router (core reasoning)
   if (id.includes('intentparser') || id.includes('intent_parser')) {
     return { region: 'core', importance: 0.9 };
+  }
+  if (id.includes('intentrouter') || id.includes('intent_router')) {
+    return { region: 'core', importance: 0.95 }; // Central orchestrator
+  }
+  
+  // Core validation and confirmation
+  if (id.includes('responsevalidator') || id.includes('response_validator')) {
+    return { region: 'core', importance: 0.85 }; // Governance layer
+  }
+  if (id.includes('confirmationmanager') || id.includes('confirmation_manager')) {
+    return { region: 'core', importance: 0.8 }; // Symbolic guard
+  }
+  
+  // Core learning and prediction
+  if (id.includes('activelearner') || id.includes('active_learner')) {
+    return { region: 'core', importance: 0.8 }; // ML learning
+  }
+  if (id.includes('intent_predictor') || id.includes('intentpredictor')) {
+    return { region: 'core', importance: 0.75 }; // Next-action anticipation
+  }
+  
+  // Proactive orchestration (core reasoning)
+  if (id.includes('goalmanager') || id.includes('goal_manager')) {
+    return { region: 'core', importance: 0.75 }; // Goal tracking
+  }
+  if (id.includes('proactiveengine') || id.includes('proactive_engine')) {
+    return { region: 'core', importance: 0.7 }; // Autonomous suggestions
+  }
+  if (id.includes('taskdecomposer') || id.includes('task_decomposer')) {
+    return { region: 'core', importance: 0.75 }; // Planning
   }
   
   // LLM routing and clients
   if (id.includes('llmclient') || id.includes('llm_client')) {
     return { region: 'core', importance: 0.85 };
+  }
+  
+  // Learning manager (core learning engine)
+  if (id.includes('learningmanager') || id.includes('learning_manager')) {
+    return { region: 'core', importance: 0.85 }; // Pattern recognition
   }
   if (id.includes('agentrouter') || id.includes('agent_router') || id.includes('llm_router')) {
     return { region: 'core', importance: 0.9 };
@@ -226,6 +261,20 @@ export function classifyNode(nodeId: string, subsystem?: NodeSubsystem): Cogniti
   }
   if (id.includes('session_memory') || id.includes('sessionmemory')) {
     return { region: 'memory', memoryType: 'episodic', importance: 0.8 };
+  }
+  
+  // Knowledge and documentation (memory subsystems)
+  if (id.includes('knowledgelibrarian') || id.includes('knowledge_librarian')) {
+    return { region: 'memory', memoryType: 'declarative', importance: 0.8 }; // Codebase knowledge
+  }
+  if (id.includes('documentationlibrarian') || id.includes('documentation_librarian')) {
+    return { region: 'memory', memoryType: 'declarative', importance: 0.75 }; // Documentation knowledge
+  }
+  if (id.includes('l10_collection_manager') || id.includes('l10collectionmanager')) {
+    return { region: 'memory', memoryType: 'vector', importance: 0.7 }; // Vector collections
+  }
+  if (id.includes('memory_retriever') || id.includes('memoryretriever')) {
+    return { region: 'memory', memoryType: 'storage', importance: 0.75 }; // Cross-layer retrieval
   }
   
   // L10 - Vector stores & databases
@@ -354,6 +403,10 @@ export function classifyNode(nodeId: string, subsystem?: NodeSubsystem): Cogniti
   
   if (id === 'memory') {
     return { region: 'memory', memoryType: 'storage', importance: 0.85 };
+  }
+  
+  if (id === 'learning') {
+    return { region: 'core', importance: 0.85 }; // Learning engine (telemetry simplified ID)
   }
   
   // Catch any remaining store/manager/service nodes

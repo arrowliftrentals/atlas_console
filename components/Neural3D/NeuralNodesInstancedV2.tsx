@@ -65,9 +65,14 @@ export function NeuralNodesInstancedV2({ nodes, edges, timeScale }: Props) {
     }
   }, [nodeArray]);
   
+  // Track instance count for hiding unused
+  const instanceCountRef = useRef(200);
+  instanceCountRef.current = Math.max(nodeArray.length, 200);
+  
   useFrame(() => {
     if (!meshRef.current) return;
     
+    // Update actual nodes
     nodeArray.forEach((node, i) => {
       const [x, y, z] = node.position;
       
@@ -90,6 +95,14 @@ export function NeuralNodesInstancedV2({ nodes, edges, timeScale }: Props) {
       dummy.updateMatrix();
       meshRef.current.setMatrixAt(i, dummy.matrix);
     });
+    
+    // Hide unused instances (scale to 0)
+    for (let i = nodeArray.length; i < instanceCountRef.current; i++) {
+      dummy.position.set(0, 0, 0);
+      dummy.scale.set(0, 0, 0);
+      dummy.updateMatrix();
+      meshRef.current.setMatrixAt(i, dummy.matrix);
+    }
 
     meshRef.current.instanceMatrix.needsUpdate = true;
   });
@@ -97,10 +110,16 @@ export function NeuralNodesInstancedV2({ nodes, edges, timeScale }: Props) {
   // Create geometry once
   const nodeGeometry = useMemo(() => new THREE.SphereGeometry(1, 16, 16), []);
   
+  // Allocate enough instances - use max of current count or minimum buffer
+  // This prevents the mesh from having 0 instances on initial render
+  const instanceCount = Math.max(nodeArray.length, 200);
+  
   return (
     <instancedMesh
+      key={`nodes-${instanceCount}`}  // Force remount when instance count changes significantly
       ref={meshRef}
-      args={[nodeGeometry, nodeMaterial, nodeArray.length]}
+      args={[nodeGeometry, nodeMaterial, instanceCount]}
+      frustumCulled={false}
     />
   );
 }

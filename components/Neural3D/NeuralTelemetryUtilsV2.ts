@@ -58,57 +58,45 @@ export function inferSubsystem(nodeId: string): NodeSubsystem {
 }
 
 // Update node states from a batch of events
+// Only updates EXISTING nodes - does not create new ones from telemetry
 export function computeNodeStateFromEvent(
   nodes: Map<string, NodeStateV2>,
   event: TelemetryEventV2
 ): Map<string, NodeStateV2> {
   const updates = new Map<string, NodeStateV2>();
-  const now = performance.now();
   
-  // Update source node
+  // Update source node (only if it exists in architecture)
   if (event.source) {
     const existing = nodes.get(event.source);
-    const subsystem = existing?.subsystem || inferSubsystem(event.source);
     
-    if (!existing) {
-      console.log('[UTILS] Creating NEW source node:', event.source, 'subsystem:', subsystem);
+    if (existing) {
+      updates.set(event.source, {
+        ...existing,
+        throughput: existing.throughput * 0.9 + (event.bytes || 100) * 0.1,
+        latencyMsAvg: event.latency_ms || existing.latencyMsAvg,
+        utilization: Math.min(1, existing.utilization * 0.95 + 0.05),
+        lastEventTs: event.timestamp,
+        state: 'active',
+      });
     }
-    
-    updates.set(event.source, {
-      id: event.source,
-      label: existing?.label || formatNodeLabel(event.source),
-      subsystem,
-      position: existing?.position || [0, 0, 0],
-      throughput: (existing?.throughput || 0) * 0.9 + (event.bytes || 100) * 0.1,
-      latencyMsAvg: event.latency_ms || existing?.latencyMsAvg || 0,
-      queueDepth: existing?.queueDepth || 0,
-      utilization: Math.min(1, (existing?.utilization || 0) * 0.95 + 0.05),
-      lastEventTs: event.timestamp,
-      state: 'active',
-    });
+    // Don't create new nodes from telemetry - only update existing architecture nodes
   }
   
-  // Update target node
+  // Update target node (only if it exists in architecture)
   if (event.target) {
     const existing = nodes.get(event.target);
-    const subsystem = existing?.subsystem || inferSubsystem(event.target);
     
-    if (!existing) {
-      console.log('[UTILS] Creating NEW target node:', event.target, 'subsystem:', subsystem);
+    if (existing) {
+      updates.set(event.target, {
+        ...existing,
+        throughput: existing.throughput * 0.9 + (event.bytes || 100) * 0.1,
+        latencyMsAvg: event.latency_ms || existing.latencyMsAvg,
+        utilization: Math.min(1, existing.utilization * 0.95 + 0.05),
+        lastEventTs: event.timestamp,
+        state: 'active',
+      });
     }
-    
-    updates.set(event.target, {
-      id: event.target,
-      label: existing?.label || formatNodeLabel(event.target),
-      subsystem,
-      position: existing?.position || [0, 0, 0],
-      throughput: (existing?.throughput || 0) * 0.9 + (event.bytes || 100) * 0.1,
-      latencyMsAvg: event.latency_ms || existing?.latencyMsAvg || 0,
-      queueDepth: existing?.queueDepth || 0,
-      utilization: Math.min(1, (existing?.utilization || 0) * 0.95 + 0.05),
-      lastEventTs: event.timestamp,
-      state: 'active',
-    });
+    // Don't create new nodes from telemetry - only update existing architecture nodes
   }
   
   return updates;

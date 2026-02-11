@@ -1,16 +1,20 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { fetchTasks } from "@/lib/atlasClient";
+import { fetchTasks, createTask, updateTaskStatus, deleteTask } from "@/lib/atlasClient";
 import type { TaskInfo } from "@/lib/types";
 import TabHeader from "./TabHeader";
 import { useHealth } from "@/contexts/HealthContext";
+
+const ATLAS_API = "http://localhost:8000";
 
 const TasksView: React.FC = () => {
   const { health } = useHealth();
   const [tasks, setTasks] = useState<TaskInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("ALL");
+  const [newTaskName, setNewTaskName] = useState("");
+  const [creating, setCreating] = useState(false);
 
   const loadTasks = async () => {
     try {
@@ -23,9 +27,41 @@ const TasksView: React.FC = () => {
     }
   };
 
+  const handleCreateTask = async () => {
+    if (!newTaskName.trim()) return;
+    setCreating(true);
+    try {
+      await createTask(newTaskName.trim());
+      setNewTaskName("");
+      await loadTasks();
+    } catch (error) {
+      console.error("Failed to create task:", error);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleStatusChange = async (taskId: string, newStatus: string) => {
+    try {
+      await updateTaskStatus(taskId, newStatus);
+      await loadTasks();
+    } catch (error) {
+      console.error("Failed to update task:", error);
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      await deleteTask(taskId);
+      await loadTasks();
+    } catch (error) {
+      console.error("Failed to delete task:", error);
+    }
+  };
+
   useEffect(() => {
     loadTasks();
-    const interval = setInterval(loadTasks, 2000);
+    const interval = setInterval(loadTasks, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -71,8 +107,28 @@ const TasksView: React.FC = () => {
         </button>
       </TabHeader>
       
-      {/* Filters */}
-      <div className="px-4 py-3 bg-[#252526] border-b border-gray-700">
+      {/* Create Task + Filters */}
+      <div className="px-4 py-3 bg-[#252526] border-b border-gray-700 space-y-3">
+        {/* New Task Input */}
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={newTaskName}
+            onChange={(e) => setNewTaskName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleCreateTask()}
+            placeholder="New task..."
+            className="flex-1 px-3 py-1.5 bg-[var(--atlas-bg-body)] border border-[var(--atlas-border-subtle)] rounded text-sm text-[var(--atlas-text-primary)] placeholder-[var(--atlas-text-muted)] focus:outline-none focus:border-[var(--atlas-accent-primary)]"
+          />
+          <button
+            onClick={handleCreateTask}
+            disabled={creating || !newTaskName.trim()}
+            className="px-3 py-1.5 bg-[var(--atlas-accent-primary)] hover:bg-[var(--atlas-accent-secondary)] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm rounded transition-colors"
+          >
+            {creating ? "Adding..." : "Add Task"}
+          </button>
+        </div>
+        
+        {/* Filters */}
         <div className="flex items-center gap-2">
           {["ALL", "pending", "running", "success", "failed"].map((status) => (
             <button
@@ -113,15 +169,31 @@ const TasksView: React.FC = () => {
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      {getStatusChip(task.status)}
-                      <span className="text-xs font-mono text-[var(--atlas-text-muted)]">
-                        #{task.id}
+                      <select
+                        value={task.status}
+                        onChange={(e) => handleStatusChange(task.id, e.target.value)}
+                        className="text-xs px-1.5 py-0.5 bg-[var(--atlas-bg-body)] border border-[var(--atlas-border-subtle)] rounded text-[var(--atlas-text-secondary)] cursor-pointer"
+                      >
+                        <option value="pending">PENDING</option>
+                        <option value="running">RUNNING</option>
+                        <option value="success">SUCCESS</option>
+                        <option value="failed">FAILED</option>
+                      </select>
+                      <span className="text-xs font-mono text-[var(--atlas-text-muted)] truncate max-w-[100px]">
+                        {task.id.slice(0, 8)}
                       </span>
                     </div>
-                    <h3 className="text-sm font-medium text-[var(--atlas-text-primary)] truncate">
+                    <h3 className="text-sm font-medium text-[var(--atlas-text-primary)]">
                       {task.name}
                     </h3>
                   </div>
+                  <button
+                    onClick={() => handleDeleteTask(task.id)}
+                    className="text-[var(--atlas-text-muted)] hover:text-red-400 text-sm px-2 transition-colors"
+                    title="Delete task"
+                  >
+                    ✕
+                  </button>
                 </div>
 
                 {task.progress !== undefined && task.progress !== null && (

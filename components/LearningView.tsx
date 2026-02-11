@@ -43,10 +43,10 @@ export default function LearningView() {
         }
     };
 
-    // Initial load and auto-refresh every 10 seconds
+    // Initial load and auto-refresh every 30 seconds (reduced from 10s)
     useEffect(() => {
         loadPatterns(true);
-        const interval = setInterval(() => loadPatterns(false), 10000);
+        const interval = setInterval(() => loadPatterns(false), 30000);
         return () => clearInterval(interval);
     }, []);
 

@@ -311,14 +311,14 @@ const ChatPanel: React.FC = () => {
 
   return (
     <>
-      {/* Resize Handle - TEMPORARILY DISABLED */}
-      {/* <div
+      {/* Resize Handle */}
+      <div
         onMouseDown={handleMouseDown}
         className={`w-1 h-full cursor-col-resize hover:bg-yellow-300 transition-colors duration-200 delay-[400ms] ${
           isResizing ? "bg-yellow-300" : "bg-transparent"
         }`}
         style={{ flexShrink: 0 }}
-      /> */}
+      />
       
       {/* Chat Panel Content */}
       <div className="h-full w-full flex flex-col border-l" style={{ backgroundColor: 'var(--atlas-bg-primary)', borderColor: 'var(--atlas-border-subtle)' }}>

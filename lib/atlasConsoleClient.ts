@@ -5,18 +5,22 @@ const ATLAS_API_BASE = '/api/atlas';
 
 export async function fetchConsoleSessions(): Promise<ConsoleSessionListResponse> {
   try {
+    console.log('[ConsoleClient] Fetching sessions from:', `${CONSOLE_API_BASE}/sessions`);
     const res = await fetch(`${CONSOLE_API_BASE}/sessions`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
       cache: 'no-store',
+      signal: AbortSignal.timeout(30000), // 30 second timeout
     });
     if (!res.ok) {
-      console.warn('[ConsoleClient] Failed to fetch console sessions:', res.status, res.statusText);
+      console.error('[ConsoleClient] Failed to fetch console sessions:', res.status, res.statusText);
       return { sessions: [] }; // Return empty result instead of throwing
     }
-    return res.json();
+    const data = await res.json();
+    console.log('[ConsoleClient] Sessions fetched:', data.sessions?.length || 0, 'sessions');
+    return data;
   } catch (err) {
-    console.warn('[ConsoleClient] Error fetching console sessions:', err);
+    console.error('[ConsoleClient] Error fetching console sessions:', err);
     return { sessions: [] }; // Return empty result on error
   }
 }

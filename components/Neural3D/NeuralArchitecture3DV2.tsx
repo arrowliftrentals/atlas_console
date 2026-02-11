@@ -485,8 +485,8 @@ export default function NeuralArchitecture3DV2({
       if (isUnmounted) return;
 
       try {
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        const wsUrl = `${wsProtocol}://localhost:8000/v1/telemetry/stream`;
+        // Force ws:// for localhost since backend doesn't support TLS
+        const wsUrl = 'ws://localhost:8000/v1/telemetry/stream';
 
         ws = new WebSocket(wsUrl);
 

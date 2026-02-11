@@ -41,6 +41,7 @@ const STATUS_COLORS = {
   live: "#22C55E", // green - fully functional
   stubbed: "#F59E0B", // amber - placeholder implementation
   not_started: "#6B7280", // gray
+  not_initialized: "#DC2626", // red - component exists but not initialized
   in_progress: "#3B82F6", // blue
   implemented: "#22C55E", // green (legacy)
 };

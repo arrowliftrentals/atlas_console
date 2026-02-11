@@ -44,6 +44,7 @@ interface AnalysisConfig {
   min_priority: number;
   severity_filter: string[];
   exclude_codes: string[];
+  execution_mode: "auto" | "live" | "sandbox";
 }
 
 const CodeAnalysisDashboard: React.FC = () => {
@@ -55,6 +56,7 @@ const CodeAnalysisDashboard: React.FC = () => {
     min_priority: 0.0,
     severity_filter: ["error", "warning", "info"],
     exclude_codes: [],
+    execution_mode: "live",  // Default to live mode (fast, direct analysis)
   });
 
   const [isRunning, setIsRunning] = useState(false);
@@ -108,23 +110,33 @@ const CodeAnalysisDashboard: React.FC = () => {
 
   // Polling fallback for analysis progress (WS fallback)
   const startProgressPolling = (runId: string) => {
-    if (analysisPollRef.current) return;
+    if (analysisPollRef.current) {
+      console.log("[Analysis] Polling already active, skipping");
+      return;
+    }
+    console.log("[Analysis] Starting progress polling for run:", runId);
     analysisPollRef.current = setInterval(async () => {
       try {
         const progressRes = await fetch(`/api/analysis/progress/${runId}`);
         const progressData = await progressRes.json();
+        console.log("[Analysis] Poll result:", progressData);
         setProgress(progressData);
-        if (progressData.stage === "complete" || progressData.stage === "error") {
+        if (progressData.stage === "complete" || progressData.stage === "error" || progressData.stage === "cancelled" || progressData.stage === "interrupted") {
+          console.log("[Analysis] Polling complete, stopping. Stage:", progressData.stage);
           clearInterval(analysisPollRef.current);
           analysisPollRef.current = null;
           setIsRunning(false);
+          // Always refresh runs list (even on error/cancelled)
+          console.log("[Analysis] Refreshing runs list");
+          await loadRuns();
+          setSelectedRunId(runId);
           if (progressData.stage === "complete") {
-            loadRuns();
-            setSelectedRunId(runId);
+            // Force load issues for the completed run
+            loadIssues(runId);
           }
         }
       } catch (err) {
-        console.error("Progress poll error:", err);
+        console.error("[Analysis] Progress poll error:", err);
       }
     }, 500);
   };
@@ -148,8 +160,9 @@ const CodeAnalysisDashboard: React.FC = () => {
 
   const loadRuns = async () => {
     try {
-      const res = await fetch("/api/analysis/runs");
+      const res = await fetch("/api/analysis/runs", { cache: "no-store" });
       const data = await res.json();
+      console.log("[Analysis] Loaded runs:", data.runs?.length || 0);
       setRuns(data.runs || []);
       
       // Auto-select most recent run
@@ -164,8 +177,9 @@ const CodeAnalysisDashboard: React.FC = () => {
   const loadIssues = async (runId: string) => {
     setIssuesLoading(true);
     try {
-      const res = await fetch(`/api/analysis/issues/${runId}`);
+      const res = await fetch(`/api/analysis/issues/${runId}`, { cache: "no-store" });
       const data = await res.json();
+      console.log("[Analysis] Loaded issues:", data.issues?.length || 0);
       setIssues(data.issues || []);
     } catch (e) {
       console.error("Failed to load issues:", e);
@@ -193,12 +207,20 @@ const CodeAnalysisDashboard: React.FC = () => {
         }
       };
       
+      console.log("[Analysis] Starting with config:", {
+        mypy: config.include_mypy,
+        pylint: config.include_pylint,
+        tests: config.include_tests,
+        mode: config.execution_mode
+      });
+      
       const res = await fetch("/api/analysis/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           config: backendConfig,
-          skip_tests: !config.include_tests
+          skip_tests: !config.include_tests,
+          execution_mode: config.execution_mode
         }),
       });
 
@@ -206,51 +228,83 @@ const CodeAnalysisDashboard: React.FC = () => {
       const runId = data.run_id;
       setCurrentRunId(runId);
 
-      // Try WebSocket first
+      // Try WebSocket first, but always start polling as a reliable fallback
+      // WebSocket can silently fail to deliver messages in some configurations
+      let wsReceivedMessage = false;
+      
       try {
         const httpBase = process.env.NEXT_PUBLIC_ATLAS_API_BASE || "http://127.0.0.1:8000";
         const wsBase = httpBase.replace(/^http/, "ws");
         const wsUrl = `${wsBase}/api/analysis/ws/${runId}`;
+        console.log("[Analysis] Attempting WebSocket connection:", wsUrl);
         const ws = new WebSocket(wsUrl);
         analysisWsRef.current = ws;
 
         ws.onopen = () => {
-          // Connected; no need to start polling
+          console.log("[Analysis] WebSocket connected successfully");
         };
 
         ws.onmessage = (ev) => {
           try {
             const msg = JSON.parse(ev.data);
+            console.log("[Analysis] WebSocket message:", msg);
+            wsReceivedMessage = true;
+            
+            // Stop polling if WebSocket is working and we were polling as fallback
+            if (analysisPollRef.current) {
+              console.log("[Analysis] WebSocket delivering messages, stopping polling fallback");
+              clearInterval(analysisPollRef.current);
+              analysisPollRef.current = null;
+            }
+            
             // Expected shape from backend: { stage, current, total, message }
             setProgress(msg);
-            if (msg.stage === "complete" || msg.stage === "error") {
+            if (msg.stage === "complete" || msg.stage === "error" || msg.stage === "cancelled" || msg.stage === "interrupted") {
               ws.close();
               analysisWsRef.current = null;
               setIsRunning(false);
-              if (msg.stage === "complete") {
-                loadRuns();
+              // Always refresh runs list (even on error/cancelled)
+              console.log("[Analysis] WS finished, stage:", msg.stage, "- refreshing runs list");
+              loadRuns().then(() => {
                 setSelectedRunId(runId);
-              }
+                if (msg.stage === "complete") {
+                  // Force load issues for the completed run
+                  loadIssues(runId);
+                }
+              });
             }
           } catch (err) {
-            console.error("WS parse error:", err);
+            console.error("[Analysis] WS parse error:", err);
           }
         };
 
-        ws.onerror = () => {
+        ws.onerror = (err) => {
+          console.warn("[Analysis] WebSocket error, falling back to polling:", err);
           // Fallback to polling if WS errors out
-          if (analysisPollRef.current) return;
-          startProgressPolling(runId);
-        };
-
-        ws.onclose = () => {
-          // If closed before completion and we are still running, ensure fallback polling
-          if (isRunning && !analysisPollRef.current) {
+          if (!analysisPollRef.current) {
             startProgressPolling(runId);
           }
         };
+
+        ws.onclose = (ev) => {
+          console.log("[Analysis] WebSocket closed:", ev.code, ev.reason);
+          // If closed before completion and we are still running, ensure fallback polling
+          if (!analysisPollRef.current) {
+            console.log("[Analysis] Starting polling fallback after WebSocket close");
+            startProgressPolling(runId);
+          }
+        };
+        
+        // Start polling as fallback after a short delay
+        // This ensures progress updates even if WebSocket silently fails to deliver
+        setTimeout(() => {
+          if (!wsReceivedMessage && !analysisPollRef.current) {
+            console.log("[Analysis] No WebSocket messages received, starting polling fallback");
+            startProgressPolling(runId);
+          }
+        }, 1500);
       } catch (wsErr) {
-        console.warn("WebSocket unavailable, falling back to polling:", wsErr);
+        console.warn("[Analysis] WebSocket construction failed, falling back to polling:", wsErr);
         startProgressPolling(runId);
       }
     } catch (e) {
@@ -348,6 +402,12 @@ const CodeAnalysisDashboard: React.FC = () => {
         const res = await fetch(`/api/fix/status/${jobId}`);
         if (!res.ok) {
           console.error(`Status poll failed: ${res.status}`);
+          // Treat non-OK as terminal to avoid infinite polling
+          clearInterval(fixPollRef.current);
+          fixPollRef.current = null;
+          setFixStatus('failed');
+          setFixMessage(`Status poll failed: ${res.status}`);
+          localStorage.removeItem('active_fix_job_dashboard');
           return;
         }
         
@@ -366,7 +426,7 @@ const CodeAnalysisDashboard: React.FC = () => {
           return prev;
         });
         
-        if (status.status === "completed" || status.status === "failed") {
+        if (status.status === "completed" || status.status === "failed" || status.status === "cancelled") {
           clearInterval(fixPollRef.current);
           fixPollRef.current = null;
           
@@ -378,6 +438,8 @@ const CodeAnalysisDashboard: React.FC = () => {
             setFixLogs(prev => [...prev, `✅ Proposal ${status.proposal_id.slice(0,8)} created!`]);
           } else if (status.status === "failed") {
             setFixLogs(prev => [...prev, `❌ Fix generation failed: ${status.message}`]);
+          } else if (status.status === "cancelled") {
+            setFixLogs(prev => [...prev, `⏹️ Cancelled by user`]);
           }
         }
       } catch (err) {
@@ -547,7 +609,7 @@ const CodeAnalysisDashboard: React.FC = () => {
       {/* Configuration Panel */}
       {showConfig && (
         <div className="border-b border-gray-700 p-4 bg-[#1a1a1a]">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div>
               <h3 className="text-xs font-semibold mb-2 text-gray-300">Analysis Tools</h3>
               <label className="flex items-center gap-2 text-xs mb-1 cursor-pointer" title="Type checker - finds type errors, missing annotations, and incorrect type usage">
@@ -580,6 +642,39 @@ const CodeAnalysisDashboard: React.FC = () => {
             </div>
 
             <div>
+              <h3 className="text-xs font-semibold mb-2 text-gray-300" title="Choose where to run analysis">Execution Mode</h3>
+              <div className="space-y-1">
+                <label className="flex items-center gap-2 text-xs cursor-pointer" title="Live mode: Analyze production code directly (fast, no isolation)">
+                  <input
+                    type="radio"
+                    checked={config.execution_mode === "live"}
+                    onChange={() => setConfig({ ...config, execution_mode: "live" })}
+                    className="cursor-pointer"
+                  />
+                  <span>🚀 Live (fast, direct)</span>
+                </label>
+                <label className="flex items-center gap-2 text-xs cursor-pointer" title="Sandbox mode: Analyze in isolated Docker container (safe, slower)">
+                  <input
+                    type="radio"
+                    checked={config.execution_mode === "sandbox"}
+                    onChange={() => setConfig({ ...config, execution_mode: "sandbox" })}
+                    className="cursor-pointer"
+                  />
+                  <span>🔒 Sandbox (isolated)</span>
+                </label>
+                <label className="flex items-center gap-2 text-xs cursor-pointer" title="Auto mode: Use sandbox if available, fallback to live">
+                  <input
+                    type="radio"
+                    checked={config.execution_mode === "auto"}
+                    onChange={() => setConfig({ ...config, execution_mode: "auto" })}
+                    className="cursor-pointer"
+                  />
+                  <span>⚙️ Auto (intelligent)</span>
+                </label>
+              </div>
+            </div>
+
+            <div>
               <h3 className="text-xs font-semibold mb-2 text-gray-300" title="Filter which issues to report - useful for ignoring known/accepted violations">Filters (optional)</h3>
               <div className="text-xs text-gray-400 mb-2">
                 Leave blank to show all issues
@@ -603,20 +698,74 @@ const CodeAnalysisDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Progress Bar */}
-      {isRunning && progress && (
-        <div className="border-b border-gray-700 p-4 bg-[#1a1a1a]">
+      {/* Progress Bar - shown while running OR after completion/error/cancelled until acknowledged */}
+      {progress && (isRunning || progress.stage === "complete" || progress.stage === "error" || progress.stage === "cancelled" || progress.stage === "interrupted") && (
+        <div className={`border-b p-4 ${
+          progress.stage === "complete" 
+            ? "border-green-700 bg-green-900/20" 
+            : progress.stage === "error" 
+              ? "border-red-700 bg-red-900/20" 
+              : progress.stage === "cancelled" || progress.stage === "interrupted"
+                ? "border-yellow-700 bg-yellow-900/20"
+                : "border-gray-700 bg-[#1a1a1a]"
+        }`}>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-gray-300">{progress.stage}</span>
-            <span className="text-xs text-gray-400">{progressPercentage.toFixed(0)}%</span>
+            <div className="flex items-center gap-2">
+              {progress.stage === "complete" && <span className="text-green-400">✓</span>}
+              {progress.stage === "error" && <span className="text-red-400">✗</span>}
+              {(progress.stage === "cancelled" || progress.stage === "interrupted") && <span className="text-yellow-400">⚠</span>}
+              <span className={`text-xs font-medium ${
+                progress.stage === "complete" ? "text-green-300" 
+                : progress.stage === "error" ? "text-red-300"
+                : progress.stage === "cancelled" || progress.stage === "interrupted" ? "text-yellow-300"
+                : "text-gray-300"
+              }`}>
+                {progress.stage === "complete" ? "Analysis Complete" 
+                  : progress.stage === "error" ? "Analysis Failed"
+                  : progress.stage === "cancelled" ? "Analysis Cancelled"
+                  : progress.stage === "interrupted" ? "Analysis Interrupted (Server Restarted)"
+                  : progress.stage}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-400">{progressPercentage.toFixed(0)}%</span>
+              {(progress.stage === "complete" || progress.stage === "error" || progress.stage === "cancelled" || progress.stage === "interrupted") && (
+                <button
+                  onClick={() => setProgress(null)}
+                  className={`px-3 py-1 text-xs font-medium rounded transition-colors ${
+                    progress.stage === "complete"
+                      ? "bg-green-600 hover:bg-green-500 text-white"
+                      : progress.stage === "cancelled" || progress.stage === "interrupted"
+                        ? "bg-yellow-600 hover:bg-yellow-500 text-white"
+                        : "bg-red-600 hover:bg-red-500 text-white"
+                  }`}
+                >
+                  OK
+                </button>
+              )}
+            </div>
           </div>
           <div className="w-full bg-gray-700 rounded-full h-2 mb-2">
             <div
-              className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+              className={`h-2 rounded-full transition-all duration-300 ${
+                progress.stage === "complete" ? "bg-green-500" 
+                : progress.stage === "error" ? "bg-red-500"
+                : progress.stage === "cancelled" || progress.stage === "interrupted" ? "bg-yellow-500"
+                : "bg-blue-500"
+              }`}
               style={{ width: `${progressPercentage}%` }}
             />
           </div>
-          <p className="text-xs text-gray-400">{progress.message}</p>
+          <p className={`text-xs ${
+            progress.stage === "complete" ? "text-green-300" 
+            : progress.stage === "error" ? "text-red-300"
+            : progress.stage === "cancelled" || progress.stage === "interrupted" ? "text-yellow-300"
+            : "text-gray-400"
+          }`}>
+            {progress.stage === "interrupted" 
+              ? "Server restarted during analysis. Please run again."
+              : progress.message}
+          </p>
         </div>
       )}
 
@@ -738,6 +887,24 @@ const CodeAnalysisDashboard: React.FC = () => {
                 >
                   Auto-Fix Top 10
                 </button>
+                {fixJobId && fixStatus === 'running' && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await fetch(`/api/fix/cancel/${fixJobId}`, { method: 'POST' });
+                        setFixStatus('cancelled');
+                        setFixMessage('Cancelled by user');
+                        if (fixPollRef.current) { clearInterval(fixPollRef.current as any); fixPollRef.current = null; }
+                        localStorage.removeItem('active_fix_job_dashboard');
+                      } catch (e) {
+                        console.error('Cancel failed:', e);
+                      }
+                    }}
+                    className="text-xs px-3 py-1 bg-red-700 hover:bg-red-600 rounded transition-colors"
+                  >
+                    Cancel Fix
+                  </button>
+                )}
                 <button
                   onClick={async () => {
                     if (!selectedRunId || selectedIssueIds.size === 0) return;

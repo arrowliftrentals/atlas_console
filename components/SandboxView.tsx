@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { atlasChat } from "@/lib/atlasClient";
+import type { AtlasChatRequest } from "@/lib/types";
 import TabHeader from "./TabHeader";
 import { useHealth } from "@/contexts/HealthContext";
 import CodeAnalysisDashboard from "./CodeAnalysisDashboard";
@@ -36,9 +38,20 @@ interface HistoryExecution {
 
 interface Statistics {
   total_executions: number;
-  success_rate: number;
-  avg_execution_time: number;
-  by_language: Record<string, number | { count: number }>;
+  successful_executions: number;
+  success_rate: number; // Already percentage (0-100)
+  avg_execution_time_ms: number;
+  max_execution_time_ms: number;
+  avg_memory_mb: number;
+  max_memory_mb: number;
+  avg_cpu_percent: number;
+  by_language: Array<{
+    language: string;
+    count: number;
+    successful: number;
+    success_rate: number;
+    avg_time_ms: number;
+  }>;
 }
 
 interface Proposal {
@@ -64,7 +77,7 @@ interface Proposal {
 }
 
 const SandboxView: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"executor" | "history" | "stats" | "proposals" | "analysis">("executor");
+  const [activeTab, setActiveTab] = useState<"executor" | "history" | "stats" | "proposals" | "analysis" | "simulation">("executor");
   
   // Executor state
   const [code, setCode] = useState<string>("print(2 + 2)");
@@ -89,6 +102,12 @@ const SandboxView: React.FC = () => {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [proposalsLoading, setProposalsLoading] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState<string | null>(null);
+  
+  // Simulation state
+  const [simGoal, setSimGoal] = useState("");
+  const [simOutput, setSimOutput] = useState<string>("");
+  const [simLoading, setSimLoading] = useState<boolean>(false);
+  const [simError, setSimError] = useState<string | null>(null);
 
   // Load health on mount
   useEffect(() => {
@@ -441,6 +460,16 @@ const SandboxView: React.FC = () => {
         >
           Code Analysis
         </button>
+        <button
+          onClick={() => setActiveTab("simulation")}
+          className={`px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
+            activeTab === "simulation"
+              ? "border-blue-500 text-blue-400"
+              : "border-transparent text-gray-400 hover:text-gray-200"
+          }`}
+        >
+          Simulation
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -623,8 +652,11 @@ const SandboxView: React.FC = () => {
             
             {statsLoading ? (
               <div className="text-center text-gray-400 py-8">Loading...</div>
-            ) : !stats ? (
-              <div className="text-center text-gray-400 py-8">No statistics available</div>
+            ) : !stats || stats.total_executions === 0 ? (
+              <div className="text-center text-gray-400 py-8">
+                <div className="text-lg mb-2">No executions yet</div>
+                <div className="text-xs">Run some code in the Executor tab to see statistics</div>
+              </div>
             ) : (
               <div className="grid grid-cols-2 gap-4">
                 <div className="border border-gray-700 rounded p-4 bg-[#1e1e1e]">
@@ -633,25 +665,38 @@ const SandboxView: React.FC = () => {
                 </div>
                 
                 <div className="border border-gray-700 rounded p-4 bg-[#1e1e1e]">
-                  <div className="text-2xl font-bold text-green-400">{(stats.success_rate * 100).toFixed(1)}%</div>
-                  <div className="text-xs text-gray-400 mt-1">Success Rate</div>
+                  <div className="text-2xl font-bold text-green-400">{stats.success_rate?.toFixed(1) ?? "0"}%</div>
+                  <div className="text-xs text-gray-400 mt-1">Success Rate ({stats.successful_executions}/{stats.total_executions})</div>
                 </div>
                 
                 <div className="border border-gray-700 rounded p-4 bg-[#1e1e1e]">
-                  <div className="text-2xl font-bold text-purple-400">{stats?.avg_execution_time?.toFixed(3) ?? "0.000"}s</div>
+                  <div className="text-2xl font-bold text-purple-400">{((stats.avg_execution_time_ms || 0) / 1000).toFixed(3)}s</div>
                   <div className="text-xs text-gray-400 mt-1">Avg Execution Time</div>
                 </div>
                 
                 <div className="border border-gray-700 rounded p-4 bg-[#1e1e1e]">
+                  <div className="text-2xl font-bold text-orange-400">{stats.avg_memory_mb?.toFixed(1) ?? "0"} MB</div>
+                  <div className="text-xs text-gray-400 mt-1">Avg Memory Usage</div>
+                </div>
+                
+                <div className="border border-gray-700 rounded p-4 bg-[#1e1e1e] col-span-2">
                   <div className="text-xs text-gray-400 mb-2">By Language</div>
-                  <div className="space-y-1">
-                    {Object.entries(stats.by_language).map(([lang, data]) => (
-                      <div key={lang} className="flex items-center justify-between text-xs">
-                        <span className="text-gray-300">{lang}</span>
-                        <span className="text-gray-400">{typeof data === 'object' ? data.count : data}</span>
-                      </div>
-                    ))}
-                  </div>
+                  {stats.by_language && stats.by_language.length > 0 ? (
+                    <div className="space-y-2">
+                      {stats.by_language.map((lang) => (
+                        <div key={lang.language} className="flex items-center justify-between text-xs bg-gray-800/50 rounded px-2 py-1">
+                          <span className="text-gray-300 font-medium">{lang.language}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-gray-400">{lang.count} runs</span>
+                            <span className="text-green-400">{lang.success_rate}% success</span>
+                            <span className="text-purple-400">{(lang.avg_time_ms / 1000).toFixed(2)}s avg</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-gray-500 text-xs">No language data</div>
+                  )}
                 </div>
               </div>
             )}
@@ -889,7 +934,7 @@ const SandboxView: React.FC = () => {
                                       const btn = e.currentTarget;
                                       const originalText = btn.textContent;
                                       btn.textContent = 'Copied!';
-                                      setTimeout(() => btn.textContent = originalText, 1500);
+                                      window.setTimeout(() => { btn.textContent = originalText; }, 1500);
                                     }}
                                     className="ml-auto px-2 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
                                   >
@@ -928,6 +973,71 @@ const SandboxView: React.FC = () => {
 
         {activeTab === "analysis" && (
           <CodeAnalysisDashboard />
+        )}
+
+        {activeTab === "simulation" && (
+          <div className="p-4 flex flex-col gap-3 h-full">
+            <div className="flex flex-col gap-2 mb-3 text-xs">
+              <label className="text-gray-300">
+                Simulation goal:
+                <textarea
+                  className="mt-1 w-full h-20 bg-[#1e1e1e] border border-gray-700 rounded px-2 py-1 text-xs"
+                  value={simGoal}
+                  onChange={(e) => setSimGoal(e.target.value)}
+                  placeholder="Describe the system or scenario you want to simulate..."
+                />
+              </label>
+              <button
+                className="self-start bg-gray-700 hover:bg-gray-600 px-3 py-1 rounded"
+                onClick={async () => {
+                  const trimmed = simGoal.trim();
+                  if (!trimmed || simLoading) return;
+
+                  setSimLoading(true);
+                  setSimError(null);
+                  setSimOutput("");
+
+                  try {
+                    const payload: AtlasChatRequest = {
+                      query: "simulate scenario",
+                      assumptions: [],
+                      context: trimmed,
+                      override_unresolved_assumptions: true,
+                    };
+
+                    const resp = await atlasChat(payload);
+                    setSimOutput(resp.answer || "");
+                  } catch (e: any) {
+                    console.error("ATLAS Simulation error:", e);
+                    setSimError("Failed to run simulation via ATLAS Core.");
+                  } finally {
+                    setSimLoading(false);
+                  }
+                }}
+                disabled={simLoading}
+              >
+                {simLoading ? "Running..." : "Run simulation"}
+              </button>
+            </div>
+
+            {simError && (
+              <div className="text-red-400 text-xs mb-2 whitespace-pre-wrap">
+                {simError}
+              </div>
+            )}
+
+            {!simError && !simOutput && !simLoading && (
+              <p className="text-xs text-gray-400">
+                Enter a simulation goal and click &apos;Run simulation&apos; to see a plan or result.
+              </p>
+            )}
+
+            {!simError && (
+              <div className="mt-2 flex-1 border border-gray-700 rounded bg-[#1e1e1e] text-xs overflow-auto p-3 whitespace-pre-wrap font-mono">
+                {simOutput}
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
