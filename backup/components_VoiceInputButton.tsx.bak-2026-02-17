@@ -1,9 +1,8 @@
+/* Backup of VoiceInputButton.tsx on 2026-02-17 */
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { STTProviderFactory, type STTTranscript } from '@/lib/stt/providers';
-
-type LanguageMode = 'auto' | 'en' | 'es';
 
 interface VoiceInputButtonProps {
   onTranscript: (text: string, isFinal: boolean) => void;
@@ -11,13 +10,9 @@ interface VoiceInputButtonProps {
   autoRestart?: boolean; // Auto-restart listening after sending message
   pauseWhileSpeaking?: boolean; // Pause mic while ATLAS is speaking
   onInterrupt?: () => void; // Called when user interrupts ATLAS
-  // Optional: share playback graph for echo-aware gating
-  audioContext?: AudioContext;
-  playbackNode?: AudioNode;
-  languageMode?: LanguageMode; // 'auto' | 'en' | 'es'
 }
 
-export default function VoiceInputButton({ onTranscript, onError, autoRestart = false, pauseWhileSpeaking = false, onInterrupt, audioContext, playbackNode, languageMode = 'auto' }: VoiceInputButtonProps) {
+export default function VoiceInputButton({ onTranscript, onError, autoRestart = false, pauseWhileSpeaking = false, onInterrupt }: VoiceInputButtonProps) {
   const [isListening, setIsListening] = useState(false);
   const [interimText, setInterimText] = useState('');
   const [lastTranscript, setLastTranscript] = useState('');
@@ -27,13 +22,7 @@ export default function VoiceInputButton({ onTranscript, onError, autoRestart = 
   const wasListeningRef = React.useRef(false);
 
   const sttProvider = STTProviderFactory.getProvider('elevenlabs');
-
-  // Echo-aware gating: analysers and loop state
-  const gateLoopRef = useRef<number | null>(null);
-  const micAnalyserRef = useRef<AnalyserNode | null>(null);
-  const outAnalyserRef = useRef<AnalyserNode | null>(null);
-  const micSourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
-
+  
   // Track when ATLAS is speaking (for confidence filtering)
   React.useEffect(() => {
     if (pauseWhileSpeaking && isListening && !isPaused) {
@@ -57,18 +46,6 @@ export default function VoiceInputButton({ onTranscript, onError, autoRestart = 
 
   const handleToggleListening = async () => {
     if (isListening) {
-      // Stop correlation loop and analysers
-      if (gateLoopRef.current !== null) {
-        window.clearInterval(gateLoopRef.current);
-        gateLoopRef.current = null;
-      }
-      micAnalyserRef.current?.disconnect();
-      outAnalyserRef.current?.disconnect();
-      micSourceNodeRef.current?.disconnect();
-      micAnalyserRef.current = null;
-      outAnalyserRef.current = null;
-      micSourceNodeRef.current = null;
-
       // Stop listening and send the last transcript as final
       console.log('[VoiceInput] User clicked stop - sending last transcript as final:', lastTranscript);
       sttProvider.stopListening();
@@ -92,39 +69,23 @@ export default function VoiceInputButton({ onTranscript, onError, autoRestart = 
               paused: isPaused,
             });
             
-            // Multi-layer echo filtering when ATLAS is speaking
-            // Handle undefined confidence (treat as medium confidence ~0.5)
-            const confidence = transcript.confidence ?? 0.5;
+            // Filter low-confidence transcripts when ATLAS is speaking (likely echo)
+            const minConfidence = isPaused ? 0.7 : 0.3;
+            const confidence = transcript.confidence || 0;
             
-            if (isPaused) {
-              // Layer 1: Require VERY high confidence to overcome echo suppression
-              const interruptThreshold = 0.85; // Very high bar
-              
-              // If confidence is undefined, treat as potential echo (safer default)
-              if (transcript.confidence === undefined) {
-                console.log(`[VoiceInput] 🚫 Filtering transcript with undefined confidence while ATLAS speaking (assuming echo)`);
-                return;
-              }
-              
-              if (confidence < interruptThreshold) {
-                console.log(`[VoiceInput] 🚫 Filtering likely echo (confidence ${confidence.toFixed(2)} < ${interruptThreshold} while ATLAS speaking)`);
-                return; // Skip this transcript entirely
-              }
-              
-              // Layer 2: User is interrupting with high confidence speech
-              console.log('[VoiceInput] ⚡ INTERRUPTION DETECTED - High confidence speech overcomes echo filter');
-              console.log(`[VoiceInput] Confidence: ${confidence.toFixed(2)} >= ${interruptThreshold}`);
+            if (isPaused && confidence < minConfidence) {
+              console.log(`[VoiceInput] 🚫 Filtering echo (confidence ${confidence.toFixed(2)} < ${minConfidence})`);
+              return; // Skip this transcript entirely
+            }
+            
+            // Check if user is interrupting ATLAS (high confidence speech)
+            if (isPaused && confidence >= minConfidence) {
+              console.log('[VoiceInput] ⚡ INTERRUPTION DETECTED - High confidence speech while ATLAS talks');
+              console.log(`[VoiceInput] Confidence: ${confidence.toFixed(2)} >= ${minConfidence}`);
               if (onInterrupt) {
                 onInterrupt();
               }
-              setIsPaused(false); // Exit paused mode immediately
-            }
-            
-            // Layer 3: Only filter extremely low confidence (likely noise/silence)
-            // If confidence is undefined, allow through (common for ElevenLabs)
-            if (transcript.confidence !== undefined && confidence < 0.15) {
-              console.log(`[VoiceInput] 🚫 Filtering very low confidence noise (${confidence.toFixed(2)} < 0.15)`);
-              return;
+              setIsPaused(false); // Exit paused mode
             }
             
             // Store last transcript for VAD-based sending
@@ -145,31 +106,44 @@ export default function VoiceInputButton({ onTranscript, onError, autoRestart = 
                 clearTimeout(silenceTimerRef.current);
                 silenceTimerRef.current = null;
               }
-
-              // Auto-restart listening for next turn if enabled
-              if (autoRestart) {
-                const delayMs = 500; // brief grace so TTS gating is active
-                console.log(`[VoiceInput] 🔄 Auto-restart enabled - restarting in ${delayMs}ms...`);
-                setTimeout(() => {
-                  // Only restart if not already listening
-                  if (!isListening) {
-                    console.log('[VoiceInput] 🎤 Restarting listening for next turn...');
-                    handleToggleListening();
-                  }
-                }, delayMs);
-              }
             } else {
-              // Interim transcript (realtime): do not auto-stop on client VAD; let server commit decide
+              // Interim transcript - implement OpenAI-style VAD
               console.log('[VoiceInput] 📝 Interim transcript:', transcript.text);
               setInterimText(transcript.text);
-
-              // DISABLED: Silence-based commit was causing premature cutoffs during natural pauses
-              // Let ElevenLabs server-side VAD handle commit timing instead
-              // User can manually stop by clicking the mic button
+              
+              // Clear previous silence timer
               if (silenceTimerRef.current) {
                 clearTimeout(silenceTimerRef.current);
-                silenceTimerRef.current = null;
               }
+              
+              // Start new silence timer - if no new transcript in 800ms, treat as final
+              const timeoutMs = 800; // Reduced from 1500ms for snappier response
+              console.log(`[VoiceInput] ⏲️ Starting ${timeoutMs}ms silence timer`);
+              
+              silenceTimerRef.current = setTimeout(async () => {
+                const now = Date.now();
+                console.log(`[VoiceInput] ⏱️ ${timeoutMs}ms silence detected - treating as final`);
+                console.log(`[VoiceInput] Last transcript: "${transcript.text}"`);
+                
+                if (transcript.text.trim()) {
+                  onTranscript(transcript.text, true);
+                  sttProvider.stopListening();
+                  setIsListening(false);
+                  setInterimText('');
+                  setLastTranscript('');
+                  
+                  // Auto-restart listening after a brief pause if enabled
+                  if (autoRestart) {
+                    console.log('[VoiceInput] 🔄 Auto-restart enabled - restarting in 500ms...');
+                    setTimeout(() => {
+                      console.log('[VoiceInput] 🎤 Restarting listening...');
+                      handleToggleListening();
+                    }, 500); // Brief pause before restarting
+                  }
+                } else {
+                  console.log('[VoiceInput] ⚠️ Empty transcript, not sending');
+                }
+              }, timeoutMs);
             }
           },
           (error: string) => {
@@ -180,70 +154,11 @@ export default function VoiceInputButton({ onTranscript, onError, autoRestart = 
             setInterimText('');
           },
           {
-            language: languageMode === 'auto' ? undefined : languageMode,
+            language: 'en',
             enableVAD: true,
           }
         );
         setIsListening(true);
-
-        // Realtime mode: do NOT auto-stop via VAD; we keep session open until user stops or provider commits/ends.
-        if (audioContext && playbackNode) {
-          try {
-            // Bind mic stream from provider into the shared audioContext
-            const micStream = sttProvider.getAudioStream();
-            if (micStream) {
-              const micSrc = new MediaStreamAudioSourceNode(audioContext, { mediaStream: micStream });
-              const micAnalyser = new AnalyserNode(audioContext, { fftSize: 2048 });
-              const outAnalyser = new AnalyserNode(audioContext, { fftSize: 2048 });
-
-              micSourceNodeRef.current = micSrc;
-              micAnalyserRef.current = micAnalyser;
-              outAnalyserRef.current = outAnalyser;
-
-              micSrc.connect(micAnalyser);
-              playbackNode.connect(outAnalyser);
-
-              const micBuf = new Float32Array(micAnalyser.fftSize);
-              const outBuf = new Float32Array(outAnalyser.fftSize);
-
-              gateLoopRef.current = window.setInterval(() => {
-                if (!micAnalyserRef.current || !outAnalyserRef.current) return;
-                micAnalyserRef.current.getFloatTimeDomainData(micBuf);
-                outAnalyserRef.current.getFloatTimeDomainData(outBuf);
-
-                // Energy (RMS)
-                let rmsMic = 0, rmsOut = 0, dot = 0, n1 = 0, n2 = 0;
-                for (let i = 0; i < micBuf.length; i++) {
-                  const m = micBuf[i];
-                  const o = outBuf[i];
-                  rmsMic += m * m;
-                  rmsOut += o * o;
-                  dot += m * o;
-                  n1 += m * m;
-                  n2 += o * o;
-                }
-                rmsMic = Math.sqrt(rmsMic / micBuf.length);
-                rmsOut = Math.sqrt(rmsOut / outBuf.length);
-                const corr = (n1 && n2) ? (dot / Math.sqrt(n1 * n2)) : 0;
-
-                const playbackHot = rmsOut > 0.02; // Lower threshold for earlier detection
-                const likelyEcho = playbackHot && corr > 0.45; // Lower correlation threshold
-                const likelyHuman = rmsMic > 0.05 && corr < 0.30; // Higher mic threshold, lower correlation
-
-                // Drive worklet gate
-                sttProvider.setGate?.(likelyEcho);
-
-                if (likelyHuman && playbackHot) {
-                  onInterrupt?.();
-                  // Ensure gate is open immediately for barge-in
-                  sttProvider.setGate?.(false);
-                }
-              }, 20);
-            }
-          } catch (e) {
-            console.warn('[VoiceInput] Echo gating init failed:', e);
-          }
-        }
       } catch (error: any) {
         console.error('[Voice Input] Failed to start:', error);
         alert(`Failed to start voice input: ${error.message}`);

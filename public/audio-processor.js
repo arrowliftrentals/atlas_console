@@ -1,72 +1,45 @@
-/**
- * AudioWorklet Processor for ElevenLabs STT
- * Extracts raw PCM audio from microphone input and sends to main thread
- */
-
-class AudioCaptureProcessor extends AudioWorkletProcessor {
+/* global AudioWorkletProcessor, registerProcessor, sampleRate */
+/* Echo-aware mic capture for STT: 48k → 16k downsample, 20ms frames, gated */
+class EchoAwareCapture extends AudioWorkletProcessor {
   constructor() {
     super();
-    this.bufferSize = 4096; // Process in 4096 sample chunks
-    this.buffer = [];
-    this.targetSampleRate = 16000; // ElevenLabs expects 16kHz
-    this.downsampleRatio = Math.round(sampleRate / this.targetSampleRate);
+    this.downBuf = [];
+    this.gate = false; // when true, suppress (likely echo)
+    this.DOWNSAMPLE = Math.max(1, Math.round(sampleRate / 16000)); // ≈3 for 48k→16k
+    this.FRAME_16K = 320; // 20 ms at 16 kHz
+
+    this.port.onmessage = (ev) => {
+      const { type, block } = ev.data || {};
+      if (type === 'gate') this.gate = !!block;
+    };
   }
 
-  process(inputs, outputs, parameters) {
-    try {
-      const input = inputs[0];
-      
-      // If no input or no channels, skip
-      if (!input || !input.length) {
-        return true;
-      }
-      
-      // Get first channel (mono)
-      const inputChannel = input[0];
-      
-      // Validate input channel
-      if (!inputChannel || inputChannel.length === 0) {
-        return true;
-      }
-      
-      // Downsample from 48kHz (typical) to 16kHz
-      for (let i = 0; i < inputChannel.length; i += this.downsampleRatio) {
-        const sample = inputChannel[i];
-        
-        // Skip NaN or invalid samples
-        if (isNaN(sample) || !isFinite(sample)) {
-          continue;
-        }
-        
-        this.buffer.push(sample);
-        
-        // Send buffer when we have enough samples
-        if (this.buffer.length >= this.bufferSize) {
-          // Convert Float32 to Int16 PCM
-          const int16Array = new Int16Array(this.buffer.length);
-          for (let j = 0; j < this.buffer.length; j++) {
-            // Clamp to [-1, 1] and convert to 16-bit integer
-            const s = Math.max(-1, Math.min(1, this.buffer[j]));
-            int16Array[j] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  process(inputs) {
+    const input = inputs?.[0]?.[0];
+    if (!input) return true;
+
+    // Naive decimation 48k→16k (AEC still works upstream)
+    for (let i = 0; i < input.length; i += this.DOWNSAMPLE) {
+      this.downBuf.push(input[i]);
+      if (this.downBuf.length >= this.FRAME_16K) {
+        if (!this.gate) {
+          // Convert Float32 → Int16 PCM (little-endian)
+          const frame = this.downBuf.splice(0, this.FRAME_16K);
+          const out = new Int16Array(frame.length);
+          for (let j = 0; j < frame.length; j++) {
+            const s = Math.max(-1, Math.min(1, frame[j]));
+            out[j] = s < 0 ? s * 0x8000 : s * 0x7fff;
           }
-          
-          // Send to main thread
-          this.port.postMessage({
-            type: 'audio',
-            data: int16Array.buffer,
-          }, [int16Array.buffer]); // Transfer ownership for efficiency
-          
-          this.buffer = [];
+          this.port.postMessage({ type: 'audio', data: out.buffer }, [out.buffer]);
+        } else {
+          // Drop 20ms likely-echo frame
+          this.downBuf.splice(0, this.FRAME_16K);
         }
       }
-      
-      return true; // Keep processor alive
-    } catch (error) {
-      // Log error but keep processor alive
-      console.error('[AudioWorklet] Error processing audio:', error);
-      return true;
     }
+
+    return true;
   }
 }
 
-registerProcessor('audio-capture-processor', AudioCaptureProcessor);
+registerProcessor('echo-aware-capture', EchoAwareCapture);
