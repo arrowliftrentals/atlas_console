@@ -96,9 +96,11 @@ export class ElevenLabsSTTProvider implements STTProviderInterface {
       const wsUrl = `wss://api.elevenlabs.io/v1/speech-to-text/realtime?token=${token}`;
       
       this.ws = new WebSocket(wsUrl);
+      const connectionStartTime = Date.now();
       
       this.ws.onopen = () => {
-        console.log('[STT] ✓ WebSocket connected to ElevenLabs');
+        const connectDuration = Date.now() - connectionStartTime;
+        console.log(`[STT] ✓ WebSocket connected to ElevenLabs (${connectDuration}ms)`);
         
         // No need to send auth or config - token in URL handles auth
         // Configuration is automatic based on token
@@ -147,12 +149,37 @@ export class ElevenLabsSTTProvider implements STTProviderInterface {
       };
       
       this.ws.onclose = (event) => {
-        console.log('[STT] WebSocket closed - Code:', event.code, 'Reason:', event.reason, 'Clean:', event.wasClean);
+        const connectionDuration = Date.now() - connectionStartTime;
+        console.log(`[STT] WebSocket closed after ${connectionDuration}ms - Code:`, event.code, 'Reason:', event.reason, 'Clean:', event.wasClean);
         
-        // Provide helpful error messages based on close code
-        if (!event.wasClean) {
+        // Detailed close code meanings
+        const closeReasons: Record<number, string> = {
+          1000: 'Normal closure',
+          1001: 'Endpoint going away',
+          1002: 'Protocol error',
+          1003: 'Unsupported data type',
+          1006: 'Abnormal closure (no close frame)',
+          1007: 'Invalid frame payload data',
+          1008: 'Policy violation',
+          1009: 'Message too big',
+          1011: 'Server error',
+        };
+        
+        const reason = closeReasons[event.code] || 'Unknown reason';
+        console.error(`[STT] Close code ${event.code}: ${reason}`);
+        
+        // Only treat as error if closed very quickly (< 2 seconds) or with error code
+        const isError = connectionDuration < 2000 || (!event.wasClean && event.code !== 1000 && event.code !== 1005);
+        
+        if (isError) {
           console.error('[STT] Connection closed unexpectedly!');
-          onError(`WebSocket closed unexpectedly (code: ${event.code})`);
+          console.error('[STT] This often means:');
+          console.error('[STT]   - Audio format incompatible (check audio-processor.js)');
+          console.error('[STT]   - ElevenLabs API quota exceeded');
+          console.error('[STT]   - Network connectivity issues');
+          onError(`WebSocket closed: ${reason} (code: ${event.code})`);
+        } else {
+          console.log('[STT] Session ended normally (timeout or user stopped)');
         }
         this.cleanup();
       };
