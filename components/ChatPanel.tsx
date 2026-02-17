@@ -732,15 +732,25 @@ const ChatPanel: React.FC = () => {
             {/* Voice controls */}
             <VoiceToggleButton />
             <VoiceInputButton
-              onTranscript={(text) => {
-                // Auto-send for natural conversation flow
-                if (activeSessionId && text.trim()) {
-                  // Briefly show the transcribed text
-                  setInput(text);
-                  // Auto-send after 200ms so user sees what was transcribed
-                  setTimeout(() => {
-                    handleSend(text);
-                  }, 200);
+              onTranscript={(text, isFinal) => {
+                console.log('[ChatPanel] onTranscript callback received:', { text, isFinal });
+                
+                if (!activeSessionId) {
+                  console.log('[ChatPanel] No active session');
+                  return;
+                }
+                
+                // Always show the transcript in the input (interim or final)
+                setInput(text);
+                console.log('[ChatPanel] Input updated to:', text);
+                
+                // Auto-send immediately when final
+                if (isFinal && text.trim()) {
+                  console.log('[ChatPanel] Final transcript - auto-sending immediately');
+                  handleSend(text);
+                  setInput(''); // Clear input after sending
+                } else if (!isFinal) {
+                  console.log('[ChatPanel] Interim transcript - showing in input field');
                 }
               }}
               onError={(error) => {

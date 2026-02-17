@@ -39,9 +39,12 @@ export class ElevenLabsSTTProvider implements STTProviderInterface {
   name = 'ElevenLabs Scribe v2';
   
   private ws: WebSocket | null = null;
-  private mediaRecorder: MediaRecorder | null = null;
+  private audioContext: AudioContext | null = null;
+  private processor: ScriptProcessorNode | null = null;
+  private sourceNode: MediaStreamAudioSourceNode | null = null;
   private audioStream: MediaStream | null = null;
   private listening = false;
+  private sampleRate = 16000;
   
   async startListening(
     onTranscript: (transcript: STTTranscript) => void,
@@ -53,12 +56,9 @@ export class ElevenLabsSTTProvider implements STTProviderInterface {
       return;
     }
     
-    // Check browser compatibility
-    const isWebMSupported = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') || 
-                            MediaRecorder.isTypeSupported('audio/webm');
-    
-    if (!isWebMSupported) {
-      onError('Voice input not supported in this browser. Please use Chrome or Firefox for speech-to-text functionality.');
+    // Check browser compatibility for AudioWorklet
+    if (!window.AudioContext || !window.AudioWorkletNode) {
+      onError('Voice input not supported in this browser. AudioWorklet requires a modern browser (Chrome 66+, Firefox 76+, Safari 14.1+).');
       return;
     }
     
@@ -140,14 +140,7 @@ export class ElevenLabsSTTProvider implements STTProviderInterface {
         console.log('[STT] WebSocket closed - Code:', event.code, 'Reason:', event.reason, 'Clean:', event.wasClean);
         
         // Provide helpful error messages based on close code
-        if (event.code === 1000 && event.wasClean) {
-          // Normal closure but might be due to format incompatibility
-          const actualMimeType = this.mediaRecorder?.mimeType || 'unknown';
-          if (actualMimeType.includes('mp4') || actualMimeType.includes('ogg')) {
-            console.error('[STT] Connection closed - likely due to incompatible audio format:', actualMimeType);
-            onError(`Browser audio format (${actualMimeType}) not supported by ElevenLabs. Use Chrome/Edge for voice input.`);
-          }
-        } else if (!event.wasClean) {
+        if (!event.wasClean) {
           console.error('[STT] Connection closed unexpectedly!');
           onError(`WebSocket closed unexpectedly (code: ${event.code})`);
         }
@@ -163,98 +156,65 @@ export class ElevenLabsSTTProvider implements STTProviderInterface {
     }
   }
   
-  private startAudioStreaming() {
+  private async startAudioStreaming() {
     if (!this.audioStream) return;
     
-    // ElevenLabs prefers WebM with Opus, but we'll use what's available
-    const mimeTypes = [
-      'audio/webm;codecs=opus',
-      'audio/webm',
-      'audio/ogg;codecs=opus',
-      'audio/ogg', // Firefox fallback
-    ];
-    
-    let mimeType = '';
-    for (const type of mimeTypes) {
-      if (MediaRecorder.isTypeSupported(type)) {
-        mimeType = type;
-        console.log('[STT] Using MIME type:', mimeType);
-        break;
-      }
-    }
-    
-    if (!mimeType) {
-      console.warn('[STT] No compatible MIME type found, trying without mimeType option');
-    }
-    
-    // Create MediaRecorder
-    // Firefox sometimes reports types as supported but then fails, so we catch errors
-    const options: MediaRecorderOptions = mimeType ? { mimeType } : {};
-    
     try {
-      this.mediaRecorder = new MediaRecorder(this.audioStream, options);
-      console.log('[STT] ✓ MediaRecorder created successfully with mimeType:', this.mediaRecorder.mimeType);
-    } catch (error) {
-      console.error('[STT] MediaRecorder creation failed with options:', options, 'Error:', error);
-      console.log('[STT] Retrying without mimeType constraint...');
-      // Try without any mimeType constraint
-      this.mediaRecorder = new MediaRecorder(this.audioStream);
-      console.log('[STT] MediaRecorder created with browser default mimeType:', this.mediaRecorder.mimeType);
-    }
-    
-    // Warn if using unsupported format
-    const actualMimeType = this.mediaRecorder.mimeType.toLowerCase();
-    if (actualMimeType.includes('mp4') || (!actualMimeType.includes('webm') && !actualMimeType.includes('ogg'))) {
-      console.warn('[STT] ⚠️ Browser is using potentially incompatible format:', this.mediaRecorder.mimeType);
-      console.warn('[STT] ⚠️ ElevenLabs prefers audio/webm or audio/ogg with Opus codec');
-      console.warn('[STT] ⚠️ Connection may close immediately. Consider using Chrome/Edge for STT.');
-    }
-    
-    let chunkCount = 0;
-    this.mediaRecorder.ondataavailable = (event) => {
-      if (event.data.size > 0 && this.ws?.readyState === WebSocket.OPEN) {
-        chunkCount++;
-        if (chunkCount === 1) {
-          console.log('[STT] First audio chunk sent, size:', event.data.size);
-        }
-        
-        // Convert audio to base64 and send as input_audio_chunk message
-        event.data.arrayBuffer().then((buffer) => {
-          if (this.ws?.readyState === WebSocket.OPEN) {
-            const base64Audio = btoa(String.fromCharCode(...new Uint8Array(buffer)));
-            const message = {
-              message_type: 'input_audio_chunk',
-              audio_base_64: base64Audio,
-              sample_rate: 16000,
-            };
-            this.ws.send(JSON.stringify(message));
+      // Create AudioContext with native sample rate (browser default, usually 48kHz)
+      // We'll downsample to 16kHz in the AudioWorklet processor
+      this.audioContext = new AudioContext();
+      console.log('[STT] AudioContext created with sample rate:', this.audioContext.sampleRate);
+      
+      // Load AudioWorklet processor
+      await this.audioContext.audioWorklet.addModule('/audio-processor.js');
+      console.log('[STT] AudioWorklet processor loaded');
+      
+      // Create source from microphone stream
+      this.sourceNode = this.audioContext.createMediaStreamSource(this.audioStream);
+      
+      // Create AudioWorklet node
+      this.processor = new AudioWorkletNode(this.audioContext, 'audio-capture-processor');
+      
+      // Handle audio data from worklet
+      let chunkCount = 0;
+      this.processor.port.onmessage = (event) => {
+        if (event.data.type === 'audio' && this.ws?.readyState === WebSocket.OPEN) {
+          chunkCount++;
+          
+          if (chunkCount === 1) {
+            console.log('[STT] First audio chunk received from worklet');
           }
-        });
-      }
-    };
-    
-    this.mediaRecorder.onerror = (event: any) => {
-      console.error('[STT] MediaRecorder error:', event);
-    };
-    
-    this.mediaRecorder.onstart = () => {
-      console.log('[STT] MediaRecorder started');
-    };
-    
-    this.mediaRecorder.onstop = () => {
-      console.log('[STT] MediaRecorder stopped');
-    };
-    
-    // Send audio chunks every 250ms (ElevenLabs recommendation)
-    this.mediaRecorder.start(250);
+          
+          // Convert Int16 PCM to base64
+          const int16Array = new Int16Array(event.data.data);
+          const bytes = new Uint8Array(int16Array.buffer);
+          const base64Audio = btoa(String.fromCharCode(...bytes));
+          
+          // Send to ElevenLabs
+          const message = {
+            message_type: 'input_audio_chunk',
+            audio_base_64: base64Audio,
+            sample_rate: this.sampleRate,
+          };
+          
+          this.ws.send(JSON.stringify(message));
+        }
+      };
+      
+      // Connect: microphone -> worklet -> (no output, we just capture)
+      this.sourceNode.connect(this.processor);
+      // Don't connect to destination - we're just capturing, not playing
+      
+      console.log('[STT] ✓ Audio pipeline started (raw PCM 16kHz)');
+      
+    } catch (error) {
+      console.error('[STT] Failed to start audio streaming:', error);
+      throw error;
+    }
   }
   
   stopListening(): void {
     console.log('[STT] Stopping listening');
-    
-    if (this.mediaRecorder?.state === 'recording') {
-      this.mediaRecorder.stop();
-    }
     
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.close();
@@ -266,12 +226,28 @@ export class ElevenLabsSTTProvider implements STTProviderInterface {
   private cleanup() {
     this.listening = false;
     
+    // Disconnect audio nodes
+    if (this.sourceNode) {
+      this.sourceNode.disconnect();
+      this.sourceNode = null;
+    }
+    
+    if (this.processor) {
+      this.processor.disconnect();
+      this.processor.port.onmessage = null;
+      this.processor = null;
+    }
+    
+    if (this.audioContext) {
+      this.audioContext.close();
+      this.audioContext = null;
+    }
+    
     if (this.audioStream) {
       this.audioStream.getTracks().forEach(track => track.stop());
       this.audioStream = null;
     }
     
-    this.mediaRecorder = null;
     this.ws = null;
   }
   

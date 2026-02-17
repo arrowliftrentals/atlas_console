@@ -4,35 +4,82 @@ import React, { useState, useEffect } from 'react';
 import { STTProviderFactory, type STTTranscript } from '@/lib/stt/providers';
 
 interface VoiceInputButtonProps {
-  onTranscript: (text: string) => void;
+  onTranscript: (text: string, isFinal: boolean) => void;
   onError?: (error: string) => void;
 }
 
 export default function VoiceInputButton({ onTranscript, onError }: VoiceInputButtonProps) {
   const [isListening, setIsListening] = useState(false);
   const [interimText, setInterimText] = useState('');
+  const [lastTranscript, setLastTranscript] = useState('');
   const [showTooltip, setShowTooltip] = useState(false);
+  const silenceTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
   const sttProvider = STTProviderFactory.getProvider('elevenlabs');
 
   const handleToggleListening = async () => {
     if (isListening) {
-      // Stop listening
+      // Stop listening and send the last transcript as final
+      console.log('[VoiceInput] User clicked stop - sending last transcript as final:', lastTranscript);
       sttProvider.stopListening();
       setIsListening(false);
       setInterimText('');
+      
+      // Send the last interim transcript as final
+      if (lastTranscript.trim()) {
+        onTranscript(lastTranscript, true);
+      }
+      setLastTranscript('');
     } else {
       // Start listening
       try {
         await sttProvider.startListening(
           (transcript: STTTranscript) => {
+            console.log('[VoiceInput] Transcript received:', {
+              text: transcript.text,
+              isFinal: transcript.isFinal,
+              confidence: transcript.confidence,
+            });
+            
+            // Store last transcript for VAD-based sending
+            setLastTranscript(transcript.text);
+            
+            // Always send transcript to parent (both interim and final)
+            onTranscript(transcript.text, transcript.isFinal);
+            
             if (transcript.isFinal) {
-              // Final transcript - send to input
-              onTranscript(transcript.text);
+              // Final transcript from ElevenLabs - stop listening and send
+              console.log('[VoiceInput] ✅ FINAL transcript from ElevenLabs:', transcript.text);
               setInterimText('');
+              sttProvider.stopListening();
+              setIsListening(false);
+              
+              // Clear any pending silence timer
+              if (silenceTimerRef.current) {
+                clearTimeout(silenceTimerRef.current);
+                silenceTimerRef.current = null;
+              }
             } else {
-              // Interim transcript - show in real-time
+              // Interim transcript - implement OpenAI-style VAD
+              console.log('[VoiceInput] 📝 Interim transcript:', transcript.text);
               setInterimText(transcript.text);
+              
+              // Clear previous silence timer
+              if (silenceTimerRef.current) {
+                clearTimeout(silenceTimerRef.current);
+              }
+              
+              // Start new silence timer - if no new transcript in 1.5s, treat as final
+              silenceTimerRef.current = setTimeout(() => {
+                console.log('[VoiceInput] ⏱️ 1.5s silence detected - treating as final');
+                if (transcript.text.trim()) {
+                  onTranscript(transcript.text, true);
+                  sttProvider.stopListening();
+                  setIsListening(false);
+                  setInterimText('');
+                  setLastTranscript('');
+                }
+              }, 1500); // 1.5 seconds of silence = end of utterance
             }
           },
           (error: string) => {
@@ -62,6 +109,9 @@ export default function VoiceInputButton({ onTranscript, onError }: VoiceInputBu
     return () => {
       if (sttProvider.isListening()) {
         sttProvider.stopListening();
+      }
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
       }
     };
   }, []);

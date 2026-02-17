@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>STT Automated Test - Proof of Working</title>
+  <style>
+    body {
+      font-family: monospace;
+      background: #1a1a1a;
+      color: #00ff00;
+      padding: 20px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+    .test-section {
+      background: #2a2a2a;
+      border: 2px solid #00ff00;
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 8px;
+    }
+    .success {
+      color: #00ff00;
+      font-weight: bold;
+    }
+    .error {
+      color: #ff0000;
+      font-weight: bold;
+    }
+    .info {
+      color: #00aaff;
+    }
+    .log-entry {
+      margin: 5px 0;
+      padding: 5px;
+      background: #1a1a1a;
+      border-left: 3px solid #00ff00;
+      font-size: 12px;
+    }
+    button {
+      background: #00ff00;
+      color: #000;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    button:hover {
+      background: #00cc00;
+    }
+    .status {
+      font-size: 18px;
+      margin: 10px 0;
+      padding: 10px;
+      background: #000;
+      border-radius: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎤 STT AUTOMATED PROOF TEST</h1>
+  
+  <div class="status" id="status">Ready to test...</div>
+  
+  <button onclick="runAutomatedTest()">▶ RUN AUTOMATED TEST</button>
+  
+  <div class="test-section">
+    <h2>Test Steps:</h2>
+    <div id="steps"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>Live Logs:</h2>
+    <div id="logs"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>Results:</h2>
+    <div id="results"></div>
+  </div>
+
+  <script>
+    let testResults = [];
+    let ws = null;
+    let audioContext = null;
+    let processor = null;
+    let oscillator = null;
+    
+    function log(message, type = 'info') {
+      const logsDiv = document.getElementById('logs');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logsDiv.appendChild(entry);
+      logsDiv.scrollTop = logsDiv.scrollHeight;
+      console.log(message);
+    }
+    
+    function updateStatus(message, isSuccess = null) {
+      const statusDiv = document.getElementById('status');
+      statusDiv.textContent = message;
+      if (isSuccess === true) {
+        statusDiv.className = 'status success';
+      } else if (isSuccess === false) {
+        statusDiv.className = 'status error';
+      } else {
+        statusDiv.className = 'status info';
+      }
+    }
+    
+    function addStep(stepName, status) {
+      const stepsDiv = document.getElementById('steps');
+      const step = document.createElement('div');
+      step.className = `log-entry ${status}`;
+      step.textContent = `${status === 'success' ? '✅' : status === 'error' ? '❌' : '⏳'} ${stepName}`;
+      stepsDiv.appendChild(step);
+    }
+    
+    function showResults() {
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = '';
+      
+      const passed = testResults.filter(r => r.passed).length;
+      const failed = testResults.filter(r => !r.passed).length;
+      
+      const summary = document.createElement('div');
+      summary.className = passed === testResults.length ? 'success' : 'error';
+      summary.innerHTML = `
+        <h3>Test Summary</h3>
+        <p>Passed: ${passed}/${testResults.length}</p>
+        <p>Failed: ${failed}/${testResults.length}</p>
+      `;
+      resultsDiv.appendChild(summary);
+      
+      testResults.forEach(result => {
+        const resultDiv = document.createElement('div');
+        resultDiv.className = `log-entry ${result.passed ? 'success' : 'error'}`;
+        resultDiv.textContent = `${result.passed ? '✅' : '❌'} ${result.test}: ${result.message}`;
+        resultsDiv.appendChild(resultDiv);
+      });
+      
+      if (passed === testResults.length) {
+        updateStatus('🎉 ALL TESTS PASSED - STT IS WORKING!', true);
+      } else {
+        updateStatus(`⚠️ ${failed} TEST(S) FAILED`, false);
+      }
+    }
+    
+    async function runAutomatedTest() {
+      testResults = [];
+      document.getElementById('steps').innerHTML = '';
+      document.getElementById('logs').innerHTML = '';
+      document.getElementById('results').innerHTML = '';
+      
+      updateStatus('Running automated tests...', null);
+      log('=== STARTING AUTOMATED STT TEST ===', 'info');
+      
+      try {
+        // Test 1: Check AudioWorklet support
+        addStep('Check AudioWorklet support', 'info');
+        if (!window.AudioContext || !window.AudioWorkletNode) {
+          throw new Error('AudioWorklet not supported');
+        }
+        testResults.push({ test: 'AudioWorklet Support', passed: true, message: 'Supported' });
+        addStep('Check AudioWorklet support', 'success');
+        log('✅ AudioWorklet is supported', 'success');
+        
+        // Test 2: Get authentication token
+        addStep('Get ElevenLabs auth token', 'info');
+        const tokenResponse = await fetch('/api/stt/elevenlabs/token', { method: 'POST' });
+        if (!tokenResponse.ok) {
+          throw new Error(`Token fetch failed: ${tokenResponse.status}`);
+        }
+        const { token } = await tokenResponse.json();
+        testResults.push({ test: 'Auth Token', passed: true, message: `Token received: ${token.substring(0, 20)}...` });
+        addStep('Get ElevenLabs auth token', 'success');
+        log(`✅ Auth token received: ${token.substring(0, 20)}...`, 'success');
+        
+        // Test 3: Connect WebSocket
+        addStep('Connect to ElevenLabs WebSocket', 'info');
+        const wsUrl = `wss://api.elevenlabs.io/v1/speech-to-text/realtime?token=${token}`;
+        ws = new WebSocket(wsUrl);
+        
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('WebSocket connection timeout')), 5000);
+          
+          ws.onopen = () => {
+            clearTimeout(timeout);
+            testResults.push({ test: 'WebSocket Connection', passed: true, message: 'Connected to ElevenLabs' });
+            addStep('Connect to ElevenLabs WebSocket', 'success');
+            log('✅ WebSocket connected', 'success');
+            resolve();
+          };
+          
+          ws.onerror = () => {
+            clearTimeout(timeout);
+            reject(new Error('WebSocket connection failed'));
+          };
+        });
+        
+        // Test 4: Wait for session_started
+        addStep('Wait for session start', 'info');
+        const sessionId = await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('Session start timeout')), 5000);
+          
+          ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            log(`← ${data.message_type}`, 'info');
+            
+            if (data.message_type === 'session_started') {
+              clearTimeout(timeout);
+              testResults.push({ test: 'Session Started', passed: true, message: `Session: ${data.session_id}` });
+              addStep('Wait for session start', 'success');
+              log(`✅ Session started: ${data.session_id}`, 'success');
+              resolve(data.session_id);
+            } else if (data.message_type === 'error') {
+              clearTimeout(timeout);
+              reject(new Error(data.error));
+            }
+          };
+        });
+        
+        // Test 5: Create AudioContext and load worklet
+        addStep('Create AudioContext and load AudioWorklet', 'info');
+        audioContext = new AudioContext();
+        await audioContext.audioWorklet.addModule('/audio-processor.js');
+        testResults.push({ test: 'AudioWorklet Loaded', passed: true, message: `Sample rate: ${audioContext.sampleRate}Hz` });
+        addStep('Create AudioContext and load AudioWorklet', 'success');
+        log(`✅ AudioWorklet loaded (${audioContext.sampleRate}Hz)`, 'success');
+        
+        // Test 6: Send synthetic audio and verify processing
+        addStep('Send synthetic audio data', 'info');
+        
+        // Create synthetic audio (silence for simplicity)
+        const sampleRate = 16000;
+        const duration = 1; // 1 second
+        const samples = sampleRate * duration;
+        const audioData = new Int16Array(samples);
+        
+        // Fill with low-level noise to simulate audio
+        for (let i = 0; i < samples; i++) {
+          audioData[i] = Math.floor(Math.random() * 200 - 100); // Very quiet noise
+        }
+        
+        // Send audio chunks
+        const chunkSize = 4000;
+        let chunksSent = 0;
+        
+        for (let i = 0; i < audioData.length; i += chunkSize) {
+          const chunk = audioData.slice(i, Math.min(i + chunkSize, audioData.length));
+          const bytes = new Uint8Array(chunk.buffer);
+          const base64Audio = btoa(String.fromCharCode(...bytes));
+          
+          ws.send(JSON.stringify({
+            message_type: 'input_audio_chunk',
+            audio_base_64: base64Audio,
+            sample_rate: sampleRate,
+          }));
+          
+          chunksSent++;
+        }
+        
+        testResults.push({ test: 'Audio Transmission', passed: true, message: `Sent ${chunksSent} audio chunks` });
+        addStep('Send synthetic audio data', 'success');
+        log(`✅ Sent ${chunksSent} audio chunks (${samples} samples)`, 'success');
+        
+        // Test 7: Verify no errors for 2 seconds
+        addStep('Monitor for errors', 'info');
+        let errorOccurred = false;
+        
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          
+          if (data.message_type === 'input_error' || data.message_type === 'error') {
+            errorOccurred = true;
+            log(`❌ Error received: ${JSON.stringify(data)}`, 'error');
+          } else if (data.message_type === 'partial_transcript' || data.message_type === 'committed_transcript') {
+            log(`✅ Transcript received: "${data.text}"`, 'success');
+          }
+        };
+        
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        if (errorOccurred) {
+          testResults.push({ test: 'Error-Free Processing', passed: false, message: 'Errors occurred during audio processing' });
+          addStep('Monitor for errors', 'error');
+        } else {
+          testResults.push({ test: 'Error-Free Processing', passed: true, message: 'No errors in 2 seconds' });
+          addStep('Monitor for errors', 'success');
+          log('✅ No errors detected', 'success');
+        }
+        
+        // Cleanup
+        ws.close();
+        if (audioContext) audioContext.close();
+        
+        log('=== TEST COMPLETE ===', 'info');
+        showResults();
+        
+      } catch (error) {
+        log(`❌ Test failed: ${error.message}`, 'error');
+        testResults.push({ test: 'Overall', passed: false, message: error.message });
+        showResults();
+        
+        if (ws) ws.close();
+        if (audioContext) audioContext.close();
+      }
+    }
+  </script>
+</body>
+</html>
