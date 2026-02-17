@@ -233,22 +233,24 @@ export class ElevenLabsSTTProvider implements STTProviderInterface {
         };
         
         const reason = closeReasons[event.code] || 'Unknown reason';
-        const isNormal = event.wasClean && (event.code === 1000 || event.code === 1005);
-        const logFn = isNormal ? console.log : console.error;
-        logFn(`[STT] Close code ${event.code}: ${reason}`);
         
-        // Only treat as error if closed very quickly (< 2 seconds) or with error code
-        const isError = connectionDuration < 2000 || (!event.wasClean && event.code !== 1000 && event.code !== 1005);
+        // 1006 after receiving committed transcript is normal (server closes connection)
+        const normalClose = event.wasClean && (event.code === 1000 || event.code === 1005);
+        const normalAfterCommit = event.code === 1006 && this._finalSent && connectionDuration > 2000;
+        const isNormalClosure = normalClose || normalAfterCommit;
         
-        if (isError) {
-          console.error('[STT] Connection closed unexpectedly!');
-          console.error('[STT] This often means:');
-          console.error('[STT]   - Audio format incompatible (check audio-processor.js)');
-          console.error('[STT]   - ElevenLabs API quota exceeded');
-          console.error('[STT]   - Network connectivity issues');
-          onError(`WebSocket closed: ${reason} (code: ${event.code})`);
+        if (isNormalClosure) {
+          console.log(`[STT] Session ended normally - ${reason}`);
         } else {
-          console.log('[STT] Session ended normally (timeout or user stopped)');
+          // Only show errors for quick failures or unexpected closures without transcript
+          console.error(`[STT] Close code ${event.code}: ${reason}`);
+          if (connectionDuration < 2000) {
+            console.error('[STT] Connection closed very quickly - check:');
+            console.error('[STT]   - Audio format compatibility (check audio-processor.js)');
+            console.error('[STT]   - ElevenLabs API quota');
+            console.error('[STT]   - Network connectivity');
+            onError(`WebSocket closed: ${reason} (code: ${event.code})`);
+          }
         }
         // If server closed without sending a committed transcript, finalize with last partial
         if (!this._finalSent && this._lastText.trim()) {

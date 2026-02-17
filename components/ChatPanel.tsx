@@ -760,8 +760,6 @@ const ChatPanel: React.FC = () => {
               }}
             />
             <VoiceInputButton
-              audioContext={streamingAudioContextRef.current || undefined}
-              playbackNode={playbackBusRef.current || undefined}
               languageMode={languageMode}
               onTranscript={(text, isFinal) => {
                 console.log('[ChatPanel] onTranscript callback received:', { text, isFinal });
