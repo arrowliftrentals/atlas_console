@@ -4,11 +4,12 @@ import React, { useState, useRef, useEffect } from "react";
 import { sendAtlasChat, clearConsoleSession, atlasChatStream } from "@/lib/atlasConsoleClient";
 import { useConsole } from "./ConsoleProvider";
 import { AgentResponsePanel } from "./AgentResponsePanel";
-import { useHealth } from "@/contexts/HealthContext";
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { AgentResponse } from "@/lib/types";
 import FeedbackPrompt from "./FeedbackPrompt";
+import { TTSProviderFactory, type TTSProvider } from "@/lib/tts/providers";
+import VoiceInputButton from "./VoiceInputButton";
 
 const CHAT_PANEL_WIDTH_KEY = "atlas_console_chat_panel_width";
 const CHAT_PANEL_COLLAPSED_KEY = "atlas_console_chat_panel_collapsed";
@@ -18,7 +19,6 @@ const COLLAPSED_CHAT_PANEL_WIDTH = 48;
 const ChatPanel: React.FC = () => {
   const { activeSessionId, getMessages, addMessage, updateLastMessage, clearMessages } = useConsole();
   const messages = activeSessionId ? getMessages(activeSessionId) : [];
-  const { health } = useHealth();
   
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -31,6 +31,14 @@ const ChatPanel: React.FC = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const lastSpokenMessageRef = useRef<number>(0);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+  const streamingAudioContextRef = useRef<AudioContext | null>(null);
+  const isPlayingRef = useRef<boolean>(false);
+  const lastSpokenLengthRef = useRef(0);
+  const currentMessageRef = useRef<{content: string; index: number} | null>(null);
+  const audioQueueRef = useRef<ArrayBuffer[]>([]);
+  const isSynthesizingRef = useRef<boolean>(false);
 
   // Load initial width and collapsed state from localStorage on mount
   useEffect(() => {
@@ -133,8 +141,161 @@ const ChatPanel: React.FC = () => {
     }
   }, [messages, userHasScrolled]);
 
-  const handleSend = async () => {
-    const trimmed = input.trim();
+  // Streaming TTS - speak while response is being generated
+  useEffect(() => {
+    if (typeof window === 'undefined' || messages.length === 0) return;
+
+    const voiceEnabled = localStorage.getItem('voice_enabled') === 'true';
+    if (!voiceEnabled) return;
+
+    // Find the last assistant message
+    const assistantMessages = messages.filter(m => m.type === 'assistant');
+    if (assistantMessages.length === 0) return;
+
+    const lastMessage = assistantMessages[assistantMessages.length - 1];
+    const messageIndex = messages.indexOf(lastMessage);
+
+    // Update current message ref
+    currentMessageRef.current = { content: lastMessage.content, index: messageIndex };
+
+    // Skip if this is a different message
+    if (messageIndex !== lastSpokenMessageRef.current) {
+      lastSpokenMessageRef.current = messageIndex;
+      lastSpokenLengthRef.current = 0;
+      isPlayingRef.current = false;
+      
+      if (currentAudioRef.current) {
+        currentAudioRef.current.pause();
+        currentAudioRef.current = null;
+      }
+    }
+
+    // Don't process if already spoken or no content
+    if (!lastMessage.content || lastMessage.content.length <= lastSpokenLengthRef.current) return;
+    if (isPlayingRef.current) return;
+
+    const speakNext = async () => {
+      // Check if there's queued audio to play
+      if (audioQueueRef.current.length > 0 && !isPlayingRef.current) {
+        const audioData = audioQueueRef.current.shift()!;
+        await playAudio(audioData);
+        return;
+      }
+      
+      // Don't synthesize if already synthesizing or no more content
+      if (!currentMessageRef.current || isSynthesizingRef.current) return;
+      if (currentMessageRef.current.content.length <= lastSpokenLengthRef.current) return;
+      
+      const provider = (localStorage.getItem('tts_provider') as TTSProvider) || 'cartesia';
+      const remaining = currentMessageRef.current.content.slice(lastSpokenLengthRef.current);
+      
+      const sentenceMatch = /[^.!?]+[.!?]+\s*/.exec(remaining);
+      let textToSpeak = '';
+      
+      if (sentenceMatch) {
+        textToSpeak = sentenceMatch[0];
+      } else if (!loading && remaining.length > 0) {
+        textToSpeak = remaining;
+      } else if (remaining.length > 150) {
+        textToSpeak = remaining.slice(0, 100);
+      } else {
+        return;
+      }
+      
+      if (!textToSpeak) return;
+      
+      lastSpokenLengthRef.current += textToSpeak.length;
+      isSynthesizingRef.current = true;
+      
+      try {
+        const ttsProvider = TTSProviderFactory.getProvider(provider);
+        const audioData = await ttsProvider.synthesize(textToSpeak);
+        isSynthesizingRef.current = false;
+        
+        // If already playing, queue this audio
+        if (isPlayingRef.current) {
+          audioQueueRef.current.push(audioData);
+          // Trigger next synthesis immediately
+          if (currentMessageRef.current && currentMessageRef.current.content.length > lastSpokenLengthRef.current) {
+            speakNext();
+          }
+        } else {
+          // Start playback (non-blocking) and immediately trigger next synthesis
+          playAudio(audioData);
+          // Trigger next synthesis while this plays
+          if (currentMessageRef.current && currentMessageRef.current.content.length > lastSpokenLengthRef.current) {
+            speakNext();
+          }
+        }
+      } catch (error) {
+        console.error('[TTS] Synthesis error:', error);
+        isSynthesizingRef.current = false;
+        isPlayingRef.current = false;
+      }
+    };
+    
+    const playAudio = async (audioData: ArrayBuffer) => {
+      const provider = (localStorage.getItem('tts_provider') as TTSProvider) || 'cartesia';
+      isPlayingRef.current = true;
+      
+      try {
+        
+        if (provider === 'cartesia') {
+          if (!streamingAudioContextRef.current) {
+            streamingAudioContextRef.current = new AudioContext();
+          }
+          
+          const audioContext = streamingAudioContextRef.current;
+          const audioBuffer = audioContext.createBuffer(1, audioData.byteLength / 4, 44100);
+          const channelData = audioBuffer.getChannelData(0);
+          const dataView = new DataView(audioData);
+          
+          for (let i = 0; i < channelData.length; i++) {
+            channelData[i] = dataView.getFloat32(i * 4, true);
+          }
+          
+          const source = audioContext.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(audioContext.destination);
+          source.start(0);
+          
+          await new Promise<void>((resolve) => {
+            source.onended = resolve;
+          });
+        } else {
+          const blob = new Blob([audioData], { type: 'audio/mpeg' });
+          const audioUrl = URL.createObjectURL(blob);
+          const audio = new Audio(audioUrl);
+          
+          await new Promise<void>((resolve) => {
+            audio.onended = () => {
+              URL.revokeObjectURL(audioUrl);
+              resolve();
+            };
+            audio.play();
+          });
+        }
+      } catch (error) {
+        console.error('[TTS] Playback error:', error);
+      } finally {
+        isPlayingRef.current = false;
+        // Immediately check for queued audio or trigger next synthesis
+        speakNext();
+      }
+    };
+
+    // Kick off initial synthesis and set up continuous processing
+    speakNext();
+    
+    // Also trigger synthesis of next sentence when content changes
+    if (!isSynthesizingRef.current && !isPlayingRef.current && lastMessage.content.length > lastSpokenLengthRef.current) {
+      setTimeout(() => speakNext(), 0);
+    }
+  }, [messages, loading]);
+
+  const handleSend = async (messageText?: string) => {
+    // Use provided text or get from input state
+    const trimmed = (messageText || input).trim();
     if (!trimmed || !activeSessionId) return;
 
     // Build message with attachments as context
@@ -338,32 +499,6 @@ const ChatPanel: React.FC = () => {
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              {/* Status Indicator - Green=connected, Gray=disconnected, Red=error */}
-              <div className="relative" title={
-                health.chat === 'connected' ? 'ATLAS Chat Connected' :
-                health.chat === 'disconnected' ? 'ATLAS Chat Disconnected' :
-                'ATLAS Chat Error'
-              }>
-                <div 
-                  className={`w-2 h-2 rounded-full ${
-                    health.chat === 'connected' ? 'bg-green-500' :
-                    health.chat === 'disconnected' ? 'bg-gray-600' :
-                    'bg-red-500'
-                  }`}
-                  style={{
-                    boxShadow: health.chat === 'connected' 
-                      ? '0 0 6px rgba(34, 197, 94, 0.8)' 
-                      : health.chat === 'error'
-                      ? '0 0 6px rgba(239, 68, 68, 0.8)'
-                      : 'none',
-                    border: health.chat === 'connected'
-                      ? '1.5px solid rgba(34, 197, 94, 0.9)'
-                      : health.chat === 'error'
-                      ? '1.5px solid rgba(239, 68, 68, 0.9)'
-                      : '1.5px solid rgba(75, 85, 99, 0.6)'
-                  }}
-                ></div>
-              </div>
               {/* ATLAS Badge */}
               <span 
                 className="text-sm font-semibold"
@@ -594,6 +729,25 @@ const ChatPanel: React.FC = () => {
             rows={2}
           />
           <div className="flex gap-2">
+            {/* Voice controls */}
+            <VoiceToggleButton />
+            <VoiceInputButton
+              onTranscript={(text) => {
+                // Auto-send for natural conversation flow
+                if (activeSessionId && text.trim()) {
+                  // Briefly show the transcribed text
+                  setInput(text);
+                  // Auto-send after 200ms so user sees what was transcribed
+                  setTimeout(() => {
+                    handleSend(text);
+                  }, 200);
+                }
+              }}
+              onError={(error) => {
+                console.error('[ChatPanel] Voice input error:', error);
+              }}
+            />
+            
             <button
               type="button"
               onClick={handleSend}
@@ -626,5 +780,81 @@ const ChatPanel: React.FC = () => {
     </>
   );
 };
+
+// Compact Voice Toggle Button Component
+function VoiceToggleButton() {
+  const [voiceEnabled, setVoiceEnabled] = React.useState(false);
+  const [showTooltip, setShowTooltip] = React.useState(false);
+  
+  React.useEffect(() => {
+    const stored = localStorage.getItem('voice_enabled');
+    setVoiceEnabled(stored === 'true');
+    
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'voice_enabled') {
+        setVoiceEnabled(e.newValue === 'true');
+      }
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+  
+  const handleToggle = () => {
+    const newState = !voiceEnabled;
+    setVoiceEnabled(newState);
+    localStorage.setItem('voice_enabled', String(newState));
+  };
+  
+  return (
+    <div className="relative">
+      <button
+        onClick={handleToggle}
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        className="px-3 py-2.5 rounded-lg transition-all"
+        style={{
+          backgroundColor: voiceEnabled ? 'var(--atlas-accent-primary)' : 'var(--atlas-bg-subtle)',
+          borderWidth: '1px',
+          borderStyle: 'solid',
+          borderColor: voiceEnabled ? 'var(--atlas-accent-primary)' : 'var(--atlas-border)',
+        }}
+        title={voiceEnabled ? 'Voice enabled' : 'Voice disabled'}
+      >
+        <svg 
+          className="w-5 h-5" 
+          fill="currentColor" 
+          viewBox="0 0 20 20"
+          style={{ color: voiceEnabled ? 'white' : 'var(--atlas-text-muted)' }}
+        >
+          {voiceEnabled ? (
+            // Speaker icon (on)
+            <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
+          ) : (
+            // Speaker muted icon (off)
+            <>
+              <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217z" clipRule="evenodd" />
+              <path d="M14.5 6.5l3 3m0-3l-3 3" strokeWidth="2" strokeLinecap="round" />
+            </>
+          )}
+        </svg>
+      </button>
+      
+      {/* Tooltip */}
+      {showTooltip && (
+        <div 
+          className="absolute bottom-full right-0 mb-2 px-2 py-1 text-xs rounded whitespace-nowrap z-50"
+          style={{
+            backgroundColor: 'var(--atlas-bg-elevated)',
+            border: '1px solid var(--atlas-border)',
+            color: 'var(--atlas-text-primary)',
+          }}
+        >
+          {voiceEnabled ? 'Voice: ON' : 'Voice: OFF'}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default ChatPanel;

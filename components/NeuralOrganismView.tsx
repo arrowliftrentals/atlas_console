@@ -1286,6 +1286,7 @@ function OrganismScene({
   dragEnabled,
   nodePositionOverrides,
   onNodeDrag,
+  autoRotateSpeed = 0.3,
 }: {
   data: ArchitectureData | null;
   selectedNode: string | null;
@@ -1295,6 +1296,7 @@ function OrganismScene({
   dragEnabled: boolean;
   nodePositionOverrides: Map<string, THREE.Vector3>;
   onNodeDrag: (nodeId: string, position: THREE.Vector3) => void;
+  autoRotateSpeed?: number;
 }) {
   const [isDraggingNode, setIsDraggingNode] = useState(false);
   const globalPulse = useGlobalPulse();
@@ -1335,13 +1337,16 @@ function OrganismScene({
       const midPoint = new THREE.Vector3().lerpVectors(sourcePos, targetPos, 0.5);
       const distance = sourcePos.distanceTo(targetPos);
       
-      // Add organic curve offset
+      // Add organic curve offset - use deterministic hash for stable curves
       const perpendicular = new THREE.Vector3()
         .subVectors(targetPos, sourcePos)
         .cross(new THREE.Vector3(0, 1, 0))
         .normalize();
       
-      const curveOffset = perpendicular.multiplyScalar(distance * 0.15 * (Math.random() - 0.5 + 0.5));
+      // Deterministic offset based on edge IDs (stable across re-renders)
+      const edgeHash = hashString(edge.source + edge.target);
+      const hashNormalized = (edgeHash % 1000) / 1000; // 0-1 range
+      const curveOffset = perpendicular.multiplyScalar(distance * 0.15 * (hashNormalized - 0.5 + 0.5));
       midPoint.add(curveOffset);
       midPoint.y += distance * 0.1;
       
@@ -1445,11 +1450,17 @@ function OrganismScene({
         minDistance={65}
         maxDistance={500}
         autoRotate={!dragEnabled}
-        autoRotateSpeed={0.3}
+        autoRotateSpeed={autoRotateSpeed}
       />
     </>
   );
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EXPORTED FOR EMBEDDING
+// ═══════════════════════════════════════════════════════════════════════════
+
+export { OrganismScene, BIO_COLORS };
 
 // ═══════════════════════════════════════════════════════════════════════════
 // MAIN EXPORT

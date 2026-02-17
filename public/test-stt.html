@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>ElevenLabs STT Diagnostic</title>
+    <style>
+        body { 
+            font-family: monospace; 
+            padding: 20px; 
+            background: #1a1a1a; 
+            color: #0f0; 
+        }
+        button { 
+            padding: 10px 20px; 
+            font-size: 16px; 
+            margin: 10px 0;
+            cursor: pointer;
+        }
+        #log { 
+            white-space: pre-wrap; 
+            background: #000; 
+            padding: 10px; 
+            margin-top: 20px;
+            border: 1px solid #0f0;
+        }
+        .error { color: #f00; }
+        .success { color: #0f0; }
+        .warning { color: #ff0; }
+        .info { color: #0ff; }
+    </style>
+</head>
+<body>
+    <h1>ElevenLabs STT WebSocket Diagnostic</h1>
+    <button onclick="testSTT()">Test STT Connection</button>
+    <button onclick="clearLog()">Clear Log</button>
+    <div id="log"></div>
+
+    <script>
+        let ws = null;
+        let mediaRecorder = null;
+        let audioStream = null;
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `<span class="${type}">[${timestamp}] ${message}</span>\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${type.toUpperCase()}]`, message);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        async function testSTT() {
+            log('=== Starting ElevenLabs STT Diagnostic ===', 'info');
+            
+            // Test 1: Check API key
+            const apiKey = 'sk_82f62a975bfd39e72f7503c5a98c2b83380ed12d1caca7a1';
+            log('✓ API key configured: ' + apiKey.substring(0, 12) + '...', 'success');
+            
+            // Test 2: Check MediaRecorder support
+            log('\n--- Testing MediaRecorder Support ---', 'info');
+            const mimeTypes = [
+                'audio/webm;codecs=opus',
+                'audio/webm',
+                'audio/ogg;codecs=opus',
+                'audio/ogg',
+                'audio/mp4',
+            ];
+            
+            let supportedMime = null;
+            for (const mime of mimeTypes) {
+                const supported = MediaRecorder.isTypeSupported(mime);
+                log(`${mime}: ${supported ? '✓ SUPPORTED' : '✗ not supported'}`, supported ? 'success' : 'error');
+                if (supported && !supportedMime) {
+                    supportedMime = mime;
+                }
+            }
+            
+            if (!supportedMime) {
+                log('✗ No compatible MIME type found!', 'error');
+                return;
+            }
+            
+            log(`\nUsing MIME type: ${supportedMime}`, 'success');
+            
+            // Test 3: Get microphone access
+            log('\n--- Testing Microphone Access ---', 'info');
+            try {
+                audioStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        channelCount: 1,
+                        sampleRate: 16000,
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                    }
+                });
+                log('✓ Microphone access granted', 'success');
+                log(`Audio tracks: ${audioStream.getAudioTracks().length}`, 'info');
+            } catch (error) {
+                log('✗ Failed to access microphone: ' + error.message, 'error');
+                return;
+            }
+            
+            // Test 4: Create MediaRecorder
+            log('\n--- Creating MediaRecorder ---', 'info');
+            try {
+                const options = supportedMime ? { mimeType: supportedMime } : {};
+                mediaRecorder = new MediaRecorder(audioStream, options);
+                log('✓ MediaRecorder created', 'success');
+                log(`Actual MIME type: ${mediaRecorder.mimeType}`, 'info');
+                
+                // Check if MIME type is compatible with ElevenLabs
+                const actualMime = mediaRecorder.mimeType.toLowerCase();
+                if (actualMime.includes('mp4')) {
+                    log('⚠️ WARNING: MP4 format NOT supported by ElevenLabs!', 'warning');
+                } else if (actualMime.includes('ogg') && !actualMime.includes('webm')) {
+                    log('⚠️ WARNING: OGG format may not be supported by ElevenLabs!', 'warning');
+                } else if (actualMime.includes('webm')) {
+                    log('✓ WebM format is compatible with ElevenLabs', 'success');
+                }
+            } catch (error) {
+                log('✗ Failed to create MediaRecorder: ' + error.message, 'error');
+                cleanup();
+                return;
+            }
+            
+            // Test 5: Get single-use token
+            log('\n--- Getting Single-Use Token ---', 'info');
+            let token;
+            try {
+                const tokenResponse = await fetch('/api/stt/elevenlabs/token', { method: 'POST' });
+                if (!tokenResponse.ok) {
+                    throw new Error('Failed to get token: ' + tokenResponse.status);
+                }
+                const tokenData = await tokenResponse.json();
+                token = tokenData.token;
+                log('✓ Token received: ' + token.substring(0, 20) + '...', 'success');
+            } catch (error) {
+                log('✗ Failed to get token: ' + error.message, 'error');
+                return;
+            }
+            
+            // Test 6: Connect to ElevenLabs WebSocket
+            log('\n--- Connecting to ElevenLabs WebSocket ---', 'info');
+            const wsUrl = `wss://api.elevenlabs.io/v1/speech-to-text/realtime?token=${token}`;
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                log('✓ WebSocket connected!', 'success');
+                log('No auth/config needed - token handles everything', 'info');
+                
+                // Start recording
+                log('\n--- Starting MediaRecorder ---', 'info');
+                let chunkCount = 0;
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+                        chunkCount++;
+                        log(`Chunk ${chunkCount}: ${event.data.size} bytes (${event.data.type})`, 'info');
+                        event.data.arrayBuffer().then((buffer) => {
+                            if (ws.readyState === WebSocket.OPEN) {
+                                // Convert to base64 and send as input_audio_chunk
+                                const base64Audio = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+                                const message = {
+                                    message_type: 'input_audio_chunk',
+                                    audio_base_64: base64Audio,
+                                    sample_rate: 16000,
+                                };
+                                ws.send(JSON.stringify(message));
+                                log(`✓ Sent audio chunk ${chunkCount} to ElevenLabs`, 'success');
+                            }
+                        });
+                    }
+                };
+                
+                mediaRecorder.onstart = () => {
+                    log('✓ MediaRecorder started', 'success');
+                };
+                
+                mediaRecorder.onerror = (event) => {
+                    log('✗ MediaRecorder error: ' + JSON.stringify(event), 'error');
+                };
+                
+                mediaRecorder.start(250);
+                log('Recording for 5 seconds...', 'info');
+                
+                setTimeout(() => {
+                    log('\n--- Stopping test ---', 'info');
+                    cleanup();
+                    log('\n=== Test Complete ===', 'success');
+                }, 5000);
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    log('Received: ' + JSON.stringify(data), 'success');
+                    
+                    if (data.message_type === 'session_started') {
+                        log('SESSION STARTED: ' + data.session_id, 'success');
+                    } else if (data.message_type === 'partial_transcript') {
+                        log('PARTIAL: "' + data.text + '"', 'info');
+                    } else if (data.message_type === 'committed_transcript') {
+                        log('COMMITTED: "' + data.text + '"', 'success');
+                    } else if (data.message_type === 'auth_error') {
+                        log('AUTH ERROR: ' + data.error, 'error');
+                    }
+                } catch (err) {
+                    log('Received non-JSON: ' + event.data, 'info');
+                }
+            };
+            
+            ws.onerror = (error) => {
+                log('✗ WebSocket error: ' + error, 'error');
+            };
+            
+            ws.onclose = (event) => {
+                log(`WebSocket closed - Code: ${event.code}, Reason: "${event.reason}", Clean: ${event.wasClean}`, 
+                    event.wasClean ? 'info' : 'error');
+                
+                if (event.code === 1000 && !event.reason) {
+                    log('⚠️ Connection closed immediately - likely due to incompatible audio format!', 'warning');
+                }
+                
+                cleanup();
+            };
+        }
+
+        function cleanup() {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+            if (audioStream) {
+                audioStream.getTracks().forEach(track => track.stop());
+            }
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close();
+            }
+        }
+    </script>
+</body>
+</html>

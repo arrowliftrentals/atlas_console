@@ -42,5 +42,10 @@
   "atlasLearning/patterns/route.ts",
   "atlasChat/voice-approved/route.ts",
   "fix/cancel/[job_id]/route.ts",
-  "tts/route.ts"
+  "tts/route.ts",
+  "tts/bettany/route.ts",
+  "tts/cartesia/route.ts",
+  "tts/elevenlabs/route.ts",
+  "tts/openai/route.ts",
+  "stt/elevenlabs/route.ts"
 ]

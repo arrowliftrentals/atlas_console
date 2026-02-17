@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { writeFile, appendFile, mkdir } from 'fs/promises';
+import { writeFile, appendFile, mkdir, readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 
@@ -44,8 +44,7 @@ export async function GET() {
       });
     }
     
-    const fs = require('fs');
-    const logs = fs.readFileSync(LOG_FILE, 'utf-8');
+    const logs = await readFile(LOG_FILE, 'utf-8');
     
     // Get last 100 lines
     const lines = logs.split('\n').slice(-100).join('\n');

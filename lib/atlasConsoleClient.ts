@@ -148,12 +148,13 @@ export async function fetchActivityLogs(
     }
 
     const data = await res.json();
-    // Validate response is an array
-    if (!Array.isArray(data)) {
+    // API returns { logs: [...], count: N } - extract the logs array
+    const logs = data.logs || data;
+    if (!Array.isArray(logs)) {
       console.warn('[ConsoleClient] Invalid logs response (not an array):', data);
       return [];
     }
-    return data;
+    return logs;
   } catch (err) {
     console.warn('[ConsoleClient] Error fetching activity logs:', err);
     return []; // Return empty array on error
@@ -242,7 +243,7 @@ export async function atlasChatStream(
                 console.debug('[SSE] Info:', data.message);
                 break;
               
-              case 'answer_chunk':
+              case 'chunk':  // Backend sends 'chunk', not 'answer_chunk'
                 console.log('[SSE] Answer chunk received:', data.content.length, 'chars');
                 // Add 40% delay for slower typing effect (simulate 140% of original time)
                 await new Promise(resolve => setTimeout(resolve, data.content.length * 2));

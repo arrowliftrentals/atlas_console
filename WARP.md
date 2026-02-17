@@ -230,3 +230,35 @@ Events are JSON objects with `event_type` discriminator.
 ## File Backup Strategy
 
 When revising any script or component, back up the original file to the `backup/` folder before making changes. Keep all revisions for the same project in the same folder.
+
+## Utilities
+
+### ASCII Diagram Generator (`scripts/diagram_generator.py`)
+Generates properly aligned box diagrams using Unicode box-drawing characters that render correctly in Warp terminal.
+
+**Usage:**
+```bash
+# Run demo to see examples
+python3 scripts/diagram_generator.py
+
+# Or import in Python
+from scripts.diagram_generator import box, row_of_boxes, print_diagram
+```
+
+**Key Functions:**
+- `box("text")` - Single box with text
+- `box(["line1", "line2"])` - Multi-line box
+- `row_of_boxes(["a", "b", "c"])` - Horizontal row of equal-width boxes
+- `connector_down(width)` - Vertical line with arrow (│ → ▼)
+- `merge_lines(width, positions)` - Merge multiple sources to center
+- `split_lines(width, positions)` - Split from center to multiple targets
+- `print_diagram(lines)` - Output to terminal
+
+**Example Output:**
+```
+┌─────────┐  ┌─────────┐  ┌─────────┐
+│ pytest  │  │ CI/CD   │  │ Voice   │
+└─────────┘  └─────────┘  └─────────┘
+```
+
+**Important:** Always generate diagrams in the terminal first to verify alignment before copying to documentation or plans.

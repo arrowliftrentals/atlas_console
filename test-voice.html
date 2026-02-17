@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Voice Test</title>
+</head>
+<body>
+    <h1>Voice Diagnostic Test</h1>
+    <button onclick="testTTS()">Test TTS</button>
+    <button onclick="testSTT()">Test STT</button>
+    <div id="status"></div>
+    <div id="logs" style="margin-top:20px; font-family:monospace; white-space:pre-wrap;"></div>
+
+    <script>
+        const log = (msg) => {
+            const logs = document.getElementById('logs');
+            logs.textContent += `[${new Date().toISOString()}] ${msg}\n`;
+            console.log(msg);
+        };
+
+        async function testTTS() {
+            log('Testing TTS...');
+            try {
+                // Test API call
+                const response = await fetch('http://localhost:3000/api/tts/cartesia', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: 'Hello world test' }),
+                });
+                
+                log(`API Response: ${response.status}`);
+                const audioData = await response.arrayBuffer();
+                log(`Received ${audioData.byteLength} bytes`);
+                
+                // Try to play with Web Audio API
+                const audioContext = new AudioContext();
+                log(`AudioContext state: ${audioContext.state}`);
+                
+                if (audioContext.state === 'suspended') {
+                    await audioContext.resume();
+                    log('AudioContext resumed');
+                }
+                
+                const numSamples = audioData.byteLength / 4;
+                log(`Creating buffer with ${numSamples} samples`);
+                
+                const audioBuffer = audioContext.createBuffer(1, numSamples, 44100);
+                const channelData = audioBuffer.getChannelData(0);
+                const dataView = new DataView(audioData);
+                
+                for (let i = 0; i < channelData.length; i++) {
+                    channelData[i] = dataView.getFloat32(i * 4, true);
+                }
+                
+                log('PCM decoded, playing...');
+                const source = audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioContext.destination);
+                source.start(0);
+                log('✓ TTS playback started!');
+                
+            } catch (error) {
+                log(`✗ TTS ERROR: ${error.message}`);
+                log(`Stack: ${error.stack}`);
+            }
+        }
+
+        async function testSTT() {
+            log('Testing STT...');
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                log('✓ Microphone access granted');
+                
+                const mimeTypes = [
+                    'audio/webm;codecs=opus',
+                    'audio/webm',
+                    'audio/mp4',
+                    ''
+                ];
+                
+                let selectedType = '';
+                for (const type of mimeTypes) {
+                    if (type === '' || MediaRecorder.isTypeSupported(type)) {
+                        selectedType = type;
+                        log(`✓ Using MIME type: ${type || 'default'}`);
+                        break;
+                    }
+                }
+                
+                const options = selectedType ? { mimeType: selectedType } : {};
+                const recorder = new MediaRecorder(stream, options);
+                log('✓ MediaRecorder created');
+                
+                // Test WebSocket
+                const apiKey = 'sk_82f62a975bfd39e72f7503c5a98c2b83380ed12d1caca7a1';
+                const ws = new WebSocket(`wss://api.elevenlabs.io/v1/speech-to-text/realtime?xi-api-key=${apiKey}`);
+                
+                ws.onopen = () => {
+                    log('✓ WebSocket connected');
+                    ws.send(JSON.stringify({
+                        type: 'config',
+                        language: 'en',
+                        model: 'scribe_v2_realtime',
+                        enable_vad: true
+                    }));
+                    log('✓ Config sent, starting recording...');
+                    recorder.start(100);
+                };
+                
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'transcript') {
+                        log(`Transcript: "${data.text}" (final: ${data.is_final})`);
+                    }
+                };
+                
+                ws.onerror = (error) => {
+                    log(`✗ WebSocket error: ${error}`);
+                };
+                
+                recorder.ondataavailable = (event) => {
+                    if (event.data.size > 0 && ws.readyState === WebSocket.OPEN) {
+                        event.data.arrayBuffer().then(buffer => ws.send(buffer));
+                    }
+                };
+                
+                log('✓ STT test running - speak now!');
+                setTimeout(() => {
+                    recorder.stop();
+                    ws.close();
+                    stream.getTracks().forEach(t => t.stop());
+                    log('STT test stopped');
+                }, 10000);
+                
+            } catch (error) {
+                log(`✗ STT ERROR: ${error.message}`);
+                log(`Stack: ${error.stack}`);
+            }
+        }
+    </script>
+</body>
+</html>

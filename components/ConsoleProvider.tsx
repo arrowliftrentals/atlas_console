@@ -92,7 +92,20 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
     try {
       const data = await fetchConsoleSessions();
       console.log('[ConsoleProvider] Fetched sessions:', data.sessions.length, data.sessions.map(s => s.session_id));
-      setSessions(data.sessions);
+      
+      // Deduplicate sessions by session_id to prevent React key warnings
+      const uniqueSessions = data.sessions.reduce((acc, session) => {
+        if (!acc.find(s => s.session_id === session.session_id)) {
+          acc.push(session);
+        }
+        return acc;
+      }, [] as ConsoleSession[]);
+      
+      if (uniqueSessions.length < data.sessions.length) {
+        console.warn(`[ConsoleProvider] Removed ${data.sessions.length - uniqueSessions.length} duplicate sessions`);
+      }
+      
+      setSessions(uniqueSessions);
       
       // Use ref to get current activeSessionId without adding it to dependencies
       const currentActiveId = activeSessionIdRef.current;

@@ -1,16 +1,20 @@
-/**
- * DEPRECATED: Use /api/tts/openai instead
- * This route is kept for backward compatibility
- */
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(request: NextRequest) {
   try {
+    // Check if API key is configured
+    if (!process.env.OPENAI_API_KEY) {
+      return NextResponse.json(
+        { error: "OpenAI API key not configured. Add OPENAI_API_KEY to console/.env.local or use the Bettany (local) TTS provider instead." },
+        { status: 503 }
+      );
+    }
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
     const body = await request.json();
     const { text, voice = "onyx", speed = 1.0 } = body;
 
@@ -58,7 +62,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error("[TTS API] Error:", error);
+    console.error("[OpenAI TTS] Error:", error);
     return NextResponse.json(
       { error: error.message || "TTS synthesis failed" },
       { status: 500 }

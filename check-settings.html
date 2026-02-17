@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Settings Check</title>
+</head>
+<body>
+    <h1>Console Settings Check</h1>
+    <button onclick="check()">Check Settings</button>
+    <button onclick="enable()">Enable All Voice Features</button>
+    <pre id="output"></pre>
+
+    <script>
+        function check() {
+            const output = document.getElementById('output');
+            output.textContent = 'LocalStorage Settings:\n\n';
+            output.textContent += `voice_enabled: ${localStorage.getItem('voice_enabled')}\n`;
+            output.textContent += `tts_provider: ${localStorage.getItem('tts_provider')}\n`;
+            output.textContent += `elevenlabs_api_key: ${localStorage.getItem('elevenlabs_api_key') ? 'SET' : 'NOT SET'}\n`;
+            output.textContent += `cartesia_api_key: ${localStorage.getItem('cartesia_api_key') ? 'SET' : 'NOT SET'}\n`;
+        }
+
+        function enable() {
+            localStorage.setItem('voice_enabled', 'true');
+            localStorage.setItem('tts_provider', 'cartesia');
+            alert('Voice features enabled! Reload the console page.');
+            check();
+        }
+    </script>
+</body>
+</html>

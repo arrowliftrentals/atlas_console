@@ -794,7 +794,9 @@ export default function ArchitectureViewV2() {
           badge.style.height = `${greenCircleSize}px`;
           badge.style.borderRadius = '50%';
           badge.style.backgroundColor = badgeColor;
-          badge.style.border = `${1.5 * zoom}px solid ${borderColor}`;
+          badge.style.borderWidth = `${1.5 * zoom}px`;
+          badge.style.borderStyle = 'solid';
+          badge.style.borderColor = borderColor;
           badge.style.transform = 'translate(-50%, -50%)';
           
           // Build box shadow with inner and outer glow

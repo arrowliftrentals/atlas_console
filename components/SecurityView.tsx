@@ -1,199 +1,545 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { fetchLogs } from "@/lib/atlasClient";
 import TabHeader from "./TabHeader";
 import { useHealth } from "@/contexts/HealthContext";
 
-interface SecurityEvent {
-    timestamp: string;
-    severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
-    category: string;
-    event: string;
-    description: string;
+interface SecurityFinding {
+  id: string;
+  category: string;
+  severity: "critical" | "high" | "medium" | "low" | "info";
+  title: string;
+  description: string;
+  location?: string;
+  recommendation: string;
+  cwe_id?: string;
+  owasp_category?: string;
+  detected_at: string;
+  is_remediated: boolean;
+}
+
+interface ComplianceCheck {
+  standard: string;
+  requirement: string;
+  status: "compliant" | "non_compliant" | "partial" | "not_applicable";
+  details: string;
+  priority: string;
+}
+
+interface SecurityScanResult {
+  scan_id: string;
+  scan_time: string;
+  scan_duration_seconds: number;
+  total_findings: number;
+  findings_by_severity: Record<string, number>;
+  findings_by_category: Record<string, number>;
+  findings: SecurityFinding[];
+  compliance_status: {
+    checks: Record<string, ComplianceCheck[]>;
+    summary: {
+      total_checks: number;
+      compliant: number;
+      partial: number;
+      non_compliant: number;
+    };
+  };
+  overall_score: number;
+  next_scan_recommended: string;
 }
 
 const SecurityView: React.FC = () => {
-    const { health } = useHealth();
-    const [events, setEvents] = useState<SecurityEvent[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+  const { health } = useHealth();
+  const [scanResult, setScanResult] = useState<SecurityScanResult | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [scanning, setScanning] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"findings" | "compliance">("findings");
+  const [severityFilter, setSeverityFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [expandedFinding, setExpandedFinding] = useState<string | null>(null);
 
-    const parseLogEntry = (log: { id: string; timestamp: string; level: string; message: string }): SecurityEvent => {
-        const lowerMsg = log.message.toLowerCase();
-        const logLevel = log.level.toLowerCase();
-        
-        // Map log level to security severity
-        let severity: SecurityEvent['severity'] = 'info';
-        if (logLevel === 'error' || lowerMsg.includes('critical') || lowerMsg.includes('fatal') || lowerMsg.includes('breach')) {
-            severity = 'critical';
-        } else if (logLevel === 'error' || lowerMsg.includes('fail') || lowerMsg.includes('denied') || lowerMsg.includes('unauthorized')) {
-            severity = 'high';
-        } else if (logLevel === 'warn' || lowerMsg.includes('suspicious') || lowerMsg.includes('attempt')) {
-            severity = 'medium';
-        } else if (logLevel === 'debug') {
-            severity = 'low';
+  const fetchSecurityScan = async (forceRefresh = false) => {
+    if (forceRefresh) setScanning(true);
+    else setLoading(true);
+    setError(null);
+
+    try {
+      const res = await fetch(
+        `http://localhost:8000/v1/security/scan?force_refresh=${forceRefresh}`
+      );
+      if (!res.ok) throw new Error("Failed to fetch security scan");
+
+      const data = await res.json();
+
+      if (data.status === "scan_in_progress") {
+        // Poll for completion
+        setTimeout(() => fetchSecurityScan(false), 2000);
+        return;
+      }
+
+      setScanResult(data.result);
+    } catch (e) {
+      console.error("Security scan error:", e);
+      setError(e instanceof Error ? e.message : "Failed to load security data");
+    } finally {
+      setLoading(false);
+      setScanning(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSecurityScan();
+    // Auto-refresh every 5 minutes
+    const interval = setInterval(() => fetchSecurityScan(false), 300000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const getSeverityColor = (severity: string) => {
+    switch (severity) {
+      case "critical":
+        return "text-red-400";
+      case "high":
+        return "text-orange-400";
+      case "medium":
+        return "text-yellow-400";
+      case "low":
+        return "text-blue-400";
+      default:
+        return "text-gray-400";
+    }
+  };
+
+  const getSeverityBg = (severity: string) => {
+    switch (severity) {
+      case "critical":
+        return "bg-red-500/20";
+      case "high":
+        return "bg-orange-500/20";
+      case "medium":
+        return "bg-yellow-500/20";
+      case "low":
+        return "bg-blue-500/20";
+      default:
+        return "bg-gray-500/20";
+    }
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return "text-green-400";
+    if (score >= 60) return "text-yellow-400";
+    if (score >= 40) return "text-orange-400";
+    return "text-red-400";
+  };
+
+  const getComplianceStatusColor = (status: string) => {
+    switch (status) {
+      case "compliant":
+        return "text-green-400 bg-green-500/20";
+      case "partial":
+        return "text-yellow-400 bg-yellow-500/20";
+      case "non_compliant":
+        return "text-red-400 bg-red-500/20";
+      default:
+        return "text-gray-400 bg-gray-500/20";
+    }
+  };
+
+  const categories = scanResult?.findings
+    ? [...new Set(scanResult.findings.map((f) => f.category))]
+    : [];
+
+  const filteredFindings =
+    scanResult?.findings?.filter((f) => {
+      if (severityFilter !== "all" && f.severity !== severityFilter) return false;
+      if (categoryFilter !== "all" && f.category !== categoryFilter) return false;
+      return true;
+    }) || [];
+
+  return (
+    <div className="h-full flex flex-col bg-[#1E1E1E]">
+      <TabHeader
+        title="Security Scanner"
+        subtitle={
+          scanResult
+            ? `${scanResult.total_findings} findings · Score: ${scanResult.overall_score}/100`
+            : "Scanning..."
         }
-        
-        // Categorize the event
-        let category = 'System';
-        let event = 'Event';
-        
-        if (lowerMsg.includes('protected core')) {
-            category = 'Core Protection';
-        } else if (lowerMsg.includes('auth') || lowerMsg.includes('login') || lowerMsg.includes('access')) {
-            category = 'Authentication';
-        } else if (lowerMsg.includes('file') || lowerMsg.includes('write') || lowerMsg.includes('modify')) {
-            category = 'File System';
-        } else if (lowerMsg.includes('network') || lowerMsg.includes('connection')) {
-            category = 'Network';
-        } else if (lowerMsg.includes('api') || lowerMsg.includes('request')) {
-            category = 'API';
-        }
-        
-        // Extract meaningful event name
-        if (lowerMsg.includes('blocked')) event = 'Access Blocked';
-        else if (lowerMsg.includes('allowed')) event = 'Access Granted';
-        else if (lowerMsg.includes('denied')) event = 'Access Denied';
-        else if (lowerMsg.includes('validated')) event = 'Validation Success';
-        else if (lowerMsg.includes('failed')) event = 'Operation Failed';
-        else if (lowerMsg.includes('started')) event = 'Service Started';
-        else if (lowerMsg.includes('stopped')) event = 'Service Stopped';
-        
-        // Format timestamp for display
-        const timestamp = new Date(log.timestamp).toLocaleString();
-        
-        return {
-            timestamp,
-            severity,
-            category,
-            event,
-            description: log.message
-        };
-    };
+        statusConnected={health.backend === "connected"}
+        statusLabel={health.backend === "connected" ? "Connected" : "Disconnected"}
+      >
+        <button
+          className="px-3 py-2 bg-red-600 hover:bg-red-700 border border-red-500 rounded text-xs text-white font-medium transition-colors disabled:opacity-50"
+          onClick={() => fetchSecurityScan(true)}
+          disabled={scanning}
+        >
+          {scanning ? "Scanning..." : "Run Scan"}
+        </button>
+      </TabHeader>
 
-    const fetchSecurityEvents = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-            // Fetch logs from ATLAS and filter for security-related entries
-            const logs = await fetchLogs();
-            
-            // Filter for security-relevant logs (Protected Core, auth, access, etc.)
-            const securityLogs = logs.filter(log => {
-                const msg = log.message.toLowerCase();
-                return (
-                    msg.includes('protected core') ||
-                    msg.includes('security') ||
-                    msg.includes('auth') ||
-                    msg.includes('access') ||
-                    msg.includes('denied') ||
-                    msg.includes('unauthorized') ||
-                    msg.includes('blocked') ||
-                    msg.includes('breach') ||
-                    msg.includes('violation')
-                );
-            });
-            
-            // Convert log entries to security events
-            const events = securityLogs.map(log => parseLogEntry(log));
-            setEvents(events);
-        } catch (e: any) {
-            console.error("ATLAS SecurityView error:", e);
-            setError("Failed to load security events from ATLAS Core.");
-        } finally {
-            setLoading(false);
-        }
-    };
+      <div className="flex-1 overflow-hidden flex flex-col">
+        {error && (
+          <div className="text-red-400 text-sm m-4 p-3 bg-red-500/10 rounded border border-red-500/20">
+            {error}
+          </div>
+        )}
 
-    useEffect(() => {
-        fetchSecurityEvents();
-    }, []);
-
-    return (
-        <div className="h-full flex flex-col bg-[#1E1E1E]">
-            <TabHeader
-                title="Security Monitor"
-                subtitle={`${events.length} security events`}
-                statusConnected={health.backend === 'connected'}
-                statusLabel={health.backend === 'connected' ? 'Connected' : 'Disconnected'}
-            >
-                <button
-                    className="px-3 py-2 bg-[#1E1E1E] hover:bg-gray-700 border border-gray-700 rounded text-xs text-gray-300 transition-colors"
-                    onClick={fetchSecurityEvents}
-                    disabled={loading}
-                >
-                    {loading ? "Refreshing..." : "Refresh"}
-                </button>
-            </TabHeader>
-            
-            <div className="flex-1 overflow-auto px-4 py-3 text-sm text-gray-200">
-
-            {error && (
-                <div className="text-red-400 text-xs mb-2 whitespace-pre-wrap">
-                    {error}
-                </div>
-            )}
-
-            {!error && !loading && events.length === 0 && (
-                <p className="text-xs text-gray-400">
-                    No security-related events found yet.
-                </p>
-            )}
-
-            {!error && events.length > 0 && (
-                <div className="mt-2 flex-1 border border-gray-700 rounded bg-[#1e1e1e] overflow-auto">
-                    <table className="w-full text-xs">
-                        <thead className="bg-gray-800 sticky top-0">
-                            <tr className="border-b border-gray-700">
-                                <th className="px-3 py-2 text-left font-semibold text-gray-300 w-12">#</th>
-                                <th className="px-3 py-2 text-left font-semibold text-gray-300 w-36">Time</th>
-                                <th className="px-3 py-2 text-left font-semibold text-gray-300 w-20">Severity</th>
-                                <th className="px-3 py-2 text-left font-semibold text-gray-300 w-32">Category</th>
-                                <th className="px-3 py-2 text-left font-semibold text-gray-300 w-32">Event</th>
-                                <th className="px-3 py-2 text-left font-semibold text-gray-300">Description</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {events.map((event, idx) => {
-                                const severityStyles = {
-                                    critical: 'bg-red-600 text-white',
-                                    high: 'bg-orange-600 text-white',
-                                    medium: 'bg-yellow-600 text-black',
-                                    low: 'bg-blue-600 text-white',
-                                    info: 'bg-gray-600 text-white'
-                                };
-                                
-                                const rowStyles = {
-                                    critical: 'bg-red-900/10 hover:bg-red-900/20 border-l-2 border-l-red-600',
-                                    high: 'bg-orange-900/10 hover:bg-orange-900/20 border-l-2 border-l-orange-600',
-                                    medium: 'bg-yellow-900/10 hover:bg-yellow-900/20 border-l-2 border-l-yellow-600',
-                                    low: 'hover:bg-gray-900/30',
-                                    info: 'hover:bg-gray-900/30'
-                                };
-                                
-                                return (
-                                    <tr key={idx} className={`border-b border-gray-800 ${rowStyles[event.severity]}`}>
-                                        <td className="px-3 py-2 text-gray-500">{idx + 1}</td>
-                                        <td className="px-3 py-2 text-gray-400 font-mono text-[10px]">{event.timestamp}</td>
-                                        <td className="px-3 py-2">
-                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${severityStyles[event.severity]}`}>
-                                                {event.severity}
-                                            </span>
-                                        </td>
-                                        <td className="px-3 py-2 text-purple-300 font-medium">{event.category}</td>
-                                        <td className="px-3 py-2 text-blue-300 font-medium">{event.event}</td>
-                                        <td className="px-3 py-2 text-gray-300">{event.description}</td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+        {loading && !scanResult ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-red-500/30 border-t-red-500 rounded-full animate-spin mx-auto mb-4" />
+              <div className="text-gray-400">Running security scan...</div>
+              <div className="text-gray-500 text-sm mt-2">
+                Analyzing code, configurations, and compliance
+              </div>
             </div>
-        </div>
-    );
+          </div>
+        ) : scanResult ? (
+          <>
+            {/* Score Overview */}
+            <div className="px-4 py-4 bg-[#252526] border-b border-gray-700">
+              <div className="grid grid-cols-6 gap-4">
+                {/* Overall Score */}
+                <div className="col-span-2 p-4 bg-[#1E1E1E] rounded-lg border border-gray-700">
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">
+                    Security Score
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <span
+                      className={`text-4xl font-bold tabular-nums ${getScoreColor(
+                        scanResult.overall_score
+                      )}`}
+                    >
+                      {scanResult.overall_score}
+                    </span>
+                    <span className="text-gray-500 text-lg mb-1">/100</span>
+                  </div>
+                  <div className="mt-2 h-2 bg-gray-700 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${
+                        scanResult.overall_score >= 80
+                          ? "bg-green-500"
+                          : scanResult.overall_score >= 60
+                          ? "bg-yellow-500"
+                          : scanResult.overall_score >= 40
+                          ? "bg-orange-500"
+                          : "bg-red-500"
+                      }`}
+                      style={{ width: `${scanResult.overall_score}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Severity Breakdown */}
+                <div className="col-span-2 p-4 bg-[#1E1E1E] rounded-lg border border-gray-700">
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">
+                    Findings by Severity
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-red-400 tabular-nums">
+                        {scanResult.findings_by_severity.critical || 0}
+                      </div>
+                      <div className="text-[9px] text-gray-500">Critical</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-orange-400 tabular-nums">
+                        {scanResult.findings_by_severity.high || 0}
+                      </div>
+                      <div className="text-[9px] text-gray-500">High</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-yellow-400 tabular-nums">
+                        {scanResult.findings_by_severity.medium || 0}
+                      </div>
+                      <div className="text-[9px] text-gray-500">Medium</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-blue-400 tabular-nums">
+                        {scanResult.findings_by_severity.low || 0}
+                      </div>
+                      <div className="text-[9px] text-gray-500">Low</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Compliance Summary */}
+                <div className="col-span-2 p-4 bg-[#1E1E1E] rounded-lg border border-gray-700">
+                  <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">
+                    Compliance Status
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-400 tabular-nums">
+                        {scanResult.compliance_status.summary.compliant}
+                      </div>
+                      <div className="text-[9px] text-gray-500">Compliant</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-yellow-400 tabular-nums">
+                        {scanResult.compliance_status.summary.partial}
+                      </div>
+                      <div className="text-[9px] text-gray-500">Partial</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-red-400 tabular-nums">
+                        {scanResult.compliance_status.summary.non_compliant}
+                      </div>
+                      <div className="text-[9px] text-gray-500">Non-Compliant</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="px-4 py-2 bg-[#252526] border-b border-gray-700 flex items-center gap-4">
+              <button
+                onClick={() => setActiveTab("findings")}
+                className={`text-sm px-3 py-1.5 rounded transition-colors ${
+                  activeTab === "findings"
+                    ? "bg-red-500 text-white"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Vulnerabilities ({scanResult.total_findings})
+              </button>
+              <button
+                onClick={() => setActiveTab("compliance")}
+                className={`text-sm px-3 py-1.5 rounded transition-colors ${
+                  activeTab === "compliance"
+                    ? "bg-red-500 text-white"
+                    : "text-gray-400 hover:text-white"
+                }`}
+              >
+                Compliance ({scanResult.compliance_status.summary.total_checks})
+              </button>
+
+              {activeTab === "findings" && (
+                <>
+                  <div className="w-px h-6 bg-gray-600" />
+                  <select
+                    value={severityFilter}
+                    onChange={(e) => setSeverityFilter(e.target.value)}
+                    className="text-xs bg-[#1E1E1E] border border-gray-600 rounded px-2 py-1 text-gray-300"
+                  >
+                    <option value="all">All Severities</option>
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                  </select>
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="text-xs bg-[#1E1E1E] border border-gray-600 rounded px-2 py-1 text-gray-300"
+                  >
+                    <option value="all">All Categories</option>
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat.charAt(0).toUpperCase() + cat.slice(1).replace(/_/g, " ")}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-auto p-4">
+              {activeTab === "findings" ? (
+                <div className="space-y-3">
+                  {filteredFindings.length === 0 ? (
+                    <div className="text-center text-gray-400 py-8">
+                      {scanResult.total_findings === 0
+                        ? "No security vulnerabilities detected! 🎉"
+                        : "No findings match the current filters."}
+                    </div>
+                  ) : (
+                    filteredFindings.map((finding) => {
+                      const isExpanded = expandedFinding === finding.id;
+                      return (
+                        <div
+                          key={finding.id}
+                          className={`rounded-lg border transition-all ${
+                            isExpanded
+                              ? "border-red-500/50 bg-red-500/5"
+                              : "border-gray-700 bg-[#252526] hover:border-gray-600"
+                          }`}
+                        >
+                          <button
+                            className="w-full p-4 text-left"
+                            onClick={() =>
+                              setExpandedFinding(isExpanded ? null : finding.id)
+                            }
+                          >
+                            <div className="flex items-start gap-3">
+                              {/* Severity Badge */}
+                              <div
+                                className={`px-2 py-1 rounded text-[10px] uppercase font-bold ${getSeverityBg(
+                                  finding.severity
+                                )} ${getSeverityColor(finding.severity)}`}
+                              >
+                                {finding.severity}
+                              </div>
+
+                              {/* Content */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-white font-medium">
+                                    {finding.title}
+                                  </span>
+                                  <span className="px-2 py-0.5 rounded bg-gray-700 text-gray-400 text-[10px]">
+                                    {finding.category.replace(/_/g, " ")}
+                                  </span>
+                                  {finding.cwe_id && (
+                                    <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px]">
+                                      {finding.cwe_id}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-sm text-gray-400 line-clamp-1">
+                                  {finding.description}
+                                </div>
+                                {finding.location && (
+                                  <div className="text-xs text-gray-500 mt-1 font-mono">
+                                    📍 {finding.location}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Expand Icon */}
+                              <svg
+                                className={`w-4 h-4 text-gray-400 transition-transform ${
+                                  isExpanded ? "rotate-180" : ""
+                                }`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 9l-7 7-7-7"
+                                />
+                              </svg>
+                            </div>
+                          </button>
+
+                          {/* Expanded Details */}
+                          {isExpanded && (
+                            <div className="px-4 pb-4 border-t border-gray-700/50 pt-4">
+                              <div className="grid grid-cols-2 gap-6">
+                                <div>
+                                  <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">
+                                    Description
+                                  </div>
+                                  <div className="text-sm text-gray-300">
+                                    {finding.description}
+                                  </div>
+
+                                  {finding.owasp_category && (
+                                    <div className="mt-4">
+                                      <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">
+                                        OWASP Category
+                                      </div>
+                                      <div className="text-sm text-orange-400">
+                                        {finding.owasp_category}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                                <div>
+                                  <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">
+                                    Recommendation
+                                  </div>
+                                  <div className="text-sm text-green-400">
+                                    {finding.recommendation}
+                                  </div>
+
+                                  {finding.cwe_id && (
+                                    <div className="mt-4">
+                                      <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-2">
+                                        Reference
+                                      </div>
+                                      <a
+                                        href={`https://cwe.mitre.org/data/definitions/${finding.cwe_id.replace(
+                                          "CWE-",
+                                          ""
+                                        )}.html`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-blue-400 hover:underline"
+                                      >
+                                        {finding.cwe_id} →
+                                      </a>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {Object.entries(scanResult.compliance_status.checks).map(
+                    ([standard, checks]) => (
+                      <div key={standard}>
+                        <div className="text-sm font-medium text-white mb-3">
+                          {standard.replace(/_/g, " ")}
+                        </div>
+                        <div className="space-y-2">
+                          {checks.map((check, idx) => (
+                            <div
+                              key={idx}
+                              className="p-3 bg-[#252526] rounded-lg border border-gray-700"
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="text-sm text-white">
+                                  {check.requirement}
+                                </span>
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] uppercase font-medium ${getComplianceStatusColor(
+                                    check.status
+                                  )}`}
+                                >
+                                  {check.status.replace(/_/g, " ")}
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-400">
+                                {check.details}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="px-4 py-2 border-t border-gray-700 flex items-center justify-between text-xs text-gray-500">
+              <span>
+                Last scan:{" "}
+                {new Date(scanResult.scan_time).toLocaleString()} (
+                {scanResult.scan_duration_seconds.toFixed(1)}s)
+              </span>
+              <span>
+                Next recommended:{" "}
+                {new Date(scanResult.next_scan_recommended).toLocaleString()}
+              </span>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
 };
 
 export default SecurityView;

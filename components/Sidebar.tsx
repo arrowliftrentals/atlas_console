@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import SessionSelector from "./SessionSelector";
 import ConsoleFileExplorer from "./ConsoleFileExplorer";
 import { useConsole } from "./ConsoleProvider";
@@ -94,23 +95,32 @@ const Sidebar: React.FC = () => {
         {!isCollapsed ? (
           <>
             {/* Header with collapse button */}
-            <div className="px-3 py-2 border-b flex items-center justify-between" style={{ backgroundColor: 'var(--atlas-bg-elevated)', borderColor: 'var(--atlas-border)' }}>
+            <div className="px-3 py-2 flex items-center justify-between" style={{ backgroundColor: 'var(--atlas-bg-elevated)', borderBottom: '1px solid var(--atlas-border)' }}>
               <span className="text-xs text-gray-300 font-medium">Explorer</span>
-              <button
-                onClick={toggleCollapse}
-                className="text-gray-400 hover:text-gray-200 text-xs"
-                title="Collapse sidebar"
-              >
-                ◀
-              </button>
+              <div className="flex items-center gap-2">
+                <Link
+                  href="/settings"
+                  className="text-gray-400 hover:text-gray-200 text-xs"
+                  title="Settings"
+                >
+                  ⚙
+                </Link>
+                <button
+                  onClick={toggleCollapse}
+                  className="text-gray-400 hover:text-gray-200 text-xs"
+                  title="Collapse sidebar"
+                >
+                  ◀
+                </button>
+              </div>
             </div>
             
             <SessionSelector />
 
             <div 
-              className="px-3 py-2 border-b font-semibold" 
+              className="px-3 py-2 font-semibold" 
               style={{ 
-                borderColor: 'var(--atlas-border)',
+                borderBottom: '1px solid var(--atlas-border)',
                 borderLeft: '3px solid var(--atlas-accent-tertiary)',
                 paddingLeft: '0.75rem',
                 color: 'var(--atlas-text-accent)'
@@ -127,7 +137,7 @@ const Sidebar: React.FC = () => {
           </>
         ) : (
           <div className="flex flex-col h-full">
-            <div className="px-3 py-2 border-b flex items-center justify-center" style={{ backgroundColor: 'var(--atlas-bg-elevated)', borderColor: 'var(--atlas-border)' }}>
+            <div className="px-3 py-2 flex items-center justify-center" style={{ backgroundColor: 'var(--atlas-bg-elevated)', borderBottom: '1px solid var(--atlas-border)' }}>
               <button
                 onClick={toggleCollapse}
                 className="text-gray-400 hover:text-gray-200 text-xs"
