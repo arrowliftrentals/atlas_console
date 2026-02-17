@@ -47,5 +47,7 @@
   "tts/cartesia/route.ts",
   "tts/elevenlabs/route.ts",
   "tts/openai/route.ts",
-  "stt/elevenlabs/route.ts"
+  "stt/elevenlabs/route.ts",
+  "stt/elevenlabs/convert/route.ts",
+  "stt/elevenlabs/token/route.ts"
 ]

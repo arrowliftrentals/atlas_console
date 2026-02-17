@@ -317,7 +317,7 @@ const ChatPanel: React.FC = () => {
   const handleSend = async (messageText?: string) => {
     // Use provided text or get from input state
     const trimmed = (messageText || input).trim();
-    if (!trimmed || !activeSessionId) return;
+    if (!trimmed || !activeSessionId || loading) return; // Prevent duplicate sends while loading
 
     // Build message with attachments as context
     let messageContent = trimmed;
