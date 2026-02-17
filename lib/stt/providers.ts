@@ -29,6 +29,7 @@ export interface STTProviderInterface {
   ): Promise<void>;
   stopListening(): void;
   isListening(): boolean;
+  getAudioStream(): MediaStream | null;
 }
 
 /**
@@ -63,14 +64,21 @@ export class ElevenLabsSTTProvider implements STTProviderInterface {
     }
     
     try {
-      // Get microphone access
+      // Get microphone access with aggressive echo cancellation
       this.audioStream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           channelCount: 1,
           sampleRate: 16000,
-          echoCancellation: true,
-          noiseSuppression: true,
+          echoCancellation: { ideal: true },
+          autoGainControl: { ideal: true },
+          noiseSuppression: { ideal: true },
         } 
+      });
+      
+      console.log('[STT] Microphone settings:', {
+        echoCancellation: this.audioStream.getAudioTracks()[0].getSettings().echoCancellation,
+        autoGainControl: this.audioStream.getAudioTracks()[0].getSettings().autoGainControl,
+        noiseSuppression: this.audioStream.getAudioTracks()[0].getSettings().noiseSuppression,
       });
       
       // Get single-use token from our backend (which uses the API key)
@@ -106,6 +114,7 @@ export class ElevenLabsSTTProvider implements STTProviderInterface {
           
           // Handle different message types from ElevenLabs
           if (data.message_type === 'partial_transcript') {
+            console.log('[STT] 📝 Partial transcript:', data.text, `(confidence: ${data.confidence})`);
             onTranscript({
               text: data.text,
               isFinal: false,
@@ -113,6 +122,7 @@ export class ElevenLabsSTTProvider implements STTProviderInterface {
               timestamp: Date.now(),
             });
           } else if (data.message_type === 'committed_transcript') {
+            console.log('[STT] ✅ Committed transcript:', data.text, `(confidence: ${data.confidence})`);
             onTranscript({
               text: data.text,
               isFinal: true,
@@ -253,6 +263,10 @@ export class ElevenLabsSTTProvider implements STTProviderInterface {
   
   isListening(): boolean {
     return this.listening;
+  }
+  
+  getAudioStream(): MediaStream | null {
+    return this.audioStream;
   }
 }
 

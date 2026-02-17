@@ -749,10 +749,27 @@ const ChatPanel: React.FC = () => {
                   console.log('[ChatPanel] Final transcript - auto-sending immediately');
                   handleSend(text);
                   setInput(''); // Clear input after sending
+                  // Note: VoiceInputButton will auto-restart listening after ATLAS finishes speaking
                 } else if (!isFinal) {
                   console.log('[ChatPanel] Interim transcript - showing in input field');
                 }
               }}
+              onInterrupt={() => {
+                console.log('[ChatPanel] ⚡ User interrupted ATLAS - stopping playback');
+                // Stop current TTS playback
+                isPlayingRef.current = false;
+                isSynthesizingRef.current = false;
+                // Clear audio queue
+                audioQueueRef.current = [];
+                // Stop any playing audio
+                if (streamingAudioContextRef.current) {
+                  streamingAudioContextRef.current.close();
+                  streamingAudioContextRef.current = null;
+                }
+                console.log('[ChatPanel] ✅ ATLAS stopped - ready for user input');
+              }}
+              autoRestart={true}
+              pauseWhileSpeaking={isPlayingRef.current || loading}
               onError={(error) => {
                 console.error('[ChatPanel] Voice input error:', error);
               }}

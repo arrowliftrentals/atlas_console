@@ -6,16 +6,42 @@ import { STTProviderFactory, type STTTranscript } from '@/lib/stt/providers';
 interface VoiceInputButtonProps {
   onTranscript: (text: string, isFinal: boolean) => void;
   onError?: (error: string) => void;
+  autoRestart?: boolean; // Auto-restart listening after sending message
+  pauseWhileSpeaking?: boolean; // Pause mic while ATLAS is speaking
+  onInterrupt?: () => void; // Called when user interrupts ATLAS
 }
 
-export default function VoiceInputButton({ onTranscript, onError }: VoiceInputButtonProps) {
+export default function VoiceInputButton({ onTranscript, onError, autoRestart = false, pauseWhileSpeaking = false, onInterrupt }: VoiceInputButtonProps) {
   const [isListening, setIsListening] = useState(false);
   const [interimText, setInterimText] = useState('');
   const [lastTranscript, setLastTranscript] = useState('');
   const [showTooltip, setShowTooltip] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const silenceTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const wasListeningRef = React.useRef(false);
 
   const sttProvider = STTProviderFactory.getProvider('elevenlabs');
+  
+  // Track when ATLAS is speaking (for confidence filtering)
+  React.useEffect(() => {
+    if (pauseWhileSpeaking && isListening && !isPaused) {
+      // ATLAS started speaking - set paused flag for confidence filtering
+      console.log('[VoiceInput] 🔇 ATLAS speaking (mic stays on, using confidence filter)');
+      setIsPaused(true);
+      wasListeningRef.current = true;
+      
+      // Clear any pending silence timer
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
+    } else if (!pauseWhileSpeaking && isPaused && wasListeningRef.current) {
+      // ATLAS finished speaking - resume normal operation
+      console.log('[VoiceInput] 🎤 ATLAS finished (resuming normal mode)');
+      setIsPaused(false);
+      wasListeningRef.current = false;
+    }
+  }, [pauseWhileSpeaking, isListening, isPaused]);
 
   const handleToggleListening = async () => {
     if (isListening) {
@@ -39,12 +65,32 @@ export default function VoiceInputButton({ onTranscript, onError }: VoiceInputBu
               text: transcript.text,
               isFinal: transcript.isFinal,
               confidence: transcript.confidence,
+              paused: isPaused,
             });
+            
+            // Filter low-confidence transcripts when ATLAS is speaking (likely echo)
+            const minConfidence = isPaused ? 0.7 : 0.3;
+            const confidence = transcript.confidence || 0;
+            
+            if (isPaused && confidence < minConfidence) {
+              console.log(`[VoiceInput] 🚫 Filtering echo (confidence ${confidence.toFixed(2)} < ${minConfidence})`);
+              return; // Skip this transcript entirely
+            }
+            
+            // Check if user is interrupting ATLAS (high confidence speech)
+            if (isPaused && confidence >= minConfidence) {
+              console.log('[VoiceInput] ⚡ INTERRUPTION DETECTED - High confidence speech while ATLAS talks');
+              console.log(`[VoiceInput] Confidence: ${confidence.toFixed(2)} >= ${minConfidence}`);
+              if (onInterrupt) {
+                onInterrupt();
+              }
+              setIsPaused(false); // Exit paused mode
+            }
             
             // Store last transcript for VAD-based sending
             setLastTranscript(transcript.text);
             
-            // Always send transcript to parent (both interim and final)
+            // Send transcript to parent (both interim and final)
             onTranscript(transcript.text, transcript.isFinal);
             
             if (transcript.isFinal) {
@@ -69,17 +115,34 @@ export default function VoiceInputButton({ onTranscript, onError }: VoiceInputBu
                 clearTimeout(silenceTimerRef.current);
               }
               
-              // Start new silence timer - if no new transcript in 1.5s, treat as final
-              silenceTimerRef.current = setTimeout(() => {
-                console.log('[VoiceInput] ⏱️ 1.5s silence detected - treating as final');
+              // Start new silence timer - if no new transcript in 800ms, treat as final
+              const timeoutMs = 800; // Reduced from 1500ms for snappier response
+              console.log(`[VoiceInput] ⏲️ Starting ${timeoutMs}ms silence timer`);
+              
+              silenceTimerRef.current = setTimeout(async () => {
+                const now = Date.now();
+                console.log(`[VoiceInput] ⏱️ ${timeoutMs}ms silence detected - treating as final`);
+                console.log(`[VoiceInput] Last transcript: "${transcript.text}"`);
+                
                 if (transcript.text.trim()) {
                   onTranscript(transcript.text, true);
                   sttProvider.stopListening();
                   setIsListening(false);
                   setInterimText('');
                   setLastTranscript('');
+                  
+                  // Auto-restart listening after a brief pause if enabled
+                  if (autoRestart) {
+                    console.log('[VoiceInput] 🔄 Auto-restart enabled - restarting in 500ms...');
+                    setTimeout(() => {
+                      console.log('[VoiceInput] 🎤 Restarting listening...');
+                      handleToggleListening();
+                    }, 500); // Brief pause before restarting
+                  }
+                } else {
+                  console.log('[VoiceInput] ⚠️ Empty transcript, not sending');
                 }
-              }, 1500); // 1.5 seconds of silence = end of utterance
+              }, timeoutMs);
             }
           },
           (error: string) => {
@@ -172,21 +235,7 @@ export default function VoiceInputButton({ onTranscript, onError }: VoiceInputBu
         </div>
       )}
 
-      {/* Live transcription indicator */}
-      {interimText && (
-        <div
-          className="absolute bottom-full right-0 mb-12 px-3 py-2 text-sm rounded-lg max-w-md z-50"
-          style={{
-            backgroundColor: 'var(--atlas-bg-elevated)',
-            border: '2px solid var(--atlas-accent-primary)',
-            color: 'var(--atlas-text-primary)',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-          }}
-        >
-          <div className="text-xs text-gray-400 mb-1">Transcribing...</div>
-          <div>{interimText}</div>
-        </div>
-      )}
+      {/* Removed tooltip - transcription shows in input field only */}
     </div>
   );
 }
