@@ -39,42 +39,78 @@ const MemoryView: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      // Fetch memory architecture
-      const archRes = await fetch("http://localhost:8000/v1/meta/sections/memory-architecture");
-      if (!archRes.ok) throw new Error("Failed to fetch memory architecture");
-      const archData = await archRes.json();
+      // Fetch memory stats (always available)
+      const statsRes = await fetch("http://localhost:8000/api/memory/stats");
+      if (!statsRes.ok) throw new Error("Failed to fetch memory stats");
+      const statsData = await statsRes.json();
+      setDetailedStats(statsData);
       
-      // Transform API response to our format
+      // Layer metadata
+      const layerMeta: Record<string, { purpose: string; className: string; module: string }> = {
+        l1: { purpose: "Working Memory - Active conversation context", className: "L1WorkingMemory", module: "src.memory.l1_working" },
+        l2: { purpose: "Short-term Memory - Recent interactions (24h)", className: "L2ShortTerm", module: "src.memory.l2_short_term" },
+        l3: { purpose: "Episodic Memory - Event sequences and experiences", className: "L3Episodic", module: "src.memory.l3_episodic" },
+        l4: { purpose: "Declarative Memory - Facts and knowledge", className: "L4Declarative", module: "src.memory.l4_declarative" },
+        l5: { purpose: "Procedural Memory - Skills and procedures", className: "L5Procedural", module: "src.memory.l5_procedural" },
+        l6: { purpose: "Attention Memory - Focus and context tracking", className: "L6Attention", module: "src.memory.l6_attention" },
+        l7: { purpose: "World State Memory - Environment snapshots", className: "L7WorldState", module: "src.memory.l7_world_state" },
+        l8: { purpose: "Goals Memory - Planning and goal hierarchies", className: "L8Goals", module: "src.memory.l8_goals" },
+        l9: { purpose: "Social Memory - User profiles and interactions", className: "L9Social", module: "src.memory.l9_social" },
+        l10: { purpose: "Vector Memory - Semantic retrieval (ChromaDB)", className: "L10Vector", module: "src.memory.l10_vector" },
+      };
+      
+      // Build layers from stats data
       const layers: Record<string, MemoryLayer> = {};
-      const layersObj = archData.layers || {};
       
-      for (const [key, value] of Object.entries(layersObj)) {
-        const v = value as Record<string, unknown>;
-        layers[key] = {
-          layer: key,
-          purpose: (v.purpose as string) || "",
-          status: (v.status as string) || "unknown",
-          className: (v.class_name as string) || "",
-          methodCount: (v.method_count as number) || 0,
-          hasRealData: (v.has_real_data as boolean) || false,
-          dataVolume: (v.data_volume as string) || "N/A",
-          module: (v.module as string) || "",
-          apiMethods: (v.api_methods as string[]) || [],
+      for (const [key, stats] of Object.entries(statsData)) {
+        if (!key.startsWith('l')) continue;
+        const s = stats as Record<string, unknown>;
+        const meta = layerMeta[key] || { purpose: key, className: key, module: "" };
+        
+        // Extract record count based on layer
+        let recordCount = 0;
+        let dataVolume = "N/A";
+        if (key === 'l1') { recordCount = (s.active_conversations as number) || 0; dataVolume = `${recordCount} conversations`; }
+        else if (key === 'l2') { recordCount = (s.recent_conversations as number) || 0; dataVolume = `${recordCount} recent`; }
+        else if (key === 'l3') { recordCount = (s.total_episodes as number) || 0; dataVolume = `${recordCount} episodes`; }
+        else if (key === 'l4') { recordCount = (s.valid_facts as number) || 0; dataVolume = `${recordCount.toLocaleString()} facts`; }
+        else if (key === 'l5') { recordCount = (s.total_skills as number) || 0; dataVolume = `${recordCount} skills`; }
+        else if (key === 'l6') { recordCount = (s.db_focus_states as number) || (s.focus_states_tracked as number) || (s.total_states as number) || 0; dataVolume = `${recordCount} states`; }
+        else if (key === 'l7') { recordCount = (s.total_snapshots as number) || 0; dataVolume = `${recordCount} snapshots`; }
+        else if (key === 'l8') { recordCount = (s.total_goals as number) || 0; dataVolume = `${recordCount} goals`; }
+        else if (key === 'l9') { recordCount = (s.total_users as number) || 0; dataVolume = `${recordCount} users`; }
+        else if (key === 'l10') { recordCount = (s.total_messages as number) || (s.index_size as number) || 0; dataVolume = `${recordCount.toLocaleString()} vectors`; }
+        
+        // If the backend returns stats for a layer, it IS operational.
+        // "active" = has data, "ready" = operational but empty (not "initialized")
+        layers[key.toUpperCase()] = {
+          layer: key.toUpperCase(),
+          purpose: meta.purpose,
+          status: recordCount > 0 ? "active" : "ready",
+          className: meta.className,
+          methodCount: Object.keys(s).length,
+          hasRealData: recordCount > 0,
+          dataVolume,
+          module: meta.module,
+          apiMethods: Object.keys(s),
         };
       }
       
+      // Calculate scores from data
+      const layerCount = Object.keys(layers).length;
+      const activeCount = Object.values(layers).filter(l => l.hasRealData).length;
+      const implementationScore = Math.round((layerCount / 10) * 100);
+      const dataFlowScore = Math.round((activeCount / layerCount) * 100);
+      
       setMemoryStats({
         layers,
-        scores: archData.scores,
-        integration: archData.integration,
+        scores: {
+          implementation_completeness: implementationScore,
+          data_flow_verification: dataFlowScore,
+          integration_maturity: Math.round((implementationScore + dataFlowScore) / 2),
+          overall_memory_score: Math.round((implementationScore + dataFlowScore) / 2),
+        },
       });
-      
-      // Fetch detailed memory stats
-      const statsRes = await fetch("http://localhost:8000/api/memory/stats");
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
-        setDetailedStats(statsData);
-      }
     } catch (e) {
       console.error("Memory fetch error:", e);
       setError(e instanceof Error ? e.message : "Failed to load memory data");
@@ -93,6 +129,7 @@ const MemoryView: React.FC = () => {
     if (status === "active" || status === "operational" || status === "healthy") {
       return hasData ? "text-green-400" : "text-blue-400";
     }
+    if (status === "ready") return "text-blue-400"; // Operational but empty
     if (status === "degraded") return "text-yellow-400";
     if (status === "error") return "text-red-400";
     return "text-gray-400";
@@ -102,6 +139,7 @@ const MemoryView: React.FC = () => {
     if (status === "active" || status === "operational" || status === "healthy") {
       return hasData ? "bg-green-500/20" : "bg-blue-500/20";
     }
+    if (status === "ready") return "bg-blue-500/20"; // Operational but empty
     if (status === "degraded") return "bg-yellow-500/20";
     if (status === "error") return "bg-red-500/20";
     return "bg-gray-500/20";
@@ -221,7 +259,7 @@ const MemoryView: React.FC = () => {
                               layer.hasRealData
                             )} ${getStatusColor(layer.status, layer.hasRealData)}`}
                           >
-                            {layer.hasRealData ? "Active" : layer.status}
+                            {layer.hasRealData ? "Active" : "Ready"}
                           </span>
                         </div>
                         <div className="text-sm text-gray-400 truncate">{layer.purpose}</div>
@@ -294,7 +332,16 @@ const MemoryView: React.FC = () => {
                                   Statistics
                                 </div>
                                 <div className="space-y-1">
-                                  {Object.entries(layerStats).slice(0, 6).map(([k, v]) => (
+                                  {Object.entries(layerStats)
+                                    .sort(([, a], [, b]) => {
+                                      // Sort non-zero numeric values first
+                                      const aNum = typeof a === 'number' ? a : 0;
+                                      const bNum = typeof b === 'number' ? b : 0;
+                                      if (aNum !== 0 && bNum === 0) return -1;
+                                      if (aNum === 0 && bNum !== 0) return 1;
+                                      return 0;
+                                    })
+                                    .slice(0, 8).map(([k, v]) => (
                                     <div key={k} className="flex justify-between text-xs">
                                       <span className="text-gray-400">{k.replace(/_/g, " ")}</span>
                                       <span className="text-white font-medium">

@@ -53,7 +53,7 @@ const LogsView: React.FC = () => {
         return "text-[var(--atlas-log-debug)]";
       case "INFO":
         return "text-[var(--atlas-log-info)]";
-      case "WARN":
+      case "WARNING":
         return "text-[var(--atlas-log-warn)]";
       case "ERROR":
         return "text-[var(--atlas-log-error)]";
@@ -66,7 +66,7 @@ const LogsView: React.FC = () => {
     const badgeClasses = {
       DEBUG: "atlas-badge-default",
       INFO: "atlas-badge-info",
-      WARN: "atlas-badge-warning",
+      WARNING: "atlas-badge-warning",
       ERROR: "atlas-badge-error",
     }[level] || "atlas-badge-default";
 
@@ -116,7 +116,7 @@ const LogsView: React.FC = () => {
       {/* Filters */}
       <div className="px-4 py-3 bg-[#252526] border-b border-gray-700">
         <div className="flex items-center gap-2">
-          {["ALL", "DEBUG", "INFO", "WARN", "ERROR"].map((level) => (
+          {["ALL", "DEBUG", "INFO", "WARNING", "ERROR"].map((level) => (
             <button
               key={level}
               onClick={() => setLevelFilter(level)}

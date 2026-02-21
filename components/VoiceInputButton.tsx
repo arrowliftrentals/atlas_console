@@ -34,26 +34,20 @@ export default function VoiceInputButton({ onTranscript, onError, autoRestart = 
   const outAnalyserRef = useRef<AnalyserNode | null>(null);
   const micSourceNodeRef = useRef<MediaStreamAudioSourceNode | null>(null);
 
-  // Track when ATLAS is speaking (for confidence filtering)
+  // Track when ATLAS is speaking - gate microphone closed
   React.useEffect(() => {
-    if (pauseWhileSpeaking && isListening && !isPaused) {
-      // ATLAS started speaking - set paused flag for confidence filtering
-      console.log('[VoiceInput] 🔇 ATLAS speaking (mic stays on, using confidence filter)');
+    if (pauseWhileSpeaking && isListening) {
+      // ATLAS started speaking - close the gate (mute mic)
+      console.log('[VoiceInput] 🔇 ATLAS speaking - closing microphone gate');
+      sttProvider.setGate?.(true); // Block all mic input
       setIsPaused(true);
-      wasListeningRef.current = true;
-      
-      // Clear any pending silence timer
-      if (silenceTimerRef.current) {
-        clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = null;
-      }
-    } else if (!pauseWhileSpeaking && isPaused && wasListeningRef.current) {
-      // ATLAS finished speaking - resume normal operation
-      console.log('[VoiceInput] 🎤 ATLAS finished (resuming normal mode)');
+    } else if (!pauseWhileSpeaking && isListening) {
+      // ATLAS finished speaking - open the gate (unmute mic)
+      console.log('[VoiceInput] 🎤 ATLAS finished - opening microphone gate');
+      sttProvider.setGate?.(false); // Allow mic input
       setIsPaused(false);
-      wasListeningRef.current = false;
     }
-  }, [pauseWhileSpeaking, isListening, isPaused]);
+  }, [pauseWhileSpeaking, isListening, sttProvider]);
 
   const handleToggleListening = async () => {
     if (isListening) {
@@ -85,45 +79,12 @@ export default function VoiceInputButton({ onTranscript, onError, autoRestart = 
       try {
         await sttProvider.startListening(
           (transcript: STTTranscript) => {
-            console.log('[VoiceInput] Transcript received:', {
-              text: transcript.text,
-              isFinal: transcript.isFinal,
-              confidence: transcript.confidence,
-              paused: isPaused,
-            });
+            // Gate handles echo prevention - transcripts only arrive when gate is open
+            console.log('[VoiceInput] Transcript received:', transcript.text, `(final: ${transcript.isFinal}, paused: ${isPaused})`);
             
-            // Multi-layer echo filtering when ATLAS is speaking
-            // Handle undefined confidence (treat as medium confidence ~0.5)
-            const confidence = transcript.confidence ?? 0.5;
-            
+            // If we get a transcript while paused (shouldn't happen with gate), filter it
             if (isPaused) {
-              // Layer 1: Require VERY high confidence to overcome echo suppression
-              const interruptThreshold = 0.85; // Very high bar
-              
-              // If confidence is undefined, treat as potential echo (safer default)
-              if (transcript.confidence === undefined) {
-                console.log(`[VoiceInput] 🚫 Filtering transcript with undefined confidence while ATLAS speaking (assuming echo)`);
-                return;
-              }
-              
-              if (confidence < interruptThreshold) {
-                console.log(`[VoiceInput] 🚫 Filtering likely echo (confidence ${confidence.toFixed(2)} < ${interruptThreshold} while ATLAS speaking)`);
-                return; // Skip this transcript entirely
-              }
-              
-              // Layer 2: User is interrupting with high confidence speech
-              console.log('[VoiceInput] ⚡ INTERRUPTION DETECTED - High confidence speech overcomes echo filter');
-              console.log(`[VoiceInput] Confidence: ${confidence.toFixed(2)} >= ${interruptThreshold}`);
-              if (onInterrupt) {
-                onInterrupt();
-              }
-              setIsPaused(false); // Exit paused mode immediately
-            }
-            
-            // Layer 3: Only filter extremely low confidence (likely noise/silence)
-            // If confidence is undefined, allow through (common for ElevenLabs)
-            if (transcript.confidence !== undefined && confidence < 0.15) {
-              console.log(`[VoiceInput] 🚫 Filtering very low confidence noise (${confidence.toFixed(2)} < 0.15)`);
+              console.log('[VoiceInput] 🚫 Ignoring transcript while gate closed');
               return;
             }
             
@@ -185,65 +146,6 @@ export default function VoiceInputButton({ onTranscript, onError, autoRestart = 
           }
         );
         setIsListening(true);
-
-        // Realtime mode: do NOT auto-stop via VAD; we keep session open until user stops or provider commits/ends.
-        if (audioContext && playbackNode) {
-          try {
-            // Bind mic stream from provider into the shared audioContext
-            const micStream = sttProvider.getAudioStream();
-            if (micStream) {
-              const micSrc = new MediaStreamAudioSourceNode(audioContext, { mediaStream: micStream });
-              const micAnalyser = new AnalyserNode(audioContext, { fftSize: 2048 });
-              const outAnalyser = new AnalyserNode(audioContext, { fftSize: 2048 });
-
-              micSourceNodeRef.current = micSrc;
-              micAnalyserRef.current = micAnalyser;
-              outAnalyserRef.current = outAnalyser;
-
-              micSrc.connect(micAnalyser);
-              playbackNode.connect(outAnalyser);
-
-              const micBuf = new Float32Array(micAnalyser.fftSize);
-              const outBuf = new Float32Array(outAnalyser.fftSize);
-
-              gateLoopRef.current = window.setInterval(() => {
-                if (!micAnalyserRef.current || !outAnalyserRef.current) return;
-                micAnalyserRef.current.getFloatTimeDomainData(micBuf);
-                outAnalyserRef.current.getFloatTimeDomainData(outBuf);
-
-                // Energy (RMS)
-                let rmsMic = 0, rmsOut = 0, dot = 0, n1 = 0, n2 = 0;
-                for (let i = 0; i < micBuf.length; i++) {
-                  const m = micBuf[i];
-                  const o = outBuf[i];
-                  rmsMic += m * m;
-                  rmsOut += o * o;
-                  dot += m * o;
-                  n1 += m * m;
-                  n2 += o * o;
-                }
-                rmsMic = Math.sqrt(rmsMic / micBuf.length);
-                rmsOut = Math.sqrt(rmsOut / outBuf.length);
-                const corr = (n1 && n2) ? (dot / Math.sqrt(n1 * n2)) : 0;
-
-                const playbackHot = rmsOut > 0.02; // Lower threshold for earlier detection
-                const likelyEcho = playbackHot && corr > 0.45; // Lower correlation threshold
-                const likelyHuman = rmsMic > 0.05 && corr < 0.30; // Higher mic threshold, lower correlation
-
-                // Drive worklet gate
-                sttProvider.setGate?.(likelyEcho);
-
-                if (likelyHuman && playbackHot) {
-                  onInterrupt?.();
-                  // Ensure gate is open immediately for barge-in
-                  sttProvider.setGate?.(false);
-                }
-              }, 20);
-            }
-          } catch (e) {
-            console.warn('[VoiceInput] Echo gating init failed:', e);
-          }
-        }
       } catch (error: any) {
         console.error('[Voice Input] Failed to start:', error);
         alert(`Failed to start voice input: ${error.message}`);
@@ -253,6 +155,32 @@ export default function VoiceInputButton({ onTranscript, onError, autoRestart = 
     }
   };
 
+  // Prevent browser from pausing mic when other apps take focus
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && isListening) {
+        console.log('[VoiceInput] ⚠️ Page hidden but mic should stay active');
+        // Don't stop - user may be interacting with ATLAS-opened apps
+      } else if (!document.hidden && isListening) {
+        console.log('[VoiceInput] ✓ Page visible again, mic still active');
+      }
+    };
+    
+    const handleFocus = () => {
+      if (isListening) {
+        console.log('[VoiceInput] 🔄 Window regained focus, ensuring mic is active');
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [isListening]);
+  
   // Cleanup on unmount
   useEffect(() => {
     return () => {

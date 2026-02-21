@@ -327,10 +327,19 @@ const SafetyStatsSchema = z.object({
   sandbox_available: z.boolean().default(false),
 });
 
-const AttentionFocusSchema = z.object({
-  primary_target: z.string().nullable().default(null),
-  secondary_targets: z.array(z.string()).default([]),
+// API returns { primary_goal, active_contexts, attention_weights }
+// Frontend expects { primary_target, secondary_targets, attention_weights }
+const AttentionFocusRawSchema = z.object({
+  primary_goal: z.string().nullable().optional(),
+  primary_target: z.string().nullable().optional(),
+  active_contexts: z.array(z.string()).optional(),
+  secondary_targets: z.array(z.string()).optional(),
   attention_weights: z.record(z.string(), z.number()).default({}),
+});
+const normalizeAttentionFocus = (raw: z.infer<typeof AttentionFocusRawSchema>): AttentionFocus => ({
+  primary_target: raw.primary_target ?? raw.primary_goal ?? null,
+  secondary_targets: raw.secondary_targets ?? raw.active_contexts ?? [],
+  attention_weights: raw.attention_weights,
 });
 
 const WorldSnapshotASchema = z.object({
@@ -360,28 +369,36 @@ const toPercent01To100 = (v: unknown): number => {
   return Math.max(0, Math.min(100, Math.round(n)));
 };
 
-// Additional schemas
+// Additional schemas - updated to match actual API response fields
+// Skills API returns: { id, name, description, steps, preconditions, success_criteria, status, version, created_at }
 const SkillItemSchema = z.object({
   id: z.string(),
   name: z.string().default(''),
-  category: z.string().default(''),
+  description: z.string().optional(),
+  category: z.string().optional(),
+  status: z.string().optional(), // API uses 'status' instead of explicit category
   success_rate: z.union([z.number(), z.string()]).optional(),
   execution_count: z.union([z.number(), z.string()]).optional(),
 });
 const SkillsResponse = z.object({ skills: z.array(SkillItemSchema).default([]) });
 
+// Goals API returns: { id, description, parent_goal_id, priority, status, created_at, updated_at, deadline }
 const GoalItemSchema = z.object({
   id: z.string(),
   description: z.string().default(''),
   status: z.string().default('unknown'),
-  progress: z.union([z.number(), z.string()]).optional(),
+  priority: z.string().optional(), // Use priority to derive progress if progress missing
+  progress: z.union([z.number(), z.string()]).nullable().optional(),
 });
 const GoalsResponse = z.object({ goals: z.array(GoalItemSchema).default([]) });
 
+// Facts API returns: { id, statement, source, confidence, verified_at, invalidated_at, metadata, created_at }
 const FactItemSchema = z.object({
   id: z.string(),
-  content: z.string().default(''),
-  category: z.string().default('general'),
+  content: z.string().optional(), // May not exist
+  statement: z.string().optional(), // API uses 'statement' instead of 'content'
+  category: z.string().optional(),
+  source: z.string().optional(), // Can use source as category fallback
   confidence: z.union([z.number(), z.string()]).optional(),
 });
 const FactsResponse = z.object({ facts: z.array(FactItemSchema).default([]) });
@@ -435,7 +452,23 @@ export function useDatabaseHealth(): { data: DatabaseHealthSummary | null; loadi
       try {
         const res = await fetch("http://localhost:8000/api/database/health");
         if (res.ok) {
-          setData(await res.json());
+          const json = await res.json();
+          // Normalize API response to match DatabaseHealthSummary interface
+          // API returns { last_check: {...}, databases_monitored, ... }
+          // Frontend expects { all_healthy, total_databases, ... }
+          const lastCheck = json.last_check || {};
+          const normalized: DatabaseHealthSummary = {
+            all_healthy: lastCheck.all_healthy ?? true,
+            total_databases: json.databases_monitored ?? 0,
+            healthy_count: lastCheck.healthy ?? 0,
+            corrupted_count: (lastCheck.corrupted || []).length,
+            oversized_count: (lastCheck.oversized || []).length,
+            total_size_mb: lastCheck.total_size_mb ?? 0,
+            corrupted: lastCheck.corrupted || [],
+            oversized: lastCheck.oversized || [],
+            results: [], // Not returned by current API
+          };
+          setData(normalized);
         }
       } catch (e) {
         setError((e as Error).message);
@@ -495,9 +528,9 @@ export function useAttentionFocus(): { data: AttentionFocus | null; loading: boo
         const res = await fetch("http://localhost:8000/v1/memory/l6/focus");
         if (res.ok) {
           const json = await res.json();
-          const parsed = AttentionFocusSchema.safeParse(json);
+          const parsed = AttentionFocusRawSchema.safeParse(json);
           if (parsed.success) {
-            setData(parsed.data);
+            setData(normalizeAttentionFocus(parsed.data));
           } else {
             console.warn("attention-focus schema mismatch", parsed.error);
             setData({ primary_target: null, secondary_targets: [], attention_weights: {} });
@@ -530,19 +563,26 @@ export function useGoals(limit = 10): { data: CanonicalGoal[]; loading: boolean;
           const json = await res.json();
           const parsed = GoalsResponse.safeParse(json);
           if (parsed.success) {
-            const normalized: CanonicalGoal[] = parsed.data.goals.map(g => ({
-              id: g.id,
-              description: g.description,
-              status: ((): CanonicalGoal['status'] => {
-                const s = g.status.toLowerCase();
-                if (s === 'completed') return 'completed';
-                if (s === 'in_progress' || s === 'in-progress' || s === 'active') return 'in_progress';
-                if (s === 'blocked') return 'blocked';
-                if (s === 'pending' || s === 'todo') return 'pending';
+            const normalized: CanonicalGoal[] = parsed.data.goals.map(g => {
+              const statusLower = g.status.toLowerCase();
+              const normalizedStatus: CanonicalGoal['status'] = (() => {
+                if (statusLower === 'completed') return 'completed';
+                if (statusLower === 'in_progress' || statusLower === 'in-progress' || statusLower === 'active') return 'in_progress';
+                if (statusLower === 'blocked') return 'blocked';
+                if (statusLower === 'pending' || statusLower === 'todo') return 'pending';
                 return 'unknown';
-              })(),
-              progress: Math.max(0, Math.min(100, toPercent01To100(g.progress))),
-            }));
+              })();
+              // Derive progress from status if not provided
+              const derivedProgress = g.progress != null 
+                ? toPercent01To100(g.progress)
+                : (normalizedStatus === 'completed' ? 100 : normalizedStatus === 'in_progress' ? 50 : 0);
+              return {
+                id: g.id,
+                description: g.description,
+                status: normalizedStatus,
+                progress: Math.max(0, Math.min(100, derivedProgress)),
+              };
+            });
             setData(normalized);
           } else {
             console.warn('goals schema mismatch', parsed.error);
@@ -579,7 +619,7 @@ export function useSkills(limit = 20): { data: CanonicalSkill[]; loading: boolea
             const normalized: CanonicalSkill[] = parsed.data.skills.map(s => ({
               id: s.id,
               name: s.name,
-              category: s.category,
+              category: s.category || s.status || 'general', // Use status as fallback
               successRate: toPercent01To100(s.success_rate),
               executionCount: Math.max(0, Math.floor(toNumber(s.execution_count, 0))),
             }));
@@ -684,8 +724,8 @@ export function useFacts(limit = 20): { data: CanonicalFact[]; loading: boolean;
           if (parsed.success) {
             const normalized: CanonicalFact[] = parsed.data.facts.map(f => ({
               id: f.id,
-              content: f.content,
-              category: f.category,
+              content: f.content || f.statement || '', // Use statement as fallback
+              category: f.category || f.source || 'general', // Use source as fallback
               confidencePct: toPercent01To100(f.confidence),
             }));
             setData(normalized);
@@ -913,14 +953,11 @@ export function HotPathsContent() {
         {data.length > 0 ? (
           data.slice(0, 6).map((item, i) => {
             const anyItem = item as any;
-            const labelRaw = typeof anyItem.label === 'string'
+            const label = typeof anyItem.label === 'string'
               ? anyItem.label
               : typeof anyItem.path === 'string'
                 ? anyItem.path
                 : [anyItem.source, anyItem.target].filter(Boolean).join(' → ');
-            const label = typeof labelRaw === 'string' && labelRaw.includes('→')
-              ? (labelRaw.split('→').pop()?.trim() || labelRaw)
-              : labelRaw;
             const calls = (anyItem.calls ?? anyItem.call_count ?? anyItem.count ?? 0) as number;
             const avgVal = (anyItem.avgMs ?? anyItem.avg_time_ms) as number | undefined;
             return (
@@ -931,7 +968,7 @@ export function HotPathsContent() {
                   </InlineTooltip>
                 </div>
                 <div className="flex-1 text-white/70 truncate">
-                  <InlineTooltip tip={`Execution path: ${labelRaw || 'Unknown'}`}>
+                  <InlineTooltip tip={`Execution path: ${label || 'Unknown'}`}>
                     {label || 'Unknown'}
                   </InlineTooltip>
                 </div>
@@ -962,70 +999,93 @@ export function HotPathsContent() {
 export function DatabaseHealthContent() {
   const { data, loading, error } = useDatabaseHealth();
 
-  // Safely access potentially undefined fields
+  // Use normalized data from useDatabaseHealth hook
   const allHealthy = data?.all_healthy ?? true;
-  const corruptedCount = data?.corrupted_count ?? 0;
-  const oversizedCount = data?.oversized_count ?? 0;
   const totalSizeMb = data?.total_size_mb ?? 0;
-  const results = data?.results ?? [];
+  const healthyCount = data?.healthy_count ?? 0;
   const corrupted = data?.corrupted ?? [];
   const oversized = data?.oversized ?? [];
-
-  const statusTips: Record<string, string> = {
-    healthy: 'Database integrity verified, no issues detected',
-    degraded: 'Performance degradation or minor issues detected',
-    corrupted: 'Critical integrity failure—data may be lost',
-  };
+  const dbsMonitored = data?.total_databases ?? 0;
 
   return (
     <CardContent loading={loading} error={error}>
       {data && (
-        <div className="space-y-2">
+        <div className="space-y-3">
+          {/* Status row */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className={`w-3 h-3 rounded-full ${allHealthy ? 'bg-green-500' : 'bg-amber-500'}`} />
-              <span className="text-sm font-medium text-white/90">
+              <span className={`text-sm font-medium ${allHealthy ? 'text-green-400' : 'text-amber-400'}`}>
                 <InlineTooltip tip={allHealthy ? 'All databases passed integrity checks' : 'One or more databases have issues'}>
-                  {allHealthy ? 'All Healthy' : `${corruptedCount + oversizedCount} Issues`}
+                  {allHealthy ? 'All Healthy' : `${corrupted.length + oversized.length} Issues`}
                 </InlineTooltip>
               </span>
             </div>
             <span className="text-white/50 text-xs">
-              <InlineTooltip tip="Combined size of all memory layer databases">
-                {totalSizeMb.toFixed(1)} MB
+              <InlineTooltip tip="Database health status">
+                {dbsMonitored} DBs
               </InlineTooltip>
             </span>
           </div>
-          <div className="grid grid-cols-3 gap-1">
-            {results.slice(0, 9).map((db) => (
-              <div 
-                key={db.layer}
-                className={`px-1.5 py-1 rounded text-[10px] text-center ${
-                  db.status === 'healthy' ? 'bg-green-500/20 text-green-400' :
-                  db.status === 'degraded' ? 'bg-amber-500/20 text-amber-400' :
-                  'bg-red-500/20 text-red-400'
-                }`}
-              >
-                <InlineTooltip tip={statusTips[db.status] || 'Unknown status'}>
-                  {db.layer}
+          
+          {/* Stats grid */}
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div>
+              <div className="text-lg font-bold text-cyan-400 tabular-nums">{dbsMonitored}</div>
+              <div className="text-[9px] text-white/40">
+                <InlineTooltip tip="Number of SQLite databases being monitored">
+                  Monitored
                 </InlineTooltip>
               </div>
-            ))}
-          </div>
-          {(corrupted.length > 0 || oversized.length > 0) && (
-            <div className="text-[10px] text-red-400">
-              {corrupted.length > 0 && (
-                <InlineTooltip tip="These databases failed integrity checks and may need recovery">
-                  Corrupted: {corrupted.join(', ')}
+            </div>
+            <div>
+              <div className="text-lg font-bold text-green-400 tabular-nums">{healthyCount}</div>
+              <div className="text-[9px] text-white/40">
+                <InlineTooltip tip="Databases that passed integrity checks">
+                  Healthy
                 </InlineTooltip>
+              </div>
+            </div>
+            <div>
+              <div className="text-lg font-bold text-white/90 tabular-nums">{totalSizeMb.toFixed(1)}</div>
+              <div className="text-[9px] text-white/40">
+                <InlineTooltip tip="Combined size of all memory databases">
+                  MB Total
+                </InlineTooltip>
+              </div>
+            </div>
+          </div>
+          
+          {/* Issues section - prominent display when unhealthy */}
+          {(corrupted.length > 0 || oversized.length > 0) ? (
+            <div className="space-y-2 p-2 rounded-lg bg-red-500/10 border border-red-500/30">
+              <div className="text-xs font-bold text-red-500 uppercase tracking-wide flex items-center gap-1">
+                <span className="animate-pulse">⚠</span> Database Issues Detected
+              </div>
+              {corrupted.length > 0 && (
+                <div className="space-y-1">
+                  {corrupted.map((db: string) => (
+                    <div key={db} className="flex items-center gap-2 text-sm">
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                      <span className="font-bold text-red-400">{db}</span>
+                      <span className="text-red-300 text-xs">- CORRUPTED (integrity check failed)</span>
+                    </div>
+                  ))}
+                </div>
               )}
               {oversized.length > 0 && (
-                <InlineTooltip tip="These databases exceed recommended size limits—consider archiving">
-                  {' '}Oversized: {oversized.join(', ')}
-                </InlineTooltip>
+                <div className="space-y-1">
+                  {oversized.map((db: string) => (
+                    <div key={db} className="flex items-center gap-2 text-sm">
+                      <span className="w-2 h-2 rounded-full bg-amber-500" />
+                      <span className="font-bold text-amber-400">{db}</span>
+                      <span className="text-amber-300 text-xs">- OVERSIZED (exceeds size limit)</span>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-          )}
+          ) : null}
         </div>
       )}
     </CardContent>
@@ -1321,6 +1381,115 @@ export function EpisodesTimelineContent() {
           <div className="text-white/40 text-sm text-center py-4">No episodes recorded</div>
         )}
       </div>
+    </CardContent>
+  );
+}
+
+// --- Subsystem Status Card ---
+export interface SubsystemSummary {
+  total: number;
+  initialized: number;
+  uninitialized: number;
+  categories: Record<string, { total: number; initialized: number }>;
+}
+
+export function useSubsystemStatus(): { data: SubsystemSummary | null; loading: boolean; error: string | null } {
+  const [data, setData] = useState<SubsystemSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/api/systems");
+        if (res.ok) {
+          const json = await res.json();
+          const entries = Object.values(json) as { initialized: boolean; category: string }[];
+          const categories: Record<string, { total: number; initialized: number }> = {};
+          for (const s of entries) {
+            if (!categories[s.category]) categories[s.category] = { total: 0, initialized: 0 };
+            categories[s.category].total++;
+            if (s.initialized) categories[s.category].initialized++;
+          }
+          setData({
+            total: entries.length,
+            initialized: entries.filter(s => s.initialized).length,
+            uninitialized: entries.filter(s => !s.initialized).length,
+            categories,
+          });
+        }
+      } catch (e) {
+        setError((e as Error).message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return { data, loading, error };
+}
+
+export function SubsystemStatusContent() {
+  const { data, loading, error } = useSubsystemStatus();
+
+  return (
+    <CardContent loading={loading} error={error}>
+      {data && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div>
+              <div className="text-lg font-bold text-cyan-400 tabular-nums">{data.total}</div>
+              <div className="text-[9px] text-white/40">
+                <InlineTooltip tip="Total registered subsystems">
+                  Total
+                </InlineTooltip>
+              </div>
+            </div>
+            <div>
+              <div className="text-lg font-bold text-green-400 tabular-nums">{data.initialized}</div>
+              <div className="text-[9px] text-white/40">
+                <InlineTooltip tip="Subsystems that initialized successfully">
+                  Online
+                </InlineTooltip>
+              </div>
+            </div>
+            <div>
+              <div className={`text-lg font-bold tabular-nums ${data.uninitialized > 0 ? 'text-amber-400' : 'text-white/30'}`}>{data.uninitialized}</div>
+              <div className="text-[9px] text-white/40">
+                <InlineTooltip tip="Subsystems that failed to initialize or are disabled">
+                  Offline
+                </InlineTooltip>
+              </div>
+            </div>
+          </div>
+          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full transition-all"
+              style={{ width: `${data.total > 0 ? (data.initialized / data.total * 100) : 0}%` }}
+            />
+          </div>
+          <div className="space-y-1">
+            {Object.entries(data.categories)
+              .sort(([,a], [,b]) => b.total - a.total)
+              .slice(0, 5)
+              .map(([cat, counts]) => (
+                <div key={cat} className="flex items-center justify-between text-xs">
+                  <span className="text-white/60">
+                    <InlineTooltip tip={`${counts.initialized}/${counts.total} subsystems online in ${cat}`}>
+                      {cat}
+                    </InlineTooltip>
+                  </span>
+                  <span className={`tabular-nums ${counts.initialized === counts.total ? 'text-green-400' : 'text-amber-400'}`}>
+                    {counts.initialized}/{counts.total}
+                  </span>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
     </CardContent>
   );
 }

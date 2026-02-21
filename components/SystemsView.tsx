@@ -384,7 +384,8 @@ const SystemsView: React.FC = () => {
                                                         >
                                                             {status.initialized ? 'Initialized' : 'Not Initialized'}
                                                         </span>
-                                                        {!status.initialized && (
+                                                        {/* Only show Initialize button for subsystems that support manual init */}
+                                                        {!status.initialized && ['classification_service', 'sandbox_manager'].includes(name) && (
                                                             <button
                                                                 onClick={() => initializeSubsystem(name)}
                                                                 disabled={initializingSubsystem === name}
@@ -394,6 +395,11 @@ const SystemsView: React.FC = () => {
                                                             >
                                                                 {initializingSubsystem === name ? 'Initializing...' : 'Initialize'}
                                                             </button>
+                                                        )}
+                                                        {!status.initialized && !['classification_service', 'sandbox_manager'].includes(name) && (
+                                                            <span className="px-3 py-1 text-xs text-gray-500" title="Requires server restart">
+                                                                Restart required
+                                                            </span>
                                                         )}
                                                     </div>
                                                 </div>

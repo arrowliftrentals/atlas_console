@@ -21,6 +21,7 @@ import {
   WorldStateContent,
   EpisodesTimelineContent,
   FactsKnowledgeContent,
+  SubsystemStatusContent,
 } from "./dashboard-cards";
 
 // Lazy load full views
@@ -35,6 +36,9 @@ const SecurityView = dynamic(() => import("./SecurityView"), { ssr: false });
 const RecommendationsView = dynamic(() => import("./RecommendationsView"), { ssr: false });
 const AnalysisPanel = dynamic(() => import("./AnalysisPanel"), { ssr: false });
 const SystemsView = dynamic(() => import("./SystemsView"), { ssr: false });
+const LearningView = dynamic(() => import("./LearningView"), { ssr: false });
+const AttentionView = dynamic(() => import("./AttentionView"), { ssr: false });
+const BenchmarkLiveView = dynamic(() => import("./BenchmarkLiveView"), { ssr: false });
 
 // Real brain canvas for dashboard card
 const BrainCanvas = dynamic(() => import("./BrainCanvas"), { 
@@ -46,7 +50,7 @@ const BrainCanvas = dynamic(() => import("./BrainCanvas"), {
   )
 });
 
-type ActiveView = null | "cognition" | "architecture" | "assessment" | "sandbox" | "logs" | "tasks" | "memory" | "security" | "recommendations" | "analysis" | "systems";
+type ActiveView = null | "cognition" | "architecture" | "assessment" | "sandbox" | "logs" | "tasks" | "memory" | "security" | "recommendations" | "analysis" | "systems" | "learning" | "attention" | "benchmarks";
 
 interface CardInfo {
   title: string;
@@ -991,7 +995,7 @@ export default function DashboardView() {
           setPendingTaskNames(taskNames);
         }
 
-        // Fetch memory stats for active goals
+        // Fetch memory stats for active goals and L1-L10 vitals
         const memoryStatsRes = await fetch("http://localhost:8000/api/memory/stats");
         if (memoryStatsRes.ok) {
           const memoryStatsData = await memoryStatsRes.json();
@@ -999,6 +1003,63 @@ export default function DashboardView() {
             ...prev,
             activeGoals: memoryStatsData.l8?.total_goals || 0,
           }));
+          
+          // Also populate memory vitals from the same data
+          const layerNames: Record<string, string> = {
+            l1: 'Working',
+            l2: 'Short-term',
+            l3: 'Episodic',
+            l4: 'Declarative',
+            l5: 'Procedural',
+            l6: 'Attention',
+            l7: 'World',
+            l8: 'Goals',
+            l9: 'Social',
+            l10: 'Vector',
+          };
+          
+          const layerInfos: MemoryLayerInfo[] = Object.entries(memoryStatsData)
+            .filter(([key]) => key.startsWith('l'))
+            .map(([key, stats]: [string, unknown]) => {
+              const s = stats as Record<string, number | string | Record<string, number>>;
+              let recordCount = 0;
+              
+              if (key === 'l1') recordCount = (s.active_conversations as number) || 0;
+              else if (key === 'l2') recordCount = (s.recent_conversations as number) || 0;
+              else if (key === 'l3') recordCount = (s.total_episodes as number) || 0;
+              else if (key === 'l4') recordCount = (s.valid_facts as number) || 0;
+              else if (key === 'l5') recordCount = (s.total_skills as number) || 0;
+              else if (key === 'l6') recordCount = (s.db_focus_states as number) || (s.focus_states_tracked as number) || (s.total_states as number) || 0;
+              else if (key === 'l7') recordCount = (s.total_snapshots as number) || 0;
+              else if (key === 'l8') recordCount = (s.total_goals as number) || 0;
+              else if (key === 'l9') recordCount = (s.total_users as number) || 0;
+              else if (key === 'l10') recordCount = (s.total_messages as number) || (s.index_size as number) || 0;
+              
+              return {
+                layer: key.toUpperCase(),
+                name: layerNames[key] || key,
+                status: recordCount > 0 ? 'healthy' as const : 'unknown' as const,
+                recordCount,
+                storageMb: 0,
+              };
+            });
+          
+          layerInfos.sort((a, b) => {
+            const aNum = parseInt(a.layer.replace('L', ''), 10) || 0;
+            const bNum = parseInt(b.layer.replace('L', ''), 10) || 0;
+            return aNum - bNum;
+          });
+          
+          const totalRecords = layerInfos.reduce((sum, l) => sum + l.recordCount, 0);
+          const activeCount = layerInfos.filter(l => l.status === 'healthy').length;
+          const healthScore = layerInfos.length > 0 ? Math.round((activeCount / layerInfos.length) * 100) : 0;
+          
+          setMemoryVitals({
+            layers: layerInfos,
+            totalRecords,
+            totalStorageMb: 0,
+            overallScore: healthScore,
+          });
         }
 
         // Fetch system resources (CPU/Memory/Disk/Connections/Uptime)
@@ -1022,116 +1083,52 @@ export default function DashboardView() {
           }
         }
 
-        // Fetch latest assessment scorecard
-        const historyRes = await fetch("http://localhost:8000/v1/meta/history?limit=1", {
+        // Fetch latest dynamic assessment scorecard
+        const latestAssessRes = await fetch("http://localhost:8000/v1/meta/dynamic/latest", {
           cache: 'no-cache',
         });
-        if (historyRes.ok) {
-          const historyData = await historyRes.json();
-          if (historyData.assessments && historyData.assessments.length > 0) {
-            const latestId = historyData.assessments[0].id;
-            const assessRes = await fetch(`http://localhost:8000/v1/meta/assess/${latestId}`, {
-              cache: 'no-cache',
-            });
-            if (assessRes.ok) {
-              const assessData = await assessRes.json();
-              const scorecard = assessData.scorecard || {};
-              const codebaseAnalysis = assessData.codebase_analysis || {};
-              const testAnalysis = assessData.test_analysis || {};
-              const reliability = assessData.reliability || {};
-              const jarvisBenchmark = assessData.jarvis_benchmark || {};
-              
-              setAssessmentScorecard({
-                metaSystemScore: scorecard.meta_system_score ?? null,
-                metaSystemPhase: scorecard.meta_system_phase || "—",
-                overallScore: scorecard.overall_score ?? null,
-                jarvisScore: scorecard.jarvis_gap_score ?? null,
-                maturityStage: scorecard.maturity_stage || "—",
-                dimensions: scorecard.dimension_scores || {},
-                codebase: {
-                  modules: codebaseAnalysis.total_modules || 0,
-                  lines: codebaseAnalysis.total_lines || 0,
-                  classes: codebaseAnalysis.total_classes || 0,
-                  functions: codebaseAnalysis.total_functions || 0,
-                },
-                tests: {
-                  files: testAnalysis.test_files || 0,
-                  count: testAnalysis.test_results?.total || testAnalysis.test_results?.total_tests_in_suite || 0,
-                  passRate: testAnalysis.test_results?.pass_rate ?? 100,
-                },
-                reliability: {
-                  score: reliability.score || 0,
-                  operations: reliability.total_operations || 0,
-                  successRate: reliability.success_rate || 0,
-                },
-                jarvisDetails: {
-                  rawScore: jarvisBenchmark.raw_capability_score || 0,
-                  foundationQuality: jarvisBenchmark.foundation_quality || 0,
-                  timeToJarvis: jarvisBenchmark.estimated_time_to_jarvis || "—",
-                },
-              });
+        if (latestAssessRes.ok) {
+          const assessData = await latestAssessRes.json();
+          
+          // Map dynamic assessment dimensions to scorecard format
+          const dimensionScores: Record<string, number> = {};
+          if (assessData.dimensions) {
+            for (const [dim, data] of Object.entries(assessData.dimensions)) {
+              dimensionScores[dim] = (data as { score?: number }).score ?? 0;
             }
           }
+          
+          setAssessmentScorecard({
+            metaSystemScore: assessData.combined_score ?? assessData.overall_score ?? null,
+            metaSystemPhase: assessData.version || "—",
+            overallScore: assessData.overall_score ?? null,
+            jarvisScore: assessData.benchmark_overall_score ?? null,
+            maturityStage: assessData.overall_score >= 80 ? "Advanced" : assessData.overall_score >= 50 ? "Developing" : "Foundation",
+            dimensions: dimensionScores,
+            codebase: {
+              modules: 0,
+              lines: 0,
+              classes: 0,
+              functions: 0,
+            },
+            tests: {
+              files: 0,
+              count: assessData.total_tests_run || 0,
+              passRate: assessData.overall_success_rate != null ? Math.round(assessData.overall_success_rate * 100) : 100,
+            },
+            reliability: {
+              score: assessData.overall_score || 0,
+              operations: assessData.total_tests_run || 0,
+              successRate: assessData.overall_success_rate != null ? Math.round(assessData.overall_success_rate * 100) : 0,
+            },
+            jarvisDetails: {
+              rawScore: assessData.benchmark_overall_score || 0,
+              foundationQuality: assessData.overall_score || 0,
+              timeToJarvis: "—",
+            },
+          });
         }
         
-        // Fetch memory architecture for L1-L10 vitals
-        const memoryArchRes = await fetch("http://localhost:8000/v1/meta/sections/memory-architecture");
-        if (memoryArchRes.ok) {
-          const memoryArchData = await memoryArchRes.json();
-          // layers is an object with keys L1, L2, etc.
-          const layersObj = memoryArchData.layers || {};
-          const layerInfos: MemoryLayerInfo[] = Object.entries(layersObj).map(([key, layer]: [string, unknown]) => {
-            const l = layer as { purpose?: string; status?: string; data_volume?: string; has_real_data?: boolean };
-            // Parse data_volume which could be "120.0 KB", "2820 episodes", "10 active conversations", etc.
-            let recordCount = 0;
-            let storageMb = 0;
-            const dataVolume = l.data_volume || '';
-            if (dataVolume.includes('KB')) {
-              storageMb = parseFloat(dataVolume) / 1024;
-            } else if (dataVolume.includes('MB')) {
-              storageMb = parseFloat(dataVolume);
-            } else if (dataVolume.includes('GB')) {
-              storageMb = parseFloat(dataVolume) * 1024;
-            } else {
-              // Parse numeric values like "2820 episodes", "10 active conversations"
-              const match = dataVolume.match(/^([\d,]+)/);
-              if (match) {
-                recordCount = parseInt(match[1].replace(/,/g, ''), 10) || 0;
-              }
-            }
-            return {
-              layer: key,
-              name: l.purpose?.split(' ')[0] || key,
-              status: l.status === 'active' || l.status === 'operational' || l.status === 'healthy' ? 'healthy' : 
-                     l.status === 'degraded' ? 'degraded' : 
-                     l.status === 'error' ? 'error' : 
-                     l.has_real_data ? 'healthy' : 'unknown',
-              recordCount,
-              storageMb,
-            };
-          });
-          
-          // Sort layers by L-number
-          layerInfos.sort((a, b) => {
-            const aNum = parseInt(a.layer.replace('L', ''), 10) || 0;
-            const bNum = parseInt(b.layer.replace('L', ''), 10) || 0;
-            return aNum - bNum;
-          });
-          
-          const totalRecords = layerInfos.reduce((sum, l) => sum + l.recordCount, 0);
-          const totalStorageMb = layerInfos.reduce((sum, l) => sum + l.storageMb, 0);
-          
-          // Calculate health score: active layers / total layers
-          const activeCount = layerInfos.filter(l => l.status === 'healthy').length;
-          const healthScore = layerInfos.length > 0 ? Math.round((activeCount / layerInfos.length) * 100) : 0;
-          
-          setMemoryVitals({
-            layers: layerInfos,
-            totalRecords,
-            totalStorageMb,
-            overallScore: memoryArchData.scores?.overall || healthScore,
-          });
-        }
         
         // Fetch security scan summary
         const securityRes = await fetch("http://localhost:8000/v1/security/summary");
@@ -1244,6 +1241,9 @@ export default function DashboardView() {
           {activeView === "recommendations" && <RecommendationsView />}
           {activeView === "analysis" && <AnalysisPanel />}
           {activeView === "systems" && <SystemsView />}
+          {activeView === "learning" && <LearningView />}
+          {activeView === "attention" && <AttentionView />}
+          {activeView === "benchmarks" && <BenchmarkLiveView />}
         </div>
       </div>
     );
@@ -2134,7 +2134,7 @@ id: "classifier-stats",
                 <DashboardCard
                   title="ML Classifiers"
                   subtitle="Intent & domain classification"
-                  onClick={() => setActiveView("assessment")}
+                  onClick={() => setActiveView("learning")}
                   accentColor="#06b6d4"
                   info={{
                     title: 'ML Classifiers card',
@@ -2154,7 +2154,7 @@ id: "learning-progress",
                 <DashboardCard
                   title="Learning Progress"
                   subtitle="Active learning & corrections"
-                  onClick={() => setActiveView("assessment")}
+                  onClick={() => setActiveView("learning")}
                   accentColor="#3b82f6"
                   info={{
                     title: 'Learning Progress card',
@@ -2211,12 +2211,32 @@ id: "hot-paths",
             },
             // === NEW CARDS - Infrastructure ===
             {
+id: "subsystem-status",
+              content: (
+                <DashboardCard
+                  title="Subsystems"
+                  subtitle="Initialization status"
+                  onClick={() => setActiveView("systems")}
+                  accentColor="#6366f1"
+                  info={{
+                    title: 'Subsystems card',
+                    bullets: [
+                      'Shows total, online, and offline subsystem counts',
+                      'Breakdown by category reveals which areas have initialization issues',
+                    ],
+                  }}
+                >
+                  <SubsystemStatusContent />
+                </DashboardCard>
+              ),
+            },
+            {
 id: "database-health",
               content: (
                 <DashboardCard
                   title="Database Health"
                   subtitle="SQLite integrity & status"
-                  onClick={() => setActiveView("systems")}
+                  onClick={() => setActiveView("memory")}
                   accentColor="#22c55e"
                   info={{
                     title: 'Database Health card',
@@ -2236,7 +2256,7 @@ id: "safety-stats",
                 <DashboardCard
                   title="Safety Monitor"
                   subtitle="Blocked ops & rollbacks"
-                  onClick={() => setActiveView("security")}
+                  onClick={() => setActiveView("sandbox")}
                   accentColor="#ef4444"
                   info={{
                     title: 'Safety Monitor card',
@@ -2250,6 +2270,29 @@ id: "safety-stats",
                 </DashboardCard>
               ),
             },
+            {
+id: "benchmarks-live",
+              content: (
+                <DashboardCard
+                  title="Benchmarks"
+                  subtitle="Live benchmark runner"
+                  onClick={() => setActiveView("benchmarks")}
+                  accentColor="#f59e0b"
+                  info={{
+                    title: 'Benchmarks card',
+                    bullets: [
+                      'Run ATLAS benchmarks with real-time results streaming',
+                      'Track progress, scores, and targets as tests execute',
+                    ],
+                  }}
+                >
+                  <div className="text-center py-4">
+                    <div className="text-2xl mb-1">🏆</div>
+                    <div className="text-xs text-white/60">Click to run benchmarks</div>
+                  </div>
+                </DashboardCard>
+              ),
+            },
             // === NEW CARDS - Memory Layers Deep Dive ===
             {
 id: "attention-focus",
@@ -2257,7 +2300,7 @@ id: "attention-focus",
                 <DashboardCard
                   title="Attention Focus"
                   subtitle="L6 cognitive focus"
-                  onClick={() => setActiveView("memory")}
+                  onClick={() => setActiveView("attention")}
                   accentColor="#06b6d4"
                   info={{
                     title: 'Attention Focus card',
@@ -2277,7 +2320,7 @@ id: "goals-tracker",
                 <DashboardCard
                   title="Goals Tracker"
                   subtitle="L8 active goals"
-                  onClick={() => setActiveView("memory")}
+                  onClick={() => setActiveView("tasks")}
                   accentColor="#22c55e"
                   info={{
                     title: 'Goals card',
@@ -2369,6 +2412,55 @@ id: "facts-knowledge",
                   }}
                 >
                   <FactsKnowledgeContent />
+                </DashboardCard>
+              ),
+            },
+            // === NAVIGATION ===
+            {
+id: "quick-nav",
+              content: (
+                <DashboardCard
+                  title="Quick Navigation"
+                  subtitle="All console pages"
+                  onClick={() => {}}
+                  accentColor="#94a3b8"
+                  info={{
+                    title: 'Quick Navigation',
+                    bullets: [
+                      'Jump to any console page directly',
+                    ],
+                  }}
+                >
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {([
+                      { label: "Cognition", view: "cognition" as ActiveView, icon: "🧠" },
+                      { label: "Architecture", view: "architecture" as ActiveView, icon: "🏗️" },
+                      { label: "Assessment", view: "assessment" as ActiveView, icon: "📊" },
+                      { label: "Memory", view: "memory" as ActiveView, icon: "💾" },
+                      { label: "Learning", view: "learning" as ActiveView, icon: "📚" },
+                      { label: "Analysis", view: "analysis" as ActiveView, icon: "🔍" },
+                      { label: "Sandbox", view: "sandbox" as ActiveView, icon: "📦" },
+                      { label: "Security", view: "security" as ActiveView, icon: "🔒" },
+                      { label: "Systems", view: "systems" as ActiveView, icon: "⚙️" },
+                      { label: "Logs", view: "logs" as ActiveView, icon: "📋" },
+                      { label: "Tasks", view: "tasks" as ActiveView, icon: "✅" },
+                      { label: "Attention", view: "attention" as ActiveView, icon: "🎯" },
+                      { label: "Benchmarks", view: "benchmarks" as ActiveView, icon: "🏆" },
+                      { label: "Recommendations", view: "recommendations" as ActiveView, icon: "💡" },
+                    ]).map(({ label, view, icon }) => (
+                      <div
+                        key={view}
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => { e.stopPropagation(); setActiveView(view); }}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); setActiveView(view); } }}
+                        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs text-white/70 hover:text-white hover:bg-white/10 transition-colors text-left cursor-pointer"
+                      >
+                        <span className="text-[10px]">{icon}</span>
+                        <span>{label}</span>
+                      </div>
+                    ))}
+                  </div>
                 </DashboardCard>
               ),
             },

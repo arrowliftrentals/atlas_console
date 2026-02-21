@@ -9,7 +9,39 @@ interface MetaAssessment {
     generated_at: string;
     version?: string;
     
-    // V3 fields
+    // V4 Dynamic Assessment fields
+    assessment_id?: string;
+    system_name?: string;
+    system_version?: string;
+    total_tests_run?: number;
+    total_tests_passed?: number;
+    total_tests_failed?: number;
+    total_execution_time_ms?: number;
+    dimensions?: Record<string, {
+        dimension: string;
+        total_tests: number;
+        successful_tests: number;
+        failed_tests: number;
+        error_tests: number;
+        skipped_tests: number;
+        success_rate: number;
+        score: number;
+        total_duration_ms: number;
+        avg_duration_ms: number;
+        test_results: any[];
+        previous_score?: number;
+        score_delta?: number;
+        trend?: string;
+    }>;
+    overall_score?: number | any;
+    overall_success_rate?: number;
+    previous_assessment_id?: string;
+    overall_score_delta?: number;
+    discovered_capabilities?: string[];
+    untested_capabilities?: string[];
+    all_test_results?: any[];
+    
+    // V3 fields (legacy compatibility)
     system_identity?: any;
     codebase_analysis?: any;
     test_analysis?: any;
@@ -49,16 +81,20 @@ interface MetaAssessment {
     reliability_metrics?: any;
     known_limitations?: any;
     recommendations?: any;
-    overall_score?: any;
 }
 
 interface HistorySummary {
-    id: number;
+    id?: number;
+    assessment_id?: string;
     generated_at: string;
     version: string;
-    phase: string;
-    attempt: string;
-    created_at: string;
+    phase?: string;
+    attempt?: string;
+    created_at?: string;
+    overall_score?: number;
+    total_tests?: number;
+    tests_passed?: number;
+    success_rate?: number;
 }
 
 interface AssessmentChange {
@@ -82,17 +118,13 @@ const MetaView: React.FC<MetaViewProps> = ({ onNavigateToTab }) => {
     const [changes, setChanges] = useState<AssessmentChange[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [activeSection, setActiveSection] = useState<string | null>("scorecard"); // Default to Executive Summary
+    const [activeSection, setActiveSection] = useState<string | null>("dynamic_summary"); // Default to Executive Summary (V4: dynamic_summary, V3: scorecard)
     const [showHistory, setShowHistory] = useState(false);
-    const [selectedForDelete, setSelectedForDelete] = useState<Set<number>>(new Set());
-    const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState(false);
     const [expandedSubsystems, setExpandedSubsystems] = useState<Set<string>>(new Set());
     const [progressPercentage, setProgressPercentage] = useState<number>(0);
     const [progressStep, setProgressStep] = useState<string>("");
     
-    // Live exercise mode
-    const [runLiveExercises, setRunLiveExercises] = useState(false);
-    const [exerciseSet, setExerciseSet] = useState<"standard" | "minimal">("minimal");
+    // Note: Live exercise mode removed - V4 dynamic assessment runs tests internally
 
     const loadLatestAssessment = async () => {
         setLoading(true);
@@ -100,13 +132,14 @@ const MetaView: React.FC<MetaViewProps> = ({ onNavigateToTab }) => {
         try {
             await fetchHistory();
             
-            // Try to load latest from history first
-            const historyResp = await fetch(`${BACKEND_URL}/v1/meta/history?limit=1`);
-            if (historyResp.ok) {
-                const historyData = await historyResp.json();
-                if (historyData.assessments && historyData.assessments.length > 0) {
-                    const latestId = historyData.assessments[0].id;
-                    await loadHistoricalAssessment(latestId);
+            // Try to load latest from dynamic assessment endpoint
+            const latestResp = await fetch(`${BACKEND_URL}/v1/meta/dynamic/latest`);
+            if (latestResp.ok) {
+                const latestData = await latestResp.json();
+                if (latestData && latestData.assessment_id) {
+                    setAssessment(latestData);
+                    setSelectedAssessmentId(null); // Dynamic assessments use string IDs
+                    setChanges([]);
                     return;
                 }
             }
@@ -125,37 +158,11 @@ const MetaView: React.FC<MetaViewProps> = ({ onNavigateToTab }) => {
         setLoading(true);
         setError(null);
         setProgressPercentage(0);
-        setProgressStep("Starting...");
-        
-        // Poll for progress updates
-        const pollInterval = setInterval(async () => {
-            try {
-                const response = await fetch(`${BACKEND_URL}/v1/meta/progress/status`);
-                if (response.ok) {
-                    const progress = await response.json();
-                    setProgressPercentage(progress.percentage);
-                    setProgressStep(progress.step || "Processing...");
-                    
-                    // Stop polling when complete
-                    if (progress.percentage >= 100) {
-                        clearInterval(pollInterval);
-                    }
-                }
-            } catch (e) {
-                // Silently ignore polling errors
-            }
-        }, 2000); // Poll every 2s (reduced from 500ms)
+        setProgressStep("Running dynamic assessment...");
         
         try {
-            // Build query params including live exercise options
-            const params = new URLSearchParams({
-                run_tests: 'true',
-                run_live_exercises: runLiveExercises.toString(),
-                exercise_set: exerciseSet,
-                skip_llm_exercises: 'true',
-            });
-            
-            const response = await fetch(`${BACKEND_URL}/v1/meta/assess?${params}`, {
+            // Use new dynamic assessment endpoint
+            const response = await fetch(`${BACKEND_URL}/v1/meta/assess`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
             });
@@ -164,16 +171,15 @@ const MetaView: React.FC<MetaViewProps> = ({ onNavigateToTab }) => {
             }
             const data = await response.json();
             setAssessment(data);
-            setSelectedAssessmentId(data._storage_id);
-            setChanges([]); // New assessment has no changes
+            setSelectedAssessmentId(null); // Dynamic assessments use string IDs
+            setChanges([]); // New assessment includes delta info automatically
             await fetchHistory();
             setProgressPercentage(100);
             setProgressStep("Complete");
         } catch (e: any) {
-            console.error("Meta-assessment generation error:", e);
-            setError(`Failed to generate meta-assessment: ${e.message}`);
+            console.error("Dynamic assessment generation error:", e);
+            setError(`Failed to generate dynamic assessment: ${e.message}`);
         } finally {
-            clearInterval(pollInterval);
             setLoading(false);
             // Reset progress after 2 seconds
             setTimeout(() => {
@@ -185,7 +191,8 @@ const MetaView: React.FC<MetaViewProps> = ({ onNavigateToTab }) => {
 
     const fetchHistory = async () => {
         try {
-            const response = await fetch(`${BACKEND_URL}/v1/meta/history?limit=50`);
+            // Use dynamic assessment history endpoint
+            const response = await fetch(`${BACKEND_URL}/v1/meta/dynamic/history?limit=50`);
             if (!response.ok) return;
             const data = await response.json();
             setHistory(data.assessments || []);
@@ -194,29 +201,28 @@ const MetaView: React.FC<MetaViewProps> = ({ onNavigateToTab }) => {
         }
     };
 
-    const loadHistoricalAssessment = async (assessmentId: number) => {
+    const loadHistoricalAssessment = async (assessmentId: string) => {
         setLoading(true);
         try {
-            // Load lightweight summary first for faster initial rendering
-            const response = await fetch(`${BACKEND_URL}/v1/meta/assess/${assessmentId}?summary=true`);
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-            const data = await response.json();
-            setAssessment(data);
-            setSelectedAssessmentId(assessmentId);
-            
-            // Calculate diff if not the latest
-            if (history.length > 0 && assessmentId !== history[0].id) {
-                const previousIndex = history.findIndex(h => h.id === assessmentId);
-                if (previousIndex > 0) {
-                    await fetchDiff(assessmentId, history[previousIndex - 1].id);
-                } else {
-                    setChanges([]);
+            // Dynamic assessments include all data - no separate endpoint needed
+            // The history items already contain the assessment data
+            const historyItem = history.find(h => h.assessment_id === assessmentId);
+            if (historyItem) {
+                // Fetch full assessment from dynamic endpoint
+                const response = await fetch(`${BACKEND_URL}/v1/meta/dynamic/latest`);
+                if (response.ok) {
+                    const data = await response.json();
+                    // If this isn't the latest, we need to find it in dimension history
+                    if (data.assessment_id === assessmentId) {
+                        setAssessment(data);
+                    } else {
+                        // For now, show the summary from history
+                        setAssessment(historyItem as any);
+                    }
                 }
-            } else {
-                setChanges([]);
             }
+            setSelectedAssessmentId(null); // Dynamic assessments use string IDs
+            setChanges([]); // Dynamic assessments include delta info automatically
         } catch (e: any) {
             console.error("Failed to load historical assessment:", e);
             setError(`Failed to load assessment: ${e.message}`);
@@ -225,63 +231,8 @@ const MetaView: React.FC<MetaViewProps> = ({ onNavigateToTab }) => {
         }
     };
 
-    const fetchDiff = async (currentId: number, previousId: number) => {
-        try {
-            const response = await fetch(`${BACKEND_URL}/v1/meta/diff/${currentId}/${previousId}`);
-            if (!response.ok) return;
-            const data = await response.json();
-            setChanges(data.changes || []);
-        } catch (e) {
-            console.error("Failed to fetch diff:", e);
-            setChanges([]);
-        }
-    };
-
-    const batchDeleteAssessments = async () => {
-        setLoading(true);
-        try {
-            const deletePromises = Array.from(selectedForDelete).map(id =>
-                fetch(`${BACKEND_URL}/v1/meta/assess/${id}`, { method: 'DELETE' })
-            );
-            
-            await Promise.all(deletePromises);
-            
-            // Refresh history
-            await fetchHistory();
-            
-            // If current assessment was deleted, load latest
-            if (selectedAssessmentId && selectedForDelete.has(selectedAssessmentId)) {
-                await loadLatestAssessment();
-            }
-            
-            // Clear selection
-            setSelectedForDelete(new Set());
-            setShowBatchDeleteConfirm(false);
-        } catch (e: any) {
-            console.error("Failed to delete assessments:", e);
-            setError(`Failed to delete: ${e.message}`);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const toggleSelectForDelete = (assessmentId: number) => {
-        const newSelection = new Set(selectedForDelete);
-        if (newSelection.has(assessmentId)) {
-            newSelection.delete(assessmentId);
-        } else {
-            newSelection.add(assessmentId);
-        }
-        setSelectedForDelete(newSelection);
-    };
-
-    const selectAllForDelete = () => {
-        if (selectedForDelete.size === history.length) {
-            setSelectedForDelete(new Set());
-        } else {
-            setSelectedForDelete(new Set(history.map(h => h.id)));
-        }
-    };
+    // Note: fetchDiff removed - dynamic assessments include delta info automatically
+    // Each dimension has score_delta and trend fields
 
     // Check for in-progress assessment on mount
     useEffect(() => {
@@ -3185,14 +3136,27 @@ const MetaView: React.FC<MetaViewProps> = ({ onNavigateToTab }) => {
     };
 
     // Determine sections based on assessment version
-    const isV3 = assessment?.version?.includes('3.0');
+    const isV4Dynamic = assessment?.version?.includes('execution-based') || assessment?.dimensions !== undefined;
+    const isV3 = !isV4Dynamic && assessment?.version?.includes('3.0');
     
     // Check if live exercise results exist in assessment
     const hasLiveResults = assessment?.live_exercise_results && 
         assessment.live_exercise_results.results && 
         assessment.live_exercise_results.results.length > 0;
     
-    const sections = isV3 ? [
+    // Generate dynamic dimension sections from V4 assessment
+    const v4DimensionSections = isV4Dynamic && assessment?.dimensions 
+        ? Object.keys(assessment.dimensions).map((dim, idx) => ({
+            id: `dimension_${dim}`,
+            label: `${idx + 1}. ${dim.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}`
+        }))
+        : [];
+    
+    const sections = isV4Dynamic ? [
+        { id: "dynamic_summary", label: "Executive Summary" },
+        ...v4DimensionSections,
+        { id: "test_results", label: "All Test Results" },
+    ] : isV3 ? [
         { id: "scorecard", label: "Executive Summary" },
         ...(hasLiveResults ? [{ id: "live_exercise_results", label: "⚡ Live Exercise Results" }] : []),
         { id: "meta_system_assessment", label: "1. Meta-System Capabilities" },
@@ -3219,6 +3183,308 @@ const MetaView: React.FC<MetaViewProps> = ({ onNavigateToTab }) => {
         { id: "known_limitations", label: "6. Known Limitations" },
         { id: "recommendations", label: "7. Recommendations" },
     ];
+    
+    // Render V4 Dynamic Assessment Summary
+    const renderDynamicSummary = () => {
+        if (!assessment?.dimensions) return null;
+        
+        const overallScore = assessment.overall_score;
+        const totalTests = assessment.total_tests_run || 0;
+        const testsPassed = assessment.total_tests_passed || 0;
+        const successRate = (assessment.overall_success_rate || 0) * 100;
+        const execTime = assessment.total_execution_time_ms || 0;
+        
+        const getScoreColor = (score: number) => {
+            if (score >= 85) return "text-green-400";
+            if (score >= 70) return "text-blue-400";
+            if (score >= 50) return "text-yellow-400";
+            if (score >= 30) return "text-orange-400";
+            return "text-red-400";
+        };
+        
+        return (
+            <div className="space-y-6 max-w-5xl">
+                {/* Hero Card */}
+                <div className="bg-gradient-to-br from-green-900/40 via-blue-900/30 to-purple-900/40 border-2 border-green-600/50 rounded-xl p-6 shadow-2xl">
+                    <div className="grid grid-cols-4 gap-4">
+                        <div className="text-center">
+                            <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Overall Score</p>
+                            <p className={`text-5xl font-bold ${getScoreColor(overallScore as number)} mb-1`}>
+                                {typeof overallScore === 'number' ? overallScore.toFixed(1) : overallScore}
+                            </p>
+                            <p className="text-xs text-gray-500">/ 100</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Tests Passed</p>
+                            <p className="text-5xl font-bold text-green-400 mb-1">{testsPassed}</p>
+                            <p className="text-xs text-gray-500">/ {totalTests}</p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Success Rate</p>
+                            <p className={`text-5xl font-bold ${getScoreColor(successRate)} mb-1`}>
+                                {successRate.toFixed(1)}%
+                            </p>
+                        </div>
+                        <div className="text-center">
+                            <p className="text-xs text-gray-400 uppercase tracking-wider mb-2">Exec Time</p>
+                            <p className="text-3xl font-bold text-purple-400 mb-1">
+                                {execTime.toFixed(0)}
+                            </p>
+                            <p className="text-xs text-gray-500">ms</p>
+                        </div>
+                    </div>
+                    
+                    {/* Delta indicator */}
+                    {assessment.overall_score_delta !== undefined && (
+                        <div className="mt-4 pt-4 border-t border-gray-700/50 text-center">
+                            <span className={`text-sm ${
+                                assessment.overall_score_delta > 0 ? 'text-green-400' : 
+                                assessment.overall_score_delta < 0 ? 'text-red-400' : 'text-gray-400'
+                            }`}>
+                                {assessment.overall_score_delta > 0 ? '↑' : assessment.overall_score_delta < 0 ? '↓' : '→'}
+                                {' '}{Math.abs(assessment.overall_score_delta).toFixed(1)} from previous
+                            </span>
+                        </div>
+                    )}
+                </div>
+                
+                {/* Dimension Scores Grid */}
+                <div>
+                    <h3 className="text-sm font-bold text-gray-200 mb-4 flex items-center gap-2">
+                        <span className="w-1 h-5 bg-blue-500 rounded"></span>
+                        Dimension Scores (Execution-Based)
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4">
+                        {Object.entries(assessment.dimensions).map(([dimName, dimData]) => {
+                            const score = dimData.score;
+                            const label = dimName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                            
+                            return (
+                                <button
+                                    key={dimName}
+                                    onClick={() => setActiveSection(`dimension_${dimName}`)}
+                                    className="bg-gray-800/70 rounded-lg p-4 border border-gray-700/50 hover:border-gray-600 transition-colors cursor-pointer text-left"
+                                >
+                                    <div className="flex items-center justify-between mb-2">
+                                        <p className="text-xs font-semibold text-gray-300">{label}</p>
+                                        <div className="flex items-center gap-2">
+                                            <p className={`text-lg font-bold ${getScoreColor(score)}`}>{score.toFixed(0)}</p>
+                                            {dimData.trend && (
+                                                <span className={`text-xs ${
+                                                    dimData.trend === 'improving' ? 'text-green-400' :
+                                                    dimData.trend === 'declining' ? 'text-red-400' : 'text-gray-400'
+                                                }`}>
+                                                    {dimData.trend === 'improving' ? '↑' : dimData.trend === 'declining' ? '↓' : '→'}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div className="w-full bg-gray-700 rounded-full h-1.5 overflow-hidden">
+                                        <div 
+                                            className={`h-full rounded-full ${
+                                                score >= 85 ? "bg-green-500" :
+                                                score >= 70 ? "bg-blue-500" :
+                                                score >= 50 ? "bg-yellow-500" :
+                                                score >= 30 ? "bg-orange-500" :
+                                                "bg-red-500"
+                                            }`}
+                                            style={{ width: `${Math.min(100, score)}%` }}
+                                        />
+                                    </div>
+                                    <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                                        <span>{dimData.successful_tests}/{dimData.total_tests} tests</span>
+                                        <span>{dimData.avg_duration_ms.toFixed(0)}ms avg</span>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+                
+                {/* System Info */}
+                <div className="bg-gray-800/50 border-l-4 border-blue-500 rounded-r-lg p-4">
+                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Assessment Info</h3>
+                    <div className="grid grid-cols-3 gap-4 text-xs">
+                        <div>
+                            <span className="text-gray-500">System:</span>
+                            <span className="text-gray-300 ml-2">{assessment.system_name || 'ATLAS'} {assessment.system_version}</span>
+                        </div>
+                        <div>
+                            <span className="text-gray-500">Version:</span>
+                            <span className="text-gray-300 ml-2">{assessment.version}</span>
+                        </div>
+                        <div>
+                            <span className="text-gray-500">ID:</span>
+                            <span className="text-gray-300 ml-2 font-mono text-[10px]">{assessment.assessment_id?.slice(0, 8)}...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+    
+    // Render V4 Dimension Detail
+    const renderDimensionDetail = (dimName: string) => {
+        const dimData = assessment?.dimensions?.[dimName];
+        if (!dimData) return null;
+        
+        const label = dimName.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        const score = dimData.score;
+        
+        const getStatusColor = (status: string) => {
+            switch (status) {
+                case 'success': return 'text-green-400 bg-green-900/30';
+                case 'failure': return 'text-red-400 bg-red-900/30';
+                case 'error': return 'text-orange-400 bg-orange-900/30';
+                case 'timeout': return 'text-yellow-400 bg-yellow-900/30';
+                default: return 'text-gray-400 bg-gray-700/30';
+            }
+        };
+        
+        const getScoreColor = (score: number) => {
+            if (score >= 85) return "text-green-400";
+            if (score >= 70) return "text-blue-400";
+            if (score >= 50) return "text-yellow-400";
+            if (score >= 30) return "text-orange-400";
+            return "text-red-400";
+        };
+        
+        return (
+            <div className="space-y-6 max-w-5xl">
+                {/* Score Banner */}
+                <div className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 border border-blue-700/50 rounded-lg p-5">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h4 className="text-lg font-bold text-gray-100">{label}</h4>
+                            <p className="text-xs text-gray-400 mt-1">
+                                {dimData.successful_tests} passed, {dimData.failed_tests} failed, {dimData.error_tests} errors
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            <p className={`text-5xl font-bold ${getScoreColor(score)}`}>{score.toFixed(0)}</p>
+                            <p className="text-xs text-gray-500">/ 100</p>
+                        </div>
+                    </div>
+                    
+                    {/* Trend info */}
+                    {dimData.previous_score !== undefined && (
+                        <div className="mt-3 pt-3 border-t border-gray-700/50 flex items-center gap-4 text-sm">
+                            <span className="text-gray-500">Previous: {dimData.previous_score.toFixed(0)}</span>
+                            <span className={`${
+                                dimData.score_delta && dimData.score_delta > 0 ? 'text-green-400' :
+                                dimData.score_delta && dimData.score_delta < 0 ? 'text-red-400' : 'text-gray-400'
+                            }`}>
+                                {dimData.score_delta && dimData.score_delta > 0 ? '+' : ''}
+                                {dimData.score_delta?.toFixed(1) || '0'} change
+                            </span>
+                            <span className="text-gray-500">Trend: {dimData.trend || 'stable'}</span>
+                        </div>
+                    )}
+                </div>
+                
+                {/* Stats Grid */}
+                <div className="grid grid-cols-4 gap-4">
+                    <div className="bg-gray-800/50 rounded-lg p-4 text-center">
+                        <p className="text-xs text-gray-400 mb-1">Total Tests</p>
+                        <p className="text-2xl font-bold text-blue-400">{dimData.total_tests}</p>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-lg p-4 text-center">
+                        <p className="text-xs text-gray-400 mb-1">Success Rate</p>
+                        <p className="text-2xl font-bold text-green-400">{(dimData.success_rate * 100).toFixed(1)}%</p>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-lg p-4 text-center">
+                        <p className="text-xs text-gray-400 mb-1">Avg Duration</p>
+                        <p className="text-2xl font-bold text-purple-400">{dimData.avg_duration_ms.toFixed(0)}ms</p>
+                    </div>
+                    <div className="bg-gray-800/50 rounded-lg p-4 text-center">
+                        <p className="text-xs text-gray-400 mb-1">Total Time</p>
+                        <p className="text-2xl font-bold text-cyan-400">{dimData.total_duration_ms.toFixed(0)}ms</p>
+                    </div>
+                </div>
+                
+                {/* Test Results */}
+                <div>
+                    <h4 className="text-sm font-bold text-gray-200 mb-3">Test Results</h4>
+                    <div className="space-y-2">
+                        {dimData.test_results.map((result, idx) => (
+                            <div key={result.test_id || idx} className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <span className={`text-xs px-2 py-1 rounded ${getStatusColor(result.status)}`}>
+                                            {result.status.toUpperCase()}
+                                        </span>
+                                        <span className="text-sm text-gray-200">{result.capability_name}</span>
+                                    </div>
+                                    <div className="text-xs text-gray-500">
+                                        {result.duration_ms.toFixed(0)}ms
+                                    </div>
+                                </div>
+                                {result.error_message && (
+                                    <p className="text-xs text-red-400 mt-2 font-mono bg-red-900/20 p-2 rounded">
+                                        {result.error_message}
+                                    </p>
+                                )}
+                                {result.validation_details && (
+                                    <p className="text-xs text-gray-500 mt-2">{result.validation_details}</p>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+    
+    // Render All Test Results
+    const renderAllTestResults = () => {
+        const allResults = assessment?.all_test_results || [];
+        if (allResults.length === 0) return <p className="text-gray-400 text-sm">No test results available.</p>;
+        
+        const getStatusColor = (status: string) => {
+            switch (status) {
+                case 'success': return 'text-green-400 bg-green-900/30';
+                case 'failure': return 'text-red-400 bg-red-900/30';
+                case 'error': return 'text-orange-400 bg-orange-900/30';
+                case 'timeout': return 'text-yellow-400 bg-yellow-900/30';
+                default: return 'text-gray-400 bg-gray-700/30';
+            }
+        };
+        
+        return (
+            <div className="space-y-4 max-w-5xl">
+                <div className="bg-gray-800/50 rounded-lg p-4">
+                    <h4 className="text-sm font-bold text-gray-200 mb-1">All Test Executions</h4>
+                    <p className="text-xs text-gray-500">{allResults.length} total tests across all dimensions</p>
+                </div>
+                
+                <div className="space-y-2">
+                    {allResults.map((result, idx) => (
+                        <div key={result.test_id || idx} className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <span className={`text-xs px-2 py-1 rounded ${getStatusColor(result.status)}`}>
+                                        {result.status.toUpperCase()}
+                                    </span>
+                                    <span className="text-sm text-gray-200">{result.capability_name}</span>
+                                </div>
+                                <div className="flex items-center gap-4">
+                                    <span className="text-xs text-gray-500">{result.duration_ms.toFixed(0)}ms</span>
+                                    <span className="text-xs text-gray-600">
+                                        {new Date(result.completed_at).toLocaleTimeString()}
+                                    </span>
+                                </div>
+                            </div>
+                            {result.error_message && (
+                                <p className="text-xs text-red-400 mt-2 font-mono bg-red-900/20 p-2 rounded">
+                                    {result.error_message}
+                                </p>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
 
     return (
         <div className="h-full w-full flex flex-col bg-[#1e1e1e]">
@@ -3273,49 +3539,21 @@ const MetaView: React.FC<MetaViewProps> = ({ onNavigateToTab }) => {
                         {showHistory ? "Hide History" : "Show History"}
                     </button>
                     
-                    {/* Live Exercise Toggle */}
-                    <div className="flex items-center gap-2 border-l border-gray-600 pl-3 ml-1">
-                        <label className="flex items-center gap-2 cursor-pointer" title="Run Atlas through live capability exercises to generate real telemetry">
-                            <span className="text-xs text-gray-400">Live</span>
-                            <div className="relative">
-                                <input
-                                    type="checkbox"
-                                    checked={runLiveExercises}
-                                    onChange={(e) => setRunLiveExercises(e.target.checked)}
-                                    className="sr-only"
-                                />
-                                <div className={`w-8 h-4 rounded-full transition-colors ${
-                                    runLiveExercises ? 'bg-green-600' : 'bg-gray-600'
-                                }`}>
-                                    <div className={`w-3 h-3 rounded-full bg-white shadow-md transform transition-transform mt-0.5 ${
-                                        runLiveExercises ? 'translate-x-4 ml-0.5' : 'translate-x-0.5'
-                                    }`} />
-                                </div>
-                            </div>
-                        </label>
-                        {runLiveExercises && (
-                            <select
-                                value={exerciseSet}
-                                onChange={(e) => setExerciseSet(e.target.value as "standard" | "minimal")}
-                                className="bg-gray-700 text-xs px-2 py-1 rounded border border-gray-600 text-gray-200"
-                                title="Exercise set: minimal (3 quick tests) or standard (16 full tests)"
-                            >
-                                <option value="minimal">Minimal (3)</option>
-                                <option value="standard">Standard (16)</option>
-                            </select>
-                        )}
-                    </div>
+                    <button
+                        className="bg-purple-700 hover:bg-purple-600 text-white text-xs px-3 py-1.5 rounded transition-colors flex items-center gap-1.5"
+                        onClick={() => window.open(`${BACKEND_URL}/benchmarks/`, '_blank')}
+                        title="Open real-time benchmark dashboard"
+                    >
+                        <span>🎯</span>
+                        <span>Benchmarks</span>
+                    </button>
                     
                     <button
-                        className={`text-xs px-3 py-1.5 rounded transition-colors ${
-                            runLiveExercises 
-                                ? 'bg-green-700 hover:bg-green-600 text-white' 
-                                : 'bg-gray-700 hover:bg-gray-600'
-                        }`}
+                        className="bg-green-700 hover:bg-green-600 text-white text-xs px-3 py-1.5 rounded transition-colors"
                         onClick={generateNewAssessment}
                         disabled={loading}
                     >
-                        {loading ? "Generating..." : runLiveExercises ? "Run Live Assessment" : "New Assessment"}
+                        {loading ? "Running Tests..." : "Run Dynamic Assessment"}
                     </button>
                 </div>
             </div>
@@ -3342,65 +3580,39 @@ const MetaView: React.FC<MetaViewProps> = ({ onNavigateToTab }) => {
                     {/* History Sidebar (conditional) */}
                     {showHistory && (
                         <div className="w-64 border-r border-gray-700 overflow-y-auto bg-[#252526] flex-shrink-0 flex flex-col">
-                            {/* Header with controls */}
+                            {/* Header */}
                             <div className="p-3 border-b border-gray-700 flex-shrink-0">
-                                <div className="flex items-center justify-between mb-2">
-                                    <h3 className="text-xs font-semibold text-gray-400">ASSESSMENT HISTORY</h3>
-                                    {selectedForDelete.size > 0 && (
-                                        <button
-                                            onClick={() => setShowBatchDeleteConfirm(true)}
-                                            className="text-xs text-red-400 hover:text-red-300 transition-colors"
-                                            title={`Delete ${selectedForDelete.size} selected`}
-                                        >
-                                            🗑️ ({selectedForDelete.size})
-                                        </button>
-                                    )}
-                                </div>
-                                <button
-                                    onClick={selectAllForDelete}
-                                    className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-                                >
-                                    {selectedForDelete.size === history.length ? "Deselect All" : "Select All"}
-                                </button>
+                                <h3 className="text-xs font-semibold text-gray-400">ASSESSMENT HISTORY</h3>
                             </div>
                             
                             {/* History list */}
                             <div className="flex-1 overflow-y-auto p-3 pt-2">
                                 <div className="space-y-1">
                                     {history.map((h, index) => (
-                                        <div key={h.id} className="relative group">
-                                            <div className="flex items-start gap-2">
-                                                {/* Checkbox */}
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedForDelete.has(h.id)}
-                                                    onChange={() => toggleSelectForDelete(h.id)}
-                                                    className="mt-2 cursor-pointer"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                />
-                                                
-                                                {/* Assessment card */}
-                                                <button
-                                                    onClick={() => loadHistoricalAssessment(h.id)}
-                                                    className={`flex-1 text-left px-2 py-2 text-xs rounded transition-colors ${
-                                                        selectedAssessmentId === h.id
-                                                            ? "bg-gray-700 text-gray-100"
-                                                            : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
-                                                    }`}
-                                                >
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="font-semibold">#{h.id}</span>
-                                                        {index === 0 && <span className="text-green-400 text-xs">Latest</span>}
-                                                    </div>
-                                                    <div className="text-xs text-gray-500 mt-0.5">
-                                                        {new Date(h.generated_at).toLocaleString()}
-                                                    </div>
-                                                    <div className="text-xs text-gray-500">
-                                                        {h.phase}
-                                                    </div>
-                                                </button>
+                                        <button
+                                            key={h.assessment_id || h.id || index}
+                                            onClick={() => loadHistoricalAssessment(h.assessment_id || String(h.id))}
+                                            className={`w-full text-left px-2 py-2 text-xs rounded transition-colors ${
+                                                assessment?.assessment_id === h.assessment_id
+                                                    ? "bg-gray-700 text-gray-100"
+                                                    : "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <span className="font-semibold">
+                                                    {h.overall_score !== undefined ? `${h.overall_score.toFixed(0)}/100` : 'N/A'}
+                                                </span>
+                                                {index === 0 && <span className="text-green-400 text-xs">Latest</span>}
                                             </div>
-                                        </div>
+                                            <div className="text-xs text-gray-500 mt-0.5">
+                                                {new Date(h.generated_at).toLocaleString()}
+                                            </div>
+                                            {h.tests_passed !== undefined && h.total_tests !== undefined && (
+                                                <div className="text-xs text-gray-500">
+                                                    {h.tests_passed}/{h.total_tests} tests passed
+                                                </div>
+                                            )}
+                                        </button>
                                     ))}
                                 </div>
                             </div>
@@ -3443,7 +3655,7 @@ const MetaView: React.FC<MetaViewProps> = ({ onNavigateToTab }) => {
                                         {sections.find(s => s.id === activeSection)?.label}
                                     </h2>
                                     {/* Progress Bar - only show on Executive Summary when generating */}
-                                    {(activeSection === "scorecard" || activeSection === "overall_score") && loading && (
+                                    {(activeSection === "dynamic_summary" || activeSection === "scorecard" || activeSection === "overall_score") && loading && (
                                         <div className="flex items-center gap-3">
                                             <div className="flex flex-col items-end">
                                                 <div className="text-xs text-gray-400">{progressStep}</div>
@@ -3460,7 +3672,15 @@ const MetaView: React.FC<MetaViewProps> = ({ onNavigateToTab }) => {
                                 </div>
                                 
                                 {/* Special rendering for specific sections */}
-                                {activeSection === "scorecard" && assessment.scorecard ? (
+                                {/* V4 Dynamic Assessment sections */}
+                                {activeSection === "dynamic_summary" && assessment.dimensions ? (
+                                    renderDynamicSummary()
+                                ) : activeSection === "test_results" && assessment.all_test_results ? (
+                                    renderAllTestResults()
+                                ) : activeSection?.startsWith("dimension_") && assessment.dimensions ? (
+                                    renderDimensionDetail(activeSection.replace("dimension_", ""))
+                                ) : /* V3 sections */
+                                activeSection === "scorecard" && assessment.scorecard ? (
                                     renderV3ExecutiveSummary(assessment.scorecard, assessment)
                                 ) : activeSection === "overall_score" && assessment.overall_score ? (
                                     renderExecutiveSummary(assessment.overall_score)
@@ -3477,39 +3697,6 @@ const MetaView: React.FC<MetaViewProps> = ({ onNavigateToTab }) => {
                                 ) : null}
                             </div>
                         )}
-                    </div>
-                </div>
-            )}
-
-            {/* Batch Delete Confirmation Modal */}
-            {showBatchDeleteConfirm && (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-                    <div className="bg-gray-800 rounded-lg p-6 max-w-md border border-gray-700">
-                        <h3 className="text-base font-semibold text-gray-100 mb-3">Delete Selected Assessments?</h3>
-                        <p className="text-sm text-gray-300 mb-2">
-                            Are you sure you want to delete <strong>{selectedForDelete.size}</strong> assessment{selectedForDelete.size > 1 ? 's' : ''}?
-                        </p>
-                        <p className="text-xs text-gray-400 mb-2">
-                            Assessment IDs: {Array.from(selectedForDelete).sort((a, b) => b - a).join(', ')}
-                        </p>
-                        <p className="text-xs text-red-400 mb-6">
-                            This cannot be undone.
-                        </p>
-                        <div className="flex gap-3 justify-end">
-                            <button
-                                onClick={() => setShowBatchDeleteConfirm(false)}
-                                className="px-4 py-2 text-sm bg-gray-700 hover:bg-gray-600 rounded transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={batchDeleteAssessments}
-                                className="px-4 py-2 text-sm bg-red-600 hover:bg-red-500 rounded transition-colors"
-                                disabled={loading}
-                            >
-                                {loading ? "Deleting..." : "Delete"}
-                            </button>
-                        </div>
                     </div>
                 </div>
             )}

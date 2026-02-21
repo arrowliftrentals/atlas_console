@@ -28,6 +28,7 @@ const ChatPanel: React.FC = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [attachments, setAttachments] = useState<Array<{name: string, type: string, content: string, size?: number}>>([]);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false); // State for triggering gate control
   const messagesEndRef = useRef<HTMLDivElement>(null);
   // STT language mode (SSR-safe)
   const [languageMode, setLanguageMode] = useState<'auto'|'en'|'es'>('auto');
@@ -247,6 +248,7 @@ const ChatPanel: React.FC = () => {
     const playAudio = async (audioData: ArrayBuffer) => {
       const provider = (localStorage.getItem('tts_provider') as TTSProvider) || 'cartesia';
       isPlayingRef.current = true;
+      setIsPlaying(true); // Trigger re-render for gate control
       
       try {
         
@@ -281,7 +283,7 @@ const ChatPanel: React.FC = () => {
           source.start(0);
           
           await new Promise<void>((resolve) => {
-            source.onended = resolve;
+            source.onended = () => resolve();
           });
         } else {
           const blob = new Blob([audioData], { type: 'audio/mpeg' });
@@ -300,6 +302,7 @@ const ChatPanel: React.FC = () => {
         console.error('[TTS] Playback error:', error);
       } finally {
         isPlayingRef.current = false;
+        setIsPlaying(false); // Trigger re-render to open gate
         // Immediately check for queued audio or trigger next synthesis
         speakNext();
       }
@@ -761,6 +764,8 @@ const ChatPanel: React.FC = () => {
             />
             <VoiceInputButton
               languageMode={languageMode}
+              audioContext={streamingAudioContextRef.current || undefined}
+              playbackNode={playbackBusRef.current || undefined}
               onTranscript={(text, isFinal) => {
                 console.log('[ChatPanel] onTranscript callback received:', { text, isFinal });
                 
@@ -798,7 +803,7 @@ const ChatPanel: React.FC = () => {
                 console.log('[ChatPanel] ✅ ATLAS stopped - ready for user input');
               }}
               autoRestart={true}
-              pauseWhileSpeaking={isPlayingRef.current || loading}
+              pauseWhileSpeaking={isPlaying || loading}
               onError={(error) => {
                 console.error('[ChatPanel] Voice input error:', error);
               }}
@@ -806,7 +811,7 @@ const ChatPanel: React.FC = () => {
             
             <button
               type="button"
-              onClick={handleSend}
+              onClick={() => handleSend()}
               disabled={!activeSessionId}
               className="flex-1 text-white font-medium rounded-lg px-4 py-2.5 text-base transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-[inset_0_2px_0_0_rgba(255,255,255,0.3)]"
               style={{ background: 'var(--atlas-btn-primary)' }}

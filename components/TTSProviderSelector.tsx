@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { TTSProviderFactory, TTSProvider } from '@/lib/tts/providers';
 
 export default function TTSProviderSelector() {
-  const [currentProvider, setCurrentProvider] = useState<TTSProvider>('openai');
+  const [currentProvider, setCurrentProvider] = useState<TTSProvider>('cartesia');
   const [latency, setLatency] = useState<number | null>(null);
   const [testing, setTesting] = useState(false);
   
@@ -109,7 +109,7 @@ export default function TTSProviderSelector() {
           
         } catch (pcmError: any) {
           console.error('[TTS Test] PCM playback error:', pcmError);
-          throw new Error(`PCM playback failed: ${pcmError.message}`);
+          throw new Error(`PCM playback failed: ${pcmError?.message || String(pcmError)}`, { cause: pcmError });
         }
         
       } else {
@@ -176,7 +176,7 @@ export default function TTSProviderSelector() {
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-sm font-medium">{provider.label}</div>
-                {provider.name === 'bettany' && (
+              {(provider.name as string) === 'bettany' && (
                   <div className="text-xs opacity-70 mt-1">
                     Requires JARVIS TTS server running
                   </div>

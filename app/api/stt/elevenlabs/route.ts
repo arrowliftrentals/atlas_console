@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+// @ts-expect-error ws types not installed
 import { WebSocket as WSClient } from 'ws';
 
 export const dynamic = 'force-dynamic';
@@ -37,13 +38,13 @@ export async function GET(request: NextRequest) {
       console.log('[STT Proxy] Connected to ElevenLabs');
     });
 
-    elevenLabsWS.on('message', (data) => {
+    elevenLabsWS.on('message', (data: Buffer | string) => {
       // Forward transcription results to client
       // In a full implementation, this would go through the upgraded WebSocket
       console.log('[STT Proxy] Received:', data.toString().substring(0, 100));
     });
 
-    elevenLabsWS.on('error', (error) => {
+    elevenLabsWS.on('error', (error: Error) => {
       console.error('[STT Proxy] Error:', error);
     });
 

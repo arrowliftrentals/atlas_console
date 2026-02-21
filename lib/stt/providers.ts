@@ -86,9 +86,9 @@ export class ElevenLabsSTTProvider implements STTProviderInterface {
         audio: {
           channelCount: 1,
           sampleRate: 48000, // let browser run native rate; we downsample in worklet
-          echoCancellation: { ideal: true },
-          autoGainControl: { ideal: false },
-          noiseSuppression: { ideal: true },
+          echoCancellation: true, // Mandatory - prevents mic from hearing TTS output
+          autoGainControl: false,
+          noiseSuppression: true,
         } 
       });
       
@@ -96,6 +96,24 @@ export class ElevenLabsSTTProvider implements STTProviderInterface {
         echoCancellation: this.audioStream.getAudioTracks()[0].getSettings().echoCancellation,
         autoGainControl: this.audioStream.getAudioTracks()[0].getSettings().autoGainControl,
         noiseSuppression: this.audioStream.getAudioTracks()[0].getSettings().noiseSuppression,
+      });
+      
+      // Monitor track state to detect unexpected stops
+      const track = this.audioStream.getAudioTracks()[0];
+      track.addEventListener('ended', () => {
+        console.error('[STT] ⚠️ Microphone track ended unexpectedly!');
+        if (this.listening) {
+          console.log('[STT] Track ended while listening - browser may have suspended it');
+          onError('Microphone was stopped by the browser');
+        }
+      });
+      
+      track.addEventListener('mute', () => {
+        console.warn('[STT] 🔇 Microphone track muted');
+      });
+      
+      track.addEventListener('unmute', () => {
+        console.log('[STT] 🔈 Microphone track unmuted');
       });
       
       // Get single-use token from our backend (which uses the API key)
@@ -278,6 +296,17 @@ export class ElevenLabsSTTProvider implements STTProviderInterface {
       this.audioContext = new AudioContext();
       console.log('[STT] AudioContext created with sample rate:', this.audioContext.sampleRate);
       
+      // Resume AudioContext if browser suspends it (e.g. when another app gains focus)
+      this.audioContext.addEventListener('statechange', () => {
+        console.log('[STT] AudioContext state changed:', this.audioContext?.state);
+        if (this.audioContext?.state === 'suspended' && this.listening) {
+          console.log('[STT] 🔄 Resuming suspended AudioContext...');
+          this.audioContext.resume().catch(err => {
+            console.error('[STT] Failed to resume AudioContext:', err);
+          });
+        }
+      });
+      
       // Load AudioWorklet processor
       await this.audioContext.audioWorklet.addModule('/audio-processor.js');
       console.log('[STT] AudioWorklet processor loaded');
@@ -366,8 +395,7 @@ export class ElevenLabsSTTProvider implements STTProviderInterface {
     }
     if (this.processor) {
       this.processor.disconnect();
-      // @ts-expect-error worklet port may be null after disconnect
-      this.processor.port && (this.processor.port.onmessage = null);
+      if (this.processor.port) this.processor.port.onmessage = null;
       this.processor = null;
     }
     if (this.audioContext) {
@@ -407,6 +435,12 @@ export class ElevenLabsSTTProvider implements STTProviderInterface {
   getAudioStream(): MediaStream | null {
     return this.audioStream;
   }
+
+  setGate(block: boolean): void {
+    if (this.processor?.port) {
+      this.processor.port.postMessage({ type: 'gate', block });
+    }
+  }
 }
 
 /**
@@ -431,9 +465,9 @@ export class ElevenLabsBatchSTTProvider implements STTProviderInterface {
         audio: {
           channelCount: 1,
           // Let browser pick supported container (WebM/Opus widely supported)
-          echoCancellation: { ideal: true },
-          noiseSuppression: { ideal: true },
-          autoGainControl: { ideal: false },
+          echoCancellation: true, // Mandatory - prevents mic from hearing TTS output
+          noiseSuppression: true,
+          autoGainControl: false,
         },
       });
 
@@ -610,7 +644,7 @@ export class ElevenLabsAutoSTTProvider implements STTProviderInterface {
  * STT Provider Factory
  */
 export class STTProviderFactory {
-  private static providers: Map<STTProvider, STTProviderInterface> = new Map([
+  private static providers: Map<STTProvider, STTProviderInterface> = new Map<STTProvider, STTProviderInterface>([
     ['elevenlabs', new ElevenLabsSTTProvider()],
     ['elevenlabs_batch', new ElevenLabsBatchSTTProvider()],
     ['elevenlabs_proxy', new ElevenLabsProxySTTProvider()],

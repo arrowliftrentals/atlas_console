@@ -1,0 +1,4 @@
+2026-02-20 17:17:39 | INFO     | sentence_transformers.SentenceTransformer:219 | Use pytorch device_name: mps
+2026-02-20 17:17:39 | INFO     | sentence_transformers.SentenceTransformer:227 | Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2026-02-20 17:17:39 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-20 17:17:39 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
