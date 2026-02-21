@@ -175,9 +175,10 @@ export interface Skill {
 export type CanonicalSkill = {
   id: string;
   name: string;
-  category: string;
-  successRate: number; // 0..100
-  executionCount: number;
+  description: string;
+  status: string;
+  stepCount: number;
+  version: string;
 };
 
 export interface WorldSnapshot {
@@ -375,10 +376,10 @@ const SkillItemSchema = z.object({
   id: z.string(),
   name: z.string().default(''),
   description: z.string().optional(),
-  category: z.string().optional(),
-  status: z.string().optional(), // API uses 'status' instead of explicit category
-  success_rate: z.union([z.number(), z.string()]).optional(),
-  execution_count: z.union([z.number(), z.string()]).optional(),
+  steps: z.array(z.string()).optional(),
+  status: z.string().optional(),
+  version: z.string().optional(),
+  created_at: z.string().optional(),
 });
 const SkillsResponse = z.object({ skills: z.array(SkillItemSchema).default([]) });
 
@@ -619,9 +620,10 @@ export function useSkills(limit = 20): { data: CanonicalSkill[]; loading: boolea
             const normalized: CanonicalSkill[] = parsed.data.skills.map(s => ({
               id: s.id,
               name: s.name,
-              category: s.category || s.status || 'general', // Use status as fallback
-              successRate: toPercent01To100(s.success_rate),
-              executionCount: Math.max(0, Math.floor(toNumber(s.execution_count, 0))),
+              description: s.description || '',
+              status: s.status || 'unknown',
+              stepCount: s.steps?.length ?? 0,
+              version: s.version || '—',
             }));
             setData(normalized);
           } else {
@@ -1321,30 +1323,65 @@ export function GoalsTrackerContent() {
 export function SkillsCatalogContent() {
   const { data, loading, error } = useSkills(8);
 
+  const statusColor = (s: string) => {
+    switch (s.toLowerCase()) {
+      case 'active': case 'verified': return 'bg-green-500/20 text-green-400';
+      case 'draft': return 'bg-amber-500/20 text-amber-400';
+      case 'deprecated': case 'failed': return 'bg-red-500/20 text-red-400';
+      default: return 'bg-gray-500/20 text-gray-400';
+    }
+  };
+
+  // Clean up auto-generated skill names for readability
+  const cleanName = (name: string) => {
+    const cleaned = name
+      .replace(/^test_skill_dynamic_test_[a-f0-9]+$/i, 'Dynamic Assessment')
+      .replace(/^test_skill_/, '')
+      .replace(/_/g, ' ');
+    return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  };
+
   return (
     <CardContent loading={loading} error={error}>
-      <div className="space-y-1.5">
+      <div className="space-y-2">
         {data.length > 0 ? (
-          data.slice(0, 6).map((skill) => (
-            <div key={skill.id} className="flex items-center gap-2 text-xs">
-              <span className="text-white/70 flex-1 truncate">{skill.name}</span>
-              <span className="text-purple-400 text-[10px]">
-                <InlineTooltip tip={`Skill category: ${skill.category}`}>
-                  {skill.category}
-                </InlineTooltip>
-              </span>
-              <span className={`tabular-nums ${skill.successRate >= 90 ? 'text-green-400' : skill.successRate >= 70 ? 'text-amber-400' : 'text-red-400'}`}>
-                <InlineTooltip tip="Percentage of successful executions. Green ≥90%, Amber ≥70%, Red <70%">
-                  {skill.successRate.toFixed(0)}%
-                </InlineTooltip>
-              </span>
-              <span className="text-white/40 tabular-nums">
-                <InlineTooltip tip="Total times this skill has been invoked">
-                  ×{skill.executionCount}
-                </InlineTooltip>
-              </span>
+          <>
+            <div className="flex items-center justify-between text-[10px] text-white/40 mb-1">
+              <span>{data.length} skill{data.length !== 1 ? 's' : ''} registered</span>
+              <span>{data.filter(s => s.status === 'active' || s.status === 'verified').length} active</span>
             </div>
-          ))
+            {data.slice(0, 5).map((skill) => (
+              <div key={skill.id} className="space-y-0.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-white/80 truncate flex-1">
+                    <InlineTooltip tip={skill.description || skill.name}>
+                      {cleanName(skill.name)}
+                    </InlineTooltip>
+                  </span>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${statusColor(skill.status)}`}>
+                    <InlineTooltip tip={`Current lifecycle status of this skill`}>
+                      {skill.status}
+                    </InlineTooltip>
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-[10px] text-white/40">
+                  {skill.description && (
+                    <span className="truncate flex-1">{skill.description}</span>
+                  )}
+                  <span className="flex-shrink-0">
+                    <InlineTooltip tip="Number of steps in this skill's procedure">
+                      {skill.stepCount} step{skill.stepCount !== 1 ? 's' : ''}
+                    </InlineTooltip>
+                  </span>
+                  <span className="flex-shrink-0">
+                    <InlineTooltip tip="Skill schema version">
+                      v{skill.version}
+                    </InlineTooltip>
+                  </span>
+                </div>
+              </div>
+            ))}
+          </>
         ) : (
           <div className="text-white/40 text-sm text-center py-4">No skills recorded</div>
         )}
@@ -1354,40 +1391,97 @@ export function SkillsCatalogContent() {
 }
 
 // --- World State Card ---
+
+/** Extract human-readable key-value pairs from a world-state snapshot. */
+function extractStateMetrics(state: unknown): { label: string; value: string }[] {
+  if (!state || typeof state !== 'object') return [];
+  const obj = state as Record<string, unknown>;
+  const metrics: { label: string; value: string }[] = [];
+
+  // Handle librarian_coverage specifically
+  if ('librarian_coverage' in obj && typeof obj.librarian_coverage === 'object' && obj.librarian_coverage) {
+    const lc = obj.librarian_coverage as Record<string, unknown>;
+    if (lc.total_files_indexed != null) metrics.push({ label: 'Files Indexed', value: Number(lc.total_files_indexed).toLocaleString() });
+    if (lc.total_facts_stored != null) metrics.push({ label: 'Facts Stored', value: Number(lc.total_facts_stored).toLocaleString() });
+    if (lc.facts_added_this_run != null) metrics.push({ label: 'Added This Run', value: Number(lc.facts_added_this_run).toLocaleString() });
+    if (lc.coverage_by_category && typeof lc.coverage_by_category === 'object') {
+      const cats = Object.keys(lc.coverage_by_category as Record<string, unknown>);
+      if (cats.length > 0) metrics.push({ label: 'Categories', value: cats.map(c => c.replace(/_/g, ' ')).join(', ') });
+    }
+    return metrics;
+  }
+
+  // Generic: extract top-level scalar values
+  for (const [key, val] of Object.entries(obj).slice(0, 5)) {
+    if (val == null) continue;
+    const label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    if (typeof val === 'number') {
+      metrics.push({ label, value: val.toLocaleString() });
+    } else if (typeof val === 'string') {
+      metrics.push({ label, value: val.length > 40 ? val.slice(0, 40) + '…' : val });
+    } else if (typeof val === 'boolean') {
+      metrics.push({ label, value: val ? 'Yes' : 'No' });
+    } else if (Array.isArray(val)) {
+      metrics.push({ label, value: `${val.length} item${val.length !== 1 ? 's' : ''}` });
+    } else if (typeof val === 'object') {
+      metrics.push({ label, value: `${Object.keys(val as Record<string, unknown>).length} fields` });
+    }
+  }
+  return metrics;
+}
+
+function timeAgo(ts: string): string {
+  const diff = Date.now() - new Date(ts).getTime();
+  if (diff < 60_000) return 'just now';
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  return `${Math.floor(diff / 86_400_000)}d ago`;
+}
+
 export function WorldStateContent() {
   const { data, loading, error } = useWorldState(6);
 
+  // Deduplicate by component — show only the latest snapshot per component
+  const deduplicated = data.reduce<CanonicalWorldSnapshot[]>((acc, snap) => {
+    if (!acc.find(s => s.component === snap.component)) acc.push(snap);
+    return acc;
+  }, []);
+
   return (
     <CardContent loading={loading} error={error}>
-      <div className="space-y-2">
-        {data.length > 0 ? (
-          data.slice(0, 5).map((snapshot, i) => (
-            <div key={i} className="text-xs">
-              <div className="flex items-center justify-between">
-                <span className="text-cyan-400 font-medium">
-                  <InlineTooltip tip={`State snapshot from component: ${snapshot.component}`}>
-                    {snapshot.component}
-                  </InlineTooltip>
-                </span>
-                <span className="text-white/40 text-[10px]">
-                  <InlineTooltip tip="Time this state snapshot was captured">
-                    {new Date(snapshot.timestamp).toLocaleTimeString()}
-                  </InlineTooltip>
-                </span>
+      <div className="space-y-3">
+        {deduplicated.length > 0 ? (
+          deduplicated.slice(0, 4).map((snapshot, i) => {
+            const metrics = extractStateMetrics(snapshot.state);
+            return (
+              <div key={i} className="text-xs">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-amber-400 font-medium">
+                    <InlineTooltip tip={`State type: ${snapshot.component}`}>
+                      {snapshot.component.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                    </InlineTooltip>
+                  </span>
+                  <span className="text-white/40 text-[10px]">
+                    <InlineTooltip tip={new Date(snapshot.timestamp).toLocaleString()}>
+                      {timeAgo(snapshot.timestamp)}
+                    </InlineTooltip>
+                  </span>
+                </div>
+                {metrics.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                    {metrics.map((m, j) => (
+                      <div key={j} className="flex items-center justify-between">
+                        <span className="text-white/40 text-[10px]">{m.label}</span>
+                        <span className="text-white/70 text-[10px] tabular-nums">{m.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-white/30 text-[10px]">No readable fields</div>
+                )}
               </div>
-              <div className="text-white/50 truncate text-[10px]">
-                <InlineTooltip tip="JSON preview of the component's internal state">
-                  {(() => {
-                    try {
-                      return JSON.stringify(snapshot.state ?? {}).slice(0, 60);
-                    } catch {
-                      return '[unserializable]';
-                    }
-                  })()}...
-                </InlineTooltip>
-              </div>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="text-white/40 text-sm text-center py-4">No state snapshots</div>
         )}

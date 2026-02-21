@@ -2340,7 +2340,7 @@ id: "skills-catalog",
                 <DashboardCard
                   title="Skills Catalog"
                   subtitle="L5 procedural skills"
-                  onClick={() => setActiveView("memory")}
+                  onClick={() => setActiveView("learning")}
                   accentColor="#a855f7"
                   info={{
                     title: 'Skills card',

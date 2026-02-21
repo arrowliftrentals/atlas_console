@@ -114,9 +114,7 @@ export async function atlasChat(
   const sessionId = payload.session_id ?? getOrCreateSessionId();
 
   // Debug: log what session_id we are using and whether it came from payload or storage
-  // eslint-disable-next-line no-console
   console.debug('[atlasClient] atlasChat(): incoming payload.session_id =', payload.session_id);
-  // eslint-disable-next-line no-console
   console.debug('[atlasClient] atlasChat(): effective sessionId =', sessionId);
 
   // Always include session_id (it is guaranteed non-empty string now)
@@ -126,7 +124,6 @@ export async function atlasChat(
   };
 
   // Debug: log the final payload being sent (without dumping huge fields)
-  // eslint-disable-next-line no-console
   console.debug('[atlasClient] atlasChat(): sending payload to backend', {
     ...payloadWithSession,
     // Avoid logging very large fields if present
@@ -163,7 +160,6 @@ export async function atlasChat(
   const data = (await res.json()) as AtlasChatResponse;
 
   // Debug: log what session_id the backend responded with
-  // eslint-disable-next-line no-console
   console.debug('[atlasClient] atlasChat(): backend response.session_id =', data.session_id);
 
   // If backend returns a canonical session_id, update storage
