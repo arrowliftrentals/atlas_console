@@ -838,9 +838,42 @@ export function ClassifierStatsContent() {
   );
 }
 
+// --- Latest correction hook (lightweight, returns most recent entry) ---
+interface LatestCorrection {
+  query: string;
+  predicted_intent: string;
+  correct_intent: string;
+  confidence: number;
+  timestamp: string;
+  is_confirmation: boolean;
+}
+
+function useLatestCorrection(): { data: LatestCorrection | null } {
+  const [data, setData] = useState<LatestCorrection | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await fetch('/api/atlasLearning/corrections?limit=1');
+        if (res.ok) {
+          const json = await res.json();
+          const list = json.corrections ?? [];
+          if (list.length > 0) setData(list[0]);
+        }
+      } catch { /* non-blocking */ }
+    };
+    fetchData();
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  return { data };
+}
+
 // --- Learning Progress Card ---
 export function LearningProgressContent() {
   const { data, loading, error } = useLearningStats();
+  const { data: latest } = useLatestCorrection();
 
   return (
     <CardContent loading={loading} error={error}>
@@ -890,6 +923,24 @@ export function LearningProgressContent() {
               <span className="text-amber-400 tabular-nums">{data.actual_corrections}</span>
             </div>
           </div>
+          {/* Latest correction preview */}
+          {latest && (
+            <div className="mt-1 pt-2 border-t border-white/10">
+              <div className="text-[10px] text-white/40 mb-1">Latest</div>
+              <div className="text-xs text-white/70 truncate">
+                &ldquo;{latest.query}&rdquo;
+              </div>
+              <div className="flex items-center gap-1.5 mt-1 text-[10px]">
+                <span className="px-1.5 py-0.5 rounded bg-red-500/20 text-red-400 font-mono">
+                  {latest.predicted_intent}
+                </span>
+                <span className="text-white/30">&rarr;</span>
+                <span className="px-1.5 py-0.5 rounded bg-green-500/20 text-green-400 font-mono">
+                  {latest.correct_intent}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </CardContent>
