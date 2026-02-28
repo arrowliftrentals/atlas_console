@@ -1,0 +1,42 @@
+{
+  "stdlib_location": "/opt/homebrew/opt/python@3.11/Frameworks/Python.framework/Versions/3.11/lib/python3.11",
+  "site_packages": [
+    "/Users/mac_m3/Projects/WARP Ecosystem/atlas/.venv/lib/python3.11/site-packages"
+  ],
+  "modules": {
+    "hashlib": {
+      "path": "/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/hashlib.py",
+      "hash": "e2bffb462e4d43e6637b9450e259e8ba2a56626ba3037d68aa1cee68b3f61d4a"
+    },
+    "hmac": {
+      "path": "/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/hmac.py",
+      "hash": "7facd1330e5487ed995eda5c8619df0d3e32f69cb619f97662372fb76325746e"
+    },
+    "importlib": {
+      "path": "/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/importlib/__init__.py",
+      "hash": "49ad4fdc8139026f7f3773e3f50f09207ff6bd8e92a2c382545525235448e525"
+    },
+    "io": {
+      "path": "/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/io.py",
+      "hash": "12636601d4f488b583cff41668c3a386c3b2d93499df09de0df9d9a2a4b95194"
+    },
+    "json": {
+      "path": "/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/json/__init__.py",
+      "hash": "d5d41e2c29049515d295d81a6d40b4890fbec8d8482cfb401630f8ef2f77e4d5"
+    },
+    "os": {
+      "path": "/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/os.py",
+      "hash": "8a5d4ac7b87c6c5b31fcb5081f7f7c06f8403a2fdb3eb23692c48933baeb899e"
+    },
+    "sqlite3": {
+      "path": "/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/sqlite3/__init__.py",
+      "hash": "29878411a7bcefcd56a3751fe689dea2c99bda75a13a485d78898834a323f0c0"
+    },
+    "subprocess": {
+      "path": "/opt/homebrew/Cellar/python@3.11/3.11.14_3/Frameworks/Python.framework/Versions/3.11/lib/python3.11/subprocess.py",
+      "hash": "baa9f9138d8d20df6284f67e7d2e790f847f65e2c5370de322d54cccd737f2d9"
+    }
+  },
+  "created_at": "2026-02-24T12:06:58.523158",
+  "signature": "ce546f1643c9e37ac35db2c227d608c2bf040f8cd7d1358dfeec8191f75a05c4"
+}

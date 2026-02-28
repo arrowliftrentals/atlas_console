@@ -50,5 +50,10 @@
   "stt/elevenlabs/route.ts",
   "stt/elevenlabs/convert/route.ts",
   "stt/elevenlabs/token/route.ts",
-  "atlasLearning/corrections/route.ts"
+  "atlasLearning/corrections/route.ts",
+  "atlasLearning/stats/route.ts",
+  "voiceprint/status/route.ts",
+  "voiceprint/enroll/route.ts",
+  "voiceprint/warmup/route.ts",
+  "recommendations/engage/[id]/route.ts"
 ]

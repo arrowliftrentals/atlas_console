@@ -8,35 +8,8 @@ import * as THREE from 'three';
 import { InstancedMesh, Object3D, Color, Matrix4, Vector3 } from 'three';
 import { useFrame } from '@react-three/fiber';
 import { EdgeStateV2, NodeStateV2, TelemetryEventV2 } from './NeuralTelemetryTypesV2';
-import { PARTICLE_COLORS_BY_EVENT, NODE_COLORS, REGION_COLORS } from './NeuralVisualEncodingV2';
 import { useNeuralTelemetryStoreV2 } from './NeuralTelemetryStoreV2';
-import { classifyNode } from './NeuralCognitiveLayoutV2';
 import { calculateEdgePath, getPathPosition } from './NeuralPathUtils';
-
-const CORE_RADIUS = 20;
-const MEMORY_RADIUS = 60;
-const PERCEPTION_RADIUS = 100;
-
-// Determine which shell a position belongs to
-function getNodeShell(position: [number, number, number]): number {
-  const [x, y, z] = position;
-  const radius = Math.sqrt(x*x + y*y + z*z);
-  const distToCore = Math.abs(radius - CORE_RADIUS);
-  const distToMemory = Math.abs(radius - MEMORY_RADIUS);
-  const distToPerception = Math.abs(radius - PERCEPTION_RADIUS);
-  const minDist = Math.min(distToCore, distToMemory, distToPerception);
-  if (minDist === distToCore) return CORE_RADIUS;
-  if (minDist === distToMemory) return MEMORY_RADIUS;
-  return PERCEPTION_RADIUS;
-}
-
-// Project point to sphere surface
-function projectToSphere(x: number, y: number, z: number, radius: number): [number, number, number] {
-  const len = Math.sqrt(x*x + y*y + z*z);
-  if (len === 0) return [radius, 0, 0];
-  const scale = radius / len;
-  return [x * scale, y * scale, z * scale];
-}
 
 interface Props {
   nodes: Map<string, NodeStateV2>;
@@ -49,6 +22,7 @@ interface Props {
 
 interface ParticleRuntime {
   active: boolean;
+  hidden: boolean; // true once matrix set to "hidden" state — skip in loop
   edgeId: string;
   t: number;            // 0..1 progress along edge
   speed: number;
@@ -81,6 +55,7 @@ export function NeuralParticlesInstancedV2({
     () =>
       Array.from({ length: maxParticles }, () => ({
         active: false,
+        hidden: false,
         edgeId: '',
         t: 0,
         speed: 0,
@@ -163,8 +138,8 @@ export function NeuralParticlesInstancedV2({
       // Use straight line path for now (no curve)
       p.curvePath = undefined;
       
-      // Speed based on priority
-      p.speed = ev.priority === 'high' ? 1.2 : ev.priority === 'low' ? 0.4 : 0.8;
+      // Speed based on priority (slowed so streams linger on-screen longer)
+      p.speed = ev.priority === 'high' ? 0.55 : ev.priority === 'low' ? 0.18 : 0.35;
       
       // Single color for all particles
       p.color.setHex(0x00FFFF);
@@ -192,13 +167,17 @@ export function NeuralParticlesInstancedV2({
     // Update all particles
     particles.forEach((p, i) => {
       if (!p.active) {
-        // Hide inactive particles - move far away and scale to zero
-        dummy.position.set(10000, 10000, 10000);
-        dummy.scale.set(0, 0, 0);
-        dummy.updateMatrix();
-        meshRef.current.setMatrixAt(i, dummy.matrix);
+        if (!p.hidden) {
+          // Just became inactive — hide once then skip future frames
+          dummy.position.set(10000, 10000, 10000);
+          dummy.scale.set(0, 0, 0);
+          dummy.updateMatrix();
+          meshRef.current.setMatrixAt(i, dummy.matrix);
+          p.hidden = true;
+        }
         return;
       }
+      p.hidden = false; // active particle is visible
 
       const edge = edges.get(p.edgeId);
       if (!edge) {
@@ -256,15 +235,18 @@ export function NeuralParticlesInstancedV2({
         return;
       }
 
-      // Log first active particle every 30 frames
-      if (frameCountRef.current % 30 === 0 && i === 0) {
-        console.log(`[P0] t=${p.t.toFixed(3)} pos=[${x.toFixed(1)}, ${y.toFixed(1)}, ${z.toFixed(1)}]`);
-        console.log(`     src=[${src.position[0].toFixed(1)}, ${src.position[1].toFixed(1)}, ${src.position[2].toFixed(1)}]`);
-        console.log(`     dst=[${dst.position[0].toFixed(1)}, ${dst.position[1].toFixed(1)}, ${dst.position[2].toFixed(1)}]`);
+      // Dissolve tail:
+      let effectiveSize = p.size;
+      if (p.t > 0.8) {
+        effectiveSize *= (1.0 - p.t) / 0.2; // 1→0 over t=0.8→1.0
+      }
+      // Fade-in at start (first 10%)
+      if (p.t < 0.1) {
+        effectiveSize *= p.t / 0.1;
       }
 
       dummy.position.set(x, y, z);
-      dummy.scale.set(p.size, p.size, p.size);
+      dummy.scale.set(effectiveSize, effectiveSize, effectiveSize);
       dummy.updateMatrix();
       
       meshRef.current.setMatrixAt(i, dummy.matrix);
@@ -277,12 +259,6 @@ export function NeuralParticlesInstancedV2({
       });
     });
     meshRef.current.instanceMatrix.needsUpdate = true;
-    
-    // Force geometry to recompute bounding sphere to prevent NaN errors
-    if (meshRef.current.geometry.boundingSphere) {
-      meshRef.current.geometry.boundingSphere = null;
-    }
-    meshRef.current.geometry.computeBoundingSphere();
 
     // Report active particle count (no logging)
     if (onActiveCountChange) {
@@ -307,6 +283,7 @@ export function NeuralParticlesInstancedV2({
       <instancedMesh
         ref={meshRef}
         args={[particleGeometry, particleMaterial, maxParticles]}
+        frustumCulled={false}
         renderOrder={999}
       />
     </>

@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { STTProviderFactory, type STTTranscript } from '@/lib/stt/providers';
+import { getSpeakerGate, type GateState } from '@/lib/stt/speakerGate';
+import { classifyTranscript } from '@/lib/stt/transcriptFilter';
 
 type LanguageMode = 'auto' | 'en' | 'es';
 
@@ -27,6 +29,15 @@ export default function VoiceInputButton({ onTranscript, onError, autoRestart = 
   const wasListeningRef = React.useRef(false);
 
   const sttProvider = STTProviderFactory.getProvider('elevenlabs');
+  const [gateState, setGateState] = useState<GateState>('disabled');
+
+  // Subscribe to SpeakerGate state changes
+  useEffect(() => {
+    const gate = getSpeakerGate();
+    const unsub = gate.onStateChange((state) => setGateState(state));
+    setGateState(gate.state);
+    return unsub;
+  }, []);
 
   // Echo-aware gating: analysers and loop state
   const gateLoopRef = useRef<number | null>(null);
@@ -88,11 +99,26 @@ export default function VoiceInputButton({ onTranscript, onError, autoRestart = 
               return;
             }
             
+            // Classify transcript: detect non-speech artifacts (coughs, garbled output)
+            const classification = classifyTranscript(transcript.text, languageMode);
+            if (classification.isNoise) {
+              console.log(`[VoiceInput] 🔊 Non-speech artifact detected: "${transcript.text}" → reason: ${classification.reason}`);
+              // For interim noise, just show placeholder — don't send yet
+              if (!transcript.isFinal) {
+                setInterimText('[...]');
+                return;
+              }
+              // For final noise, send the semantic label so ATLAS can respond contextually
+              // (e.g. JARVIS: "Are you okay, sir?")
+            }
+            
+            const textToSend = classification.isNoise ? classification.text : transcript.text;
+            
             // Store last transcript for VAD-based sending
-            setLastTranscript(transcript.text);
+            setLastTranscript(textToSend);
             
             // Send transcript to parent (both interim and final)
-            onTranscript(transcript.text, transcript.isFinal);
+            onTranscript(textToSend, transcript.isFinal);
             
             if (transcript.isFinal) {
               // Final transcript from ElevenLabs - stop listening and send
@@ -199,7 +225,7 @@ export default function VoiceInputButton({ onTranscript, onError, autoRestart = 
         onClick={handleToggleListening}
         onMouseEnter={() => setShowTooltip(true)}
         onMouseLeave={() => setShowTooltip(false)}
-        className="px-3 py-2.5 rounded-lg transition-all"
+        className="px-3 py-2.5 rounded-lg transition-all relative"
         style={{
           backgroundColor: isListening ? '#ef4444' : 'var(--atlas-bg-subtle)',
           borderWidth: '1px',
@@ -208,6 +234,25 @@ export default function VoiceInputButton({ onTranscript, onError, autoRestart = 
         }}
         title={isListening ? 'Stop listening' : 'Start voice input'}
       >
+        {/* Speaker verification status dot */}
+        {gateState !== 'disabled' && (
+          <span
+            className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-white"
+            style={{
+              backgroundColor:
+                gateState === 'open' ? '#22c55e' :
+                gateState === 'closed' ? '#ef4444' :
+                gateState === 'no_voiceprint' ? '#f59e0b' :
+                '#9ca3af',
+            }}
+            title={
+              gateState === 'open' ? 'Speaker verified' :
+              gateState === 'closed' ? 'Speaker not verified' :
+              gateState === 'no_voiceprint' ? 'No voiceprint enrolled' :
+              'Verification disabled'
+            }
+          />
+        )}
         <svg
           className="w-5 h-5"
           fill="currentColor"

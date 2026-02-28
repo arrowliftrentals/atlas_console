@@ -181,12 +181,21 @@ export async function clearActivityLogs(): Promise<{ status: string; message: st
  * Send a chat request to ATLAS with streaming response
  * Calls callbacks as chunks arrive for real-time UI updates
  */
+/** A single step in ATLAS's thinking process, emitted during ReAct reasoning. */
+export interface ThinkingStep {
+  type: 'thinking' | 'tool_call' | 'tool_result' | 'observation' | 'reflection' | 'progress';
+  content: string;
+  metadata?: Record<string, unknown>;
+  timestamp: string;
+}
+
 export async function atlasChatStream(
   payload: { query: string; session_id?: string; context?: string },
   onChunk: (chunk: string) => void,
   onToolCall?: (toolName: string, status: string) => void,
   onDone?: (sessionId: string) => void,
-  onError?: (error: string) => void
+  onError?: (error: string) => void,
+  onThinking?: (step: ThinkingStep) => void
 ): Promise<void> {
   const streamPayload = {
     query: payload.query,
@@ -236,36 +245,74 @@ export async function atlasChatStream(
             
             switch (data.type) {
               case 'connected':
-                console.debug('[SSE] Connected, session:', data.session_id);
+                console.debug('[SSE] Connected, session:', data.metadata?.session_id || data.session_id);
                 break;
               
               case 'info':
-                console.debug('[SSE] Info:', data.message);
+                console.debug(`[SSE] ${data.type}:`, data.content || data.message);
                 break;
               
+              case 'progress':
+                console.debug(`[SSE] progress:`, data.content || data.message);
+                onThinking?.({
+                  type: 'progress',
+                  content: data.content || data.message || '',
+                  metadata: data.metadata,
+                  timestamp: data.timestamp || new Date().toISOString(),
+                });
+                break;
+              
+              case 'metadata': {
+                // Intentionally do not surface raw routing metadata in the
+                // user-facing thinking stream — it frequently contains internal
+                // identifiers (providers/handlers) and adds noise.
+                console.debug(`[SSE] metadata:`, data.content || data.message);
+                break;
+              }
+              
               case 'chunk':  // Backend sends 'chunk', not 'answer_chunk'
-                console.log('[SSE] Answer chunk received:', data.content.length, 'chars');
-                // Add 40% delay for slower typing effect (simulate 140% of original time)
-                await new Promise(resolve => setTimeout(resolve, data.content.length * 2));
-                onChunk(data.content);
+                if (data.content) {
+                  onChunk(data.content);
+                }
+                break;
+              
+              case 'thinking':
+              case 'reflection':
+              case 'observation':
+              case 'tool_result':
+                onThinking?.({
+                  type: data.type as ThinkingStep['type'],
+                  content: data.content || '',
+                  metadata: data.metadata,
+                  timestamp: data.timestamp || new Date().toISOString(),
+                });
                 break;
               
               case 'tool_call':
-                onToolCall?.(data.name, data.status);
+                onToolCall?.(data.name || data.content, data.status || 'running');
+                // Also emit as thinking step for visualization
+                onThinking?.({
+                  type: 'tool_call',
+                  content: data.name || data.content || '',
+                  metadata: data.metadata,
+                  timestamp: data.timestamp || new Date().toISOString(),
+                });
                 break;
               
               case 'done':
                 console.debug('[SSE] Stream complete');
-                onDone?.(data.session_id);
+                onDone?.(data.metadata?.session_id || data.session_id || '');
                 break;
               
-              case 'error':
-                console.error('[SSE] Error:', data.message);
-                onError?.(data.message);
+              case 'error': {
+                const errMsg = data.content || data.message || 'Unknown streaming error';
+                console.error('[SSE] Error:', errMsg);
+                onError?.(errMsg);
                 break;
+              }
               
               default:
-                console.debug('[SSE] Unknown event type:', data.type);
+                console.debug('[SSE] Unhandled event type:', data.type);
             }
           } catch (e) {
             console.error('[SSE] Failed to parse event data:', line, e);
@@ -278,4 +325,114 @@ export async function atlasChatStream(
     onError?.(error instanceof Error ? error.message : String(error));
     throw error;
   }
+}
+
+
+// =============================================================================
+// Strategic Opportunity Engagement
+// =============================================================================
+
+export interface EngageResponse {
+  opportunity_id: string;
+  content: string;
+  status: 'completed' | 'error';
+}
+
+/**
+ * Stream an implementation plan from ATLAS for a strategic opportunity.
+ *
+ * Opens an SSE connection to the engage endpoint and calls `onChunk` as
+ * content chunks arrive. Returns an AbortController so the caller can cancel.
+ */
+export function engageOpportunityStream(
+  opportunityId: string,
+  depth: 'overview' | 'detailed' | 'full' = 'full',
+  onChunk: (text: string) => void,
+  onDone: () => void,
+  onError: (error: string) => void,
+): AbortController {
+  const controller = new AbortController();
+
+  (async () => {
+    try {
+      const res = await fetch(
+        `http://localhost:8000/v1/recommendations/engage/${encodeURIComponent(opportunityId)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ depth }),
+          signal: controller.signal,
+        },
+      );
+
+      if (!res.ok) {
+        const errorBody = await res.text();
+        onError(`Engage failed (${res.status}): ${errorBody}`);
+        return;
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) {
+        onError('Response body is not readable');
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const data = JSON.parse(line.slice(6));
+            if (data.type === 'chunk' && data.content) {
+              onChunk(data.content);
+            } else if (data.type === 'done') {
+              onDone();
+            } else if (data.type === 'error') {
+              onError(data.content || 'Unknown error');
+            }
+            // thinking / tool_call / metadata events are silently consumed
+          } catch {
+            // Ignore unparseable lines
+          }
+        }
+      }
+
+      // Stream ended without explicit done event
+      onDone();
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      onError(err instanceof Error ? err.message : String(err));
+    }
+  })();
+
+  return controller;
+}
+
+/**
+ * Non-streaming fallback: engage an opportunity and return the full result.
+ */
+export async function engageOpportunity(
+  opportunityId: string,
+  depth: 'overview' | 'detailed' | 'full' = 'full',
+): Promise<EngageResponse> {
+  let content = '';
+
+  return new Promise((resolve, reject) => {
+    engageOpportunityStream(
+      opportunityId,
+      depth,
+      (chunk) => { content += chunk; },
+      () => resolve({ opportunity_id: opportunityId, content, status: 'completed' }),
+      (err) => reject(new Error(err)),
+    );
+  });
 }

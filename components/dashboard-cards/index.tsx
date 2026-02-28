@@ -192,6 +192,8 @@ export interface Episode {
   event_type: string;
   session_id: string;
   context: Record<string, unknown>;
+  outcome: string;
+  importance: number;
   timestamp: string;
 }
 
@@ -337,8 +339,21 @@ const AttentionFocusRawSchema = z.object({
   secondary_targets: z.array(z.string()).optional(),
   attention_weights: z.record(z.string(), z.number()).default({}),
 });
+/** Clean raw test/assessment IDs into human-readable labels. */
+const cleanFocusTarget = (raw: string | null | undefined): string | null => {
+  if (!raw) return null;
+  // dynamic_assessment_dynamic_test_<hex> → "Dynamic Assessment"
+  if (/^dynamic_assessment_dynamic_test_[a-f0-9]+$/i.test(raw)) return 'Dynamic Assessment';
+  // dynamic_test_<hex> → "Dynamic Test"
+  if (/^dynamic_test_[a-f0-9]+$/i.test(raw)) return 'Dynamic Test';
+  // benchmark_<digits> → "Benchmark"
+  if (/^benchmark_\d+$/i.test(raw)) return 'Benchmark Run';
+  // General cleanup: underscores → spaces, title case
+  return raw.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+};
+
 const normalizeAttentionFocus = (raw: z.infer<typeof AttentionFocusRawSchema>): AttentionFocus => ({
-  primary_target: raw.primary_target ?? raw.primary_goal ?? null,
+  primary_target: cleanFocusTarget(raw.primary_target ?? raw.primary_goal),
   secondary_targets: raw.secondary_targets ?? raw.active_contexts ?? [],
   attention_weights: raw.attention_weights,
 });
@@ -564,7 +579,19 @@ export function useGoals(limit = 10): { data: CanonicalGoal[]; loading: boolean;
           const json = await res.json();
           const parsed = GoalsResponse.safeParse(json);
           if (parsed.success) {
-            const normalized: CanonicalGoal[] = parsed.data.goals.map(g => {
+          const normalized: CanonicalGoal[] = parsed.data.goals
+              .filter(g => {
+                // Filter out benchmark/test artifact goals
+                const d = g.description.trim();
+                if (/^Test goal dynamic_test_/i.test(d)) return false;
+                if (/^def\s+\w+\s*\(/m.test(d)) return false; // Python function defs
+                if (/^>>>\s/.test(d)) return false; // Doctest examples
+                if (/Return ONLY the function body/i.test(d)) return false;
+                if (/Complete the following.*function/i.test(d)) return false;
+                if (/^benchmark_\d+$/i.test(g.id)) return false;
+                return true;
+              })
+              .map(g => {
               const statusLower = g.status.toLowerCase();
               const normalizedStatus: CanonicalGoal['status'] = (() => {
                 if (statusLower === 'completed') return 'completed';
@@ -695,7 +722,12 @@ export function useEpisodes(limit = 10): { data: Episode[]; loading: boolean; er
         const res = await fetch(`http://localhost:8000/v1/memory/l3/episodes?limit=${limit}`);
         if (res.ok) {
           const json = await res.json();
-          setData(json.episodes || []);
+          const episodes = (json.episodes || []).map((e: Record<string, unknown>) => ({
+            ...e,
+            outcome: (e.outcome as string) || '',
+            importance: typeof e.importance === 'number' ? e.importance : 0,
+          }));
+          setData(episodes as Episode[]);
         }
       } catch (e) {
         setError((e as Error).message);
@@ -724,7 +756,14 @@ export function useFacts(limit = 20): { data: CanonicalFact[]; loading: boolean;
           const json = await res.json();
           const parsed = FactsResponse.safeParse(json);
           if (parsed.success) {
-            const normalized: CanonicalFact[] = parsed.data.facts.map(f => ({
+            const normalized: CanonicalFact[] = parsed.data.facts
+              .filter(f => {
+                // Filter out test artifact facts
+                const text = f.content || f.statement || '';
+                if (/^Test fact dynamic_test_/i.test(text)) return false;
+                return true;
+              })
+              .map(f => ({
               id: f.id,
               content: f.content || f.statement || '', // Use statement as fallback
               category: f.category || f.source || 'general', // Use source as fallback
@@ -1500,12 +1539,14 @@ export function EpisodesTimelineContent() {
         {data.length > 0 ? (
           data.slice(0, 6).map((episode) => (
             <div key={episode.id} className="flex items-start gap-2 text-xs">
-              <div className="w-1.5 h-1.5 rounded-full bg-purple-500 mt-1.5 flex-shrink-0" />
+              <div className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${
+                episode.importance >= 0.8 ? 'bg-amber-500' : episode.importance >= 0.5 ? 'bg-purple-500' : 'bg-purple-500/50'
+              }`} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-white/80 truncate">
                     <InlineTooltip tip={`Event type: ${episode.event_type}`}>
-                      {episode.event_type}
+                      {episode.event_type.replace(/_/g, ' ')}
                     </InlineTooltip>
                   </span>
                   <span className="text-white/40 text-[10px] flex-shrink-0">
@@ -1514,11 +1555,19 @@ export function EpisodesTimelineContent() {
                     </InlineTooltip>
                   </span>
                 </div>
-                <div className="text-white/40 text-[10px] truncate">
-                  <InlineTooltip tip={`Full session ID: ${episode.session_id}`}>
-                    {episode.session_id.slice(0, 8)}...
-                  </InlineTooltip>
-                </div>
+                {episode.outcome ? (
+                  <div className="text-white/50 text-[10px] truncate">
+                    <InlineTooltip tip={`Outcome: ${episode.outcome}`}>
+                      {episode.outcome}
+                    </InlineTooltip>
+                  </div>
+                ) : (
+                  <div className="text-white/30 text-[10px] truncate">
+                    <InlineTooltip tip={`Session: ${episode.session_id}`}>
+                      {episode.session_id.replace(/^dynamic_test_/, '').replace(/^benchmark_/, 'bench-').slice(0, 12)}
+                    </InlineTooltip>
+                  </div>
+                )}
               </div>
             </div>
           ))

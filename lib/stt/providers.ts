@@ -5,6 +5,8 @@
  * - ElevenLabs Scribe v2 Realtime (150ms latency, 90+ languages)
  */
 
+import { getSpeakerGate } from './speakerGate';
+
 export type STTProvider = 'elevenlabs' | 'elevenlabs_batch' | 'elevenlabs_proxy' | 'elevenlabs_auto';
 
 export interface STTConfig {
@@ -322,11 +324,25 @@ export class ElevenLabsSTTProvider implements STTProviderInterface {
       let totalBytesSent = 0;
       
       this.processor.port.onmessage = (event) => {
+        // Echo gate state notification from AudioWorklet
+        if (event.data.type === 'echo_gate_state') {
+          getSpeakerGate().setEchoGate(event.data.blocked);
+          return;
+        }
+
         if (event.data.type === 'audio' && this.ws?.readyState === WebSocket.OPEN) {
           chunkCount++;
-          
-          // Convert Int16 PCM to base64 (safe encoder for small frames)
+
           const int16Array = new Int16Array(event.data.data);
+
+          // Pre-STT speaker verification gate
+          const gate = getSpeakerGate();
+          if (gate.enabled) {
+            const allowed = gate.feedAudio(int16Array);
+            if (!allowed) return; // Gated: not the enrolled speaker
+          }
+
+          // Convert Int16 PCM to base64 (safe encoder for small frames)
           const bytes = new Uint8Array(int16Array.buffer);
           
           if (chunkCount === 1) {
@@ -650,6 +666,11 @@ export class STTProviderFactory {
     ['elevenlabs_proxy', new ElevenLabsProxySTTProvider()],
     ['elevenlabs_auto', new ElevenLabsAutoSTTProvider()],
   ]);
+
+  /** Get the shared SpeakerGate singleton (for injection into UI). */
+  static getSpeakerGate() {
+    return getSpeakerGate();
+  }
   
   static getProvider(provider?: STTProvider): STTProviderInterface {
     const providerName = provider || 'elevenlabs';

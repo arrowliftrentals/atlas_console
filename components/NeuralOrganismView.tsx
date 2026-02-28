@@ -135,15 +135,7 @@ function computeOrganicLayout(
     byRegion[region].push(n);
   });
   
-  // Debug: log region counts
-  console.log('[NeuralOrganism] Region counts:', {
-    core: byRegion.core.length,
-    memory: byRegion.memory.length,
-    perception: byRegion.perception.length,
-    perceptionNodes: byRegion.perception.map(n => n.id)
-  });
-
-  // Position nodes organically within each region
+  // Position nodes
   const organicNodes: OrganicNode[] = [];
   const nodePositions = new Map<string, THREE.Vector3>();
 
@@ -887,15 +879,7 @@ function Synapse({
     );
   }, [edge.curvePoints]);
   
-  const curvePoints = useMemo(() => curve.getPoints(20), [curve]);
-  
-  // Create line geometry
-  const lineGeometry = useMemo(() => {
-    const geometry = new THREE.BufferGeometry().setFromPoints(curvePoints);
-    return geometry;
-  }, [curvePoints]);
-  
-  // Calculate tube segments for opacity wave animation
+  // Calculate tube segments
   const tubeSegments = useMemo(() => {
     const numSegments = 20;
     const segments: { start: THREE.Vector3; end: THREE.Vector3; t: number }[] = [];
@@ -910,9 +894,6 @@ function Synapse({
     }
     return segments;
   }, [curve]);
-  
-  // All connections are myelinated (have opacity wave effect)
-  const isMyelinated = true;
   
   // Refs for animated segment materials
   const segmentRefs = useRef<(THREE.MeshStandardMaterial | null)[]>([]);
@@ -943,8 +924,7 @@ function Synapse({
     }
     
     // Animate colored waves radiating from signal pulse position
-    if (isMyelinated) {
-      segmentRefs.current.forEach((mat, i) => {
+    segmentRefs.current.forEach((mat, i) => {
         if (mat) {
           const segT = tubeSegments[i]?.t || 0;
           // Calculate distance from pulse position
@@ -977,26 +957,12 @@ function Synapse({
           }
         }
       });
-    }
   });
-
-  const baseOpacity = 0.4 + edge.strength * 0.4;
-  const highlightBoost = isHighlighted ? 0.3 : 0;
-  const lineOpacity = isDimmed ? baseOpacity * 0.08 : baseOpacity + highlightBoost;
-  
-  const lineMaterial = useMemo(() => {
-    return new THREE.LineBasicMaterial({
-      color: colors.pulse,
-      transparent: true,
-      opacity: lineOpacity,
-    });
-  }, [colors.pulse, lineOpacity, isDimmed, isHighlighted]);
 
   return (
     <group>
-      {/* Opacity wave tube - animated traveling bands for myelinated, line for short */}
-      {isMyelinated ? (
-        tubeSegments.map((seg, i) => {
+      {/* Opacity wave tube - animated traveling bands */}
+      {tubeSegments.map((seg, i) => {
           const dir = seg.end.clone().sub(seg.start);
           const len = dir.length();
           const mid = seg.start.clone().add(seg.end).multiplyScalar(0.5);
@@ -1017,10 +983,7 @@ function Synapse({
               />
             </mesh>
           );
-        })
-      ) : (
-        <primitive object={new THREE.Line(lineGeometry, lineMaterial)} />
-      )}
+        })}
       
       {/* Traveling signal pulse - hidden when inactive */}
       {isActive && (
@@ -1093,6 +1056,11 @@ function GlialParticles({ count = 200 }: { count?: number }) {
   const meshRef = useRef<THREE.InstancedMesh>(null);
   const particlesData = useRef<{ position: THREE.Vector3; velocity: THREE.Vector3; phase: number }[]>([]);
   
+  // Scratch objects reused every frame (no per-frame allocation)
+  const _matrix = useRef(new THREE.Matrix4());
+  const _color = useRef(new THREE.Color());
+  const _scale = useRef(new THREE.Vector3());
+  
   // Initialize particles
   useMemo(() => {
     particlesData.current = Array.from({ length: count }, () => ({
@@ -1114,8 +1082,9 @@ function GlialParticles({ count = 200 }: { count?: number }) {
     if (!meshRef.current) return;
     
     const time = state.clock.elapsedTime;
-    const matrix = new THREE.Matrix4();
-    const color = new THREE.Color();
+    const matrix = _matrix.current;
+    const color = _color.current;
+    const scaleVec = _scale.current;
     
     particlesData.current.forEach((particle, i) => {
       // Gentle drifting motion
@@ -1130,8 +1099,10 @@ function GlialParticles({ count = 200 }: { count?: number }) {
       // Pulsing size
       const pulse = 0.5 + Math.sin(time + particle.phase) * 0.3;
       
+      matrix.identity();
       matrix.setPosition(particle.position);
-      matrix.scale(new THREE.Vector3(pulse, pulse, pulse));
+      scaleVec.set(pulse, pulse, pulse);
+      matrix.scale(scaleVec);
       meshRef.current!.setMatrixAt(i, matrix);
       
       // Soft color variation
@@ -1261,16 +1232,16 @@ function BrainMembrane() {
 // BREATHING CONTROLLER - Global rhythm for the organism
 // ═══════════════════════════════════════════════════════════════════════════
 
+// Global breathing rhythm — exposed as a ref to avoid React re-renders.
+// Components that need the pulse value should read it inside their own useFrame.
 function useGlobalPulse() {
-  const [pulse, setPulse] = useState(0);
+  const pulseRef = useRef(0);
   
   useFrame((state) => {
-    // Slow, steady breathing rhythm
-    const breathe = Math.sin(state.clock.elapsedTime * 0.4) * 0.5 + 0.5;
-    setPulse(breathe);
+    pulseRef.current = Math.sin(state.clock.elapsedTime * 0.4) * 0.5 + 0.5;
   });
   
-  return pulse;
+  return pulseRef.current;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1525,7 +1496,8 @@ export default function NeuralOrganismView() {
           const existingTimeout = activeTimeoutsRef.current.get(nodeId);
           if (existingTimeout) clearTimeout(existingTimeout);
           
-          // Set new timeout to remove node after 2 seconds
+          // Set new timeout to remove node after 5 seconds
+          // (longer window prevents the "christmas lights unplugging" effect)
           const timeout = setTimeout(() => {
             setRecentlyActiveNodes(current => {
               const next = new Set(current);
@@ -1533,7 +1505,7 @@ export default function NeuralOrganismView() {
               return next;
             });
             activeTimeoutsRef.current.delete(nodeId);
-          }, 2000);
+          }, 5000);
           activeTimeoutsRef.current.set(nodeId, timeout);
         });
         return updated;

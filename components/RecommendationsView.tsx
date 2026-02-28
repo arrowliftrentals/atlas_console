@@ -1,8 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import TabHeader from "./TabHeader";
 import { useHealth } from "@/contexts/HealthContext";
+import { engageOpportunityStream } from "@/lib/atlasConsoleClient";
+import MarkdownRenderer from "./MarkdownRenderer";
 
 interface StrategicOpportunity {
   id: string;
@@ -93,6 +95,61 @@ const RecommendationsView: React.FC = () => {
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"roi" | "impact" | "effort">("roi");
+
+  // Engage ATLAS state — persists results per opportunity
+  const [engageResults, setEngageResults] = useState<
+    Record<string, { content: string; status: "loading" | "done" | "error" }>
+  >({});
+  const [engageErrors, setEngageErrors] = useState<Record<string, string>>({});
+  const [engageExpanded, setEngageExpanded] = useState<Record<string, boolean>>({});
+  const engageControllerRef = useRef<Record<string, AbortController>>({});
+
+  // Cleanup abort controllers on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(engageControllerRef.current).forEach((c) => c.abort());
+    };
+  }, []);
+
+  const handleEngage = useCallback((oppId: string) => {
+    // Abort any existing stream for this opportunity
+    engageControllerRef.current[oppId]?.abort();
+
+    // Reset state
+    setEngageResults((prev) => ({ ...prev, [oppId]: { content: "", status: "loading" } }));
+    setEngageErrors((prev) => { const n = { ...prev }; delete n[oppId]; return n; });
+    setEngageExpanded((prev) => ({ ...prev, [oppId]: true }));
+
+    const controller = engageOpportunityStream(
+      oppId,
+      "full",
+      // onChunk
+      (chunk) => {
+        setEngageResults((prev) => {
+          const existing = prev[oppId] || { content: "", status: "loading" };
+          return { ...prev, [oppId]: { ...existing, content: existing.content + chunk } };
+        });
+      },
+      // onDone
+      () => {
+        setEngageResults((prev) => {
+          const existing = prev[oppId];
+          if (!existing) return prev;
+          return { ...prev, [oppId]: { ...existing, status: "done" } };
+        });
+      },
+      // onError
+      (err) => {
+        setEngageResults((prev) => {
+          const existing = prev[oppId] || { content: "", status: "error" };
+          return { ...prev, [oppId]: { ...existing, status: "error" } };
+        });
+        setEngageErrors((prev) => ({ ...prev, [oppId]: err }));
+      },
+    );
+
+    engageControllerRef.current[oppId] = controller;
+  }, []);
 
   const fetchRecommendations = async () => {
     setLoading(true);
@@ -528,6 +585,135 @@ const RecommendationsView: React.FC = () => {
                                   <div className="text-sm text-gray-300">{opp.effort}</div>
                                 </div>
                               </div>
+                            </div>
+
+                            {/* Engage ATLAS Button + Result */}
+                            <div className="mt-6 border-t border-gray-700/50 pt-4">
+                              {(() => {
+                                const result = engageResults[opp.id];
+                                const errMsg = engageErrors[opp.id];
+                                const isEngaging = result?.status === "loading";
+                                const isDone = result?.status === "done";
+                                const isError = result?.status === "error";
+                                const hasContent = !!result?.content;
+                                const isResultExpanded = engageExpanded[opp.id] ?? false;
+
+                                return (
+                                  <>
+                                    {/* Button row */}
+                                    <div className="flex items-center gap-3">
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleEngage(opp.id);
+                                        }}
+                                        disabled={isEngaging}
+                                        className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                        style={{
+                                          background: isEngaging
+                                            ? `${catInfo.color}15`
+                                            : `linear-gradient(135deg, ${catInfo.color}30, ${catInfo.color}15)`,
+                                          color: catInfo.color,
+                                          border: `1px solid ${catInfo.color}40`,
+                                        }}
+                                      >
+                                        {isEngaging ? (
+                                          <>
+                                            <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                            </svg>
+                                            ATLAS is analyzing...
+                                          </>
+                                        ) : isDone ? (
+                                          <>
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                            </svg>
+                                            Re-engage ATLAS
+                                          </>
+                                        ) : (
+                                          <>
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                            </svg>
+                                            Engage ATLAS
+                                          </>
+                                        )}
+                                      </button>
+
+                                      {hasContent && !isEngaging && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setEngageExpanded((prev) => ({ ...prev, [opp.id]: !isResultExpanded }));
+                                          }}
+                                          className="text-xs text-gray-400 hover:text-gray-200 transition-colors"
+                                        >
+                                          {isResultExpanded ? "Collapse plan" : "Show plan"}
+                                        </button>
+                                      )}
+
+                                      {isEngaging && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            engageControllerRef.current[opp.id]?.abort();
+                                            setEngageResults((prev) => {
+                                              const existing = prev[opp.id];
+                                              if (!existing) return prev;
+                                              return { ...prev, [opp.id]: { ...existing, status: "done" } };
+                                            });
+                                          }}
+                                          className="text-xs text-gray-500 hover:text-red-400 transition-colors"
+                                        >
+                                          Cancel
+                                        </button>
+                                      )}
+                                    </div>
+
+                                    {/* Error message */}
+                                    {isError && errMsg && (
+                                      <div className="mt-3 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-sm text-red-400">{errMsg}</span>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleEngage(opp.id);
+                                            }}
+                                            className="text-xs px-2 py-1 bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 transition-colors"
+                                          >
+                                            Retry
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Streaming result panel */}
+                                    {hasContent && isResultExpanded && (
+                                      <div className="mt-4 p-4 bg-[#1A1A1E] rounded-lg border border-gray-700/50 max-h-[600px] overflow-auto">
+                                        <div className="flex items-center justify-between mb-3">
+                                          <div className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">
+                                            Implementation Plan
+                                            {isEngaging && (
+                                              <span className="ml-2 inline-flex">
+                                                <span className="animate-pulse">●</span>
+                                                <span className="animate-pulse" style={{ animationDelay: "0.2s" }}>●</span>
+                                                <span className="animate-pulse" style={{ animationDelay: "0.4s" }}>●</span>
+                                              </span>
+                                            )}
+                                          </div>
+                                          {isDone && (
+                                            <span className="text-[10px] text-green-400">✓ Complete</span>
+                                          )}
+                                        </div>
+                                        <MarkdownRenderer content={result.content} />
+                                      </div>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </div>
                           </div>
                         )}

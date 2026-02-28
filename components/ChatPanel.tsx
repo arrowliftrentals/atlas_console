@@ -2,13 +2,15 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { sendAtlasChat, clearConsoleSession, atlasChatStream } from "@/lib/atlasConsoleClient";
+import type { ThinkingStep } from "@/lib/atlasConsoleClient";
 import { useConsole } from "./ConsoleProvider";
 import { AgentResponsePanel } from "./AgentResponsePanel";
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import MarkdownRenderer from './MarkdownRenderer';
+import ThinkingProcess from './ThinkingProcess';
 import type { AgentResponse } from "@/lib/types";
 import FeedbackPrompt from "./FeedbackPrompt";
 import { TTSProviderFactory, type TTSProvider } from "@/lib/tts/providers";
+import { sanitizeForTTS } from "@/lib/tts/ttsSanitizer";
 import VoiceInputButton from "./VoiceInputButton";
 
 const CHAT_PANEL_WIDTH_KEY = "atlas_console_chat_panel_width";
@@ -16,8 +18,10 @@ const CHAT_PANEL_COLLAPSED_KEY = "atlas_console_chat_panel_collapsed";
 const DEFAULT_CHAT_PANEL_WIDTH = 460;
 const COLLAPSED_CHAT_PANEL_WIDTH = 48;
 
+const DEBUG_STREAMING = false;
+
 const ChatPanel: React.FC = () => {
-  const { activeSessionId, getMessages, addMessage, updateLastMessage, clearMessages } = useConsole();
+  const { activeSessionId, getMessages, addMessage, updateLastMessage, updateLastMessageThinking, clearMessages } = useConsole();
   const messages = activeSessionId ? getMessages(activeSessionId) : [];
   
   const [input, setInput] = useState("");
@@ -29,7 +33,9 @@ const ChatPanel: React.FC = () => {
   const [attachments, setAttachments] = useState<Array<{name: string, type: string, content: string, size?: number}>>([]);
   const [copySuccess, setCopySuccess] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false); // State for triggering gate control
+  // Thinking steps are now persisted per-message via updateLastMessageThinking
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollRAFRef = useRef<number>(0);
   // STT language mode (SSR-safe)
   const [languageMode, setLanguageMode] = useState<'auto'|'en'|'es'>('auto');
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -43,6 +49,8 @@ const ChatPanel: React.FC = () => {
   const currentMessageRef = useRef<{content: string; index: number} | null>(null);
   const audioQueueRef = useRef<ArrayBuffer[]>([]);
   const isSynthesizingRef = useRef<boolean>(false);
+  const ttsLastContentLenRef = useRef<number>(0);
+  const ttsLastMessageIndexRef = useRef<number>(-1);
 
   // Load initial width and collapsed state from localStorage on mount
   useEffect(() => {
@@ -145,10 +153,13 @@ const ChatPanel: React.FC = () => {
     return () => container.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Only auto-scroll if user hasn't manually scrolled up
+  // Only auto-scroll if user hasn't manually scrolled up (RAF-throttled)
   useEffect(() => {
     if (!userHasScrolled) {
-      scrollToBottom();
+      cancelAnimationFrame(scrollRAFRef.current);
+      scrollRAFRef.current = requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      });
     }
   }, [messages, userHasScrolled]);
 
@@ -165,6 +176,14 @@ const ChatPanel: React.FC = () => {
 
     const lastMessage = assistantMessages[assistantMessages.length - 1];
     const messageIndex = messages.indexOf(lastMessage);
+
+    // Guard: skip if content hasn't actually changed (e.g. only thinking steps updated)
+    const contentLen = lastMessage.content?.length ?? 0;
+    if (messageIndex === ttsLastMessageIndexRef.current && contentLen === ttsLastContentLenRef.current) {
+      return;
+    }
+    ttsLastMessageIndexRef.current = messageIndex;
+    ttsLastContentLenRef.current = contentLen;
 
     // Update current message ref
     currentMessageRef.current = { content: lastMessage.content, index: messageIndex };
@@ -216,11 +235,22 @@ const ChatPanel: React.FC = () => {
       if (!textToSpeak) return;
       
       lastSpokenLengthRef.current += textToSpeak.length;
+      
+      // Sanitize for TTS: strip markdown, metrics, file paths, code blocks
+      const speakableText = sanitizeForTTS(textToSpeak);
+      if (!speakableText) {
+        // Pure code/metrics with nothing speakable — skip to next sentence
+        if (currentMessageRef.current && currentMessageRef.current.content.length > lastSpokenLengthRef.current) {
+          speakNext();
+        }
+        return;
+      }
+      
       isSynthesizingRef.current = true;
       
       try {
         const ttsProvider = TTSProviderFactory.getProvider(provider);
-        const audioData = await ttsProvider.synthesize(textToSpeak);
+        const audioData = await ttsProvider.synthesize(speakableText);
         isSynthesizingRef.current = false;
         
         // If already playing, queue this audio
@@ -367,18 +397,18 @@ const ChatPanel: React.FC = () => {
         },
         // onChunk - append to streaming message
         (chunk: string) => {
-          console.log('[ChatPanel] Received chunk:', chunk);
+          if (DEBUG_STREAMING) console.debug('[ChatPanel] chunk:', chunk);
           streamedContent += chunk;
-          console.log('[ChatPanel] Total content now:', streamedContent.length, 'chars');
+          if (DEBUG_STREAMING) console.debug('[ChatPanel] content len:', streamedContent.length);
           updateLastMessage(activeSessionId, streamedContent);
         },
         // onToolCall
         (toolName: string, status: string) => {
-          console.log(`[Stream] Tool: ${toolName} - ${status}`);
+          if (DEBUG_STREAMING) console.debug(`[Stream] Tool: ${toolName} - ${status}`);
         },
         // onDone
         (sessionId: string) => {
-          console.log(`[Stream] Complete, session: ${sessionId}`);
+          if (DEBUG_STREAMING) console.debug(`[Stream] Complete, session: ${sessionId}`);
           setLoading(false);
         },
         // onError
@@ -386,6 +416,11 @@ const ChatPanel: React.FC = () => {
           setError(error);
           console.error("ATLAS streaming error:", error);
           setLoading(false);
+        },
+        // onThinking - persist reasoning steps to current assistant message
+        (step: ThinkingStep) => {
+          if (DEBUG_STREAMING) console.debug(`[Stream] Thinking: ${step.type} - ${step.content.slice(0, 80)}`);
+          updateLastMessageThinking(activeSessionId, step);
         }
       );
     } catch (err: any) {
@@ -613,37 +648,49 @@ const ChatPanel: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Agent response with full response object */}
-                  {message.response && (
-                    <div className="px-3 pb-4">
-                      <AgentResponsePanel response={message.response} index={index} />
-                      {/* Feedback prompt for active learning */}
-                      {message.response.metadata?.feedback_request && (
-                        <FeedbackPrompt
-                          query={message.response.metadata.feedback_request.query}
-                          predictedIntent={message.response.metadata.feedback_request.predicted_intent}
-                          confidence={message.response.metadata.feedback_request.confidence}
-                          message={message.response.metadata.feedback_request.message}
-                          sessionId={activeSessionId || undefined}
-                        />
-                      )}
-                    </div>
-                  )}
-
-                  {/* Agent message with just content (streaming) - VS Code style with Markdown */}
-                  {message.type === 'assistant' && message.content && !message.response && (
+                  {/* Assistant message — unified block: thinking → content */}
+                  {message.type === 'assistant' && (
                     <div className="px-4 pb-3">
-                      <div 
-                        className="rounded-lg px-4 py-2 text-sm inline-block max-w-[90%] select-text"
+                      <div
+                        className="rounded-lg text-sm select-text min-w-0 overflow-hidden"
                         style={{
                           background: 'var(--atlas-bg-card)',
-                          borderLeft: '3px solid var(--atlas-accent-secondary)',
-                          color: 'var(--atlas-text-primary)'
+                          borderLeft: `3px solid ${loading && index === messages.length - 1 ? 'var(--atlas-accent-primary)' : 'var(--atlas-accent-secondary)'}`,
+                          color: 'var(--atlas-text-primary)',
+                          overflowWrap: 'break-word',
+                          wordBreak: 'break-word',
                         }}
                       >
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {message.content}
-                        </ReactMarkdown>
+                        {/* Thinking process — top of message, collapsed for completed */}
+                        {(message.thinkingSteps?.length ?? 0) > 0 && (
+                          <ThinkingProcess
+                            steps={message.thinkingSteps!}
+                            isActive={loading && index === messages.length - 1}
+                            defaultExpanded={loading && index === messages.length - 1}
+                          />
+                        )}
+
+                        {/* Response content */}
+                        <div className="px-4 py-3">
+                          {message.response ? (
+                            <>
+                              <AgentResponsePanel response={message.response} index={index} />
+                              {message.response.metadata?.feedback_request && (
+                                <FeedbackPrompt
+                                  query={message.response.metadata.feedback_request.query}
+                                  predictedIntent={message.response.metadata.feedback_request.predicted_intent}
+                                  confidence={message.response.metadata.feedback_request.confidence}
+                                  message={message.response.metadata.feedback_request.message}
+                                  sessionId={activeSessionId || undefined}
+                                />
+                              )}
+                            </>
+                          ) : message.content ? (
+                            <MarkdownRenderer content={message.content} />
+                          ) : loading && index === messages.length - 1 ? (
+                            <span className="text-xs animate-pulse" style={{ color: 'var(--atlas-text-muted)' }}>Generating response…</span>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   )}
@@ -661,6 +708,24 @@ const ChatPanel: React.FC = () => {
         
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Activity indicator — always visible when processing */}
+      {loading && (
+        <div
+          className="px-4 py-1.5 text-xs"
+          style={{
+            borderTop: '1px solid var(--atlas-border-subtle)',
+            background: 'var(--atlas-bg-elevated)',
+            color: 'var(--atlas-text-muted)',
+          }}
+        >
+          <span className="animate-pulse">ATLAS is processing{(() => {
+            const lastMsg = messages[messages.length - 1];
+            const stepCount = lastMsg?.thinkingSteps?.length ?? 0;
+            return stepCount > 0 ? ` (${stepCount} steps)` : '…';
+          })()}</span>
+        </div>
+      )}
 
       {/* Input Area */}
       <div className="p-3 border-t border-[var(--atlas-border-subtle)]">

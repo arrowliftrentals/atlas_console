@@ -8,122 +8,14 @@ import { Color, Vector3, CatmullRomCurve3, TubeGeometry, MeshBasicMaterial, Mesh
 import { useFrame } from '@react-three/fiber';
 import { EdgeStateV2, NodeStateV2 } from './NeuralTelemetryTypesV2';
 import { EDGE_COLORS_BY_EVENT } from './NeuralVisualEncodingV2';
-import { Matrix4, Euler } from 'three';
+import { useNeuralTelemetryStoreV2 } from './NeuralTelemetryStoreV2';
 
-const CORE_RADIUS = 20;
-const MEMORY_RADIUS = 60;
-const PERCEPTION_RADIUS = 100;
-
-// Determine which shell a position belongs to
-function getNodeShell(position: [number, number, number]): number {
-  const [x, y, z] = position;
-  const radius = Math.sqrt(x*x + y*y + z*z);
-  const distToCore = Math.abs(radius - CORE_RADIUS);
-  const distToMemory = Math.abs(radius - MEMORY_RADIUS);
-  const distToPerception = Math.abs(radius - PERCEPTION_RADIUS);
-  const minDist = Math.min(distToCore, distToMemory, distToPerception);
-  if (minDist === distToCore) return CORE_RADIUS;
-  if (minDist === distToMemory) return MEMORY_RADIUS;
-  return PERCEPTION_RADIUS;
-}
-
-// Project point to sphere surface
-function projectToSphere(point: Vector3, radius: number): Vector3 {
-  const len = point.length();
-  if (len === 0) return new Vector3(radius, 0, 0);
-  return point.clone().multiplyScalar(radius / len);
-}
-
-// Create convex arched path between nodes (bulges outward from sphere)
-function createHelicalRibbonPath(start: Vector3, end: Vector3, radius: number, segments: number = 20): Vector3[] {
-  const points: Vector3[] = [];
-  
-  const startVec = start.clone();
-  const endVec = end.clone();
-  
-  // Calculate midpoint and arch control point
-  const midPoint = new Vector3().addVectors(startVec, endVec).multiplyScalar(0.5);
-  const distance = startVec.distanceTo(endVec);
-  
-  // Arch height as function of pathway length:
-  // Short paths (<20): low arch (10% of distance)
-  // Medium paths (20-60): scaled arch (10% to 25% of distance)
-  // Long paths (>60): high arch (25% of distance)
-  let archHeightRatio;
-  if (distance < 20) {
-    archHeightRatio = 0.10;
-  } else if (distance < 60) {
-    // Linear interpolation from 10% to 25%
-    archHeightRatio = 0.10 + ((distance - 20) / 40) * 0.15;
-  } else {
-    archHeightRatio = 0.25;
-  }
-  let archHeight = distance * archHeightRatio;
-  
-  // Control point bulges OUTWARD from sphere center (convex)
-  const toOrigin = midPoint.clone().normalize();
-  
-  // Constrain arch height to not extend beyond shell surface
-  // Calculate current distance from origin to midpoint
-  const midpointRadius = midPoint.length();
-  // Maximum allowed extension is the shell radius minus current midpoint distance
-  const maxArchHeight = radius - midpointRadius;
-  // Clamp arch height to stay within shell
-  archHeight = Math.min(archHeight, maxArchHeight * 0.9); // 90% to stay safely inside
-  
-  const controlPoint = midPoint.clone().add(toOrigin.multiplyScalar(archHeight));
-  
-  // Quadratic Bezier curve
-  for (let i = 0; i <= segments; i++) {
-    const t = i / segments;
-    const point = new Vector3()
-      .addScaledVector(startVec, (1 - t) * (1 - t))
-      .addScaledVector(controlPoint, 2 * (1 - t) * t)
-      .addScaledVector(endVec, t * t);
-    points.push(point);
-  }
-  
-  return points;
-}
-
-// Create lightly arched path between different shells (straight line with subtle arch)
-function createCrossShellHelicalPath(start: Vector3, end: Vector3, startRadius: number, endRadius: number, segments: number = 20): Vector3[] {
-  const points: Vector3[] = [];
-  
-  const startVec = start.clone();
-  const endVec = end.clone();
-  
-  // Calculate midpoint and arch control point
-  const midPoint = new Vector3().addVectors(startVec, endVec).multiplyScalar(0.5);
-  const distance = startVec.distanceTo(endVec);
-  
-  // Light arch for cross-shell connections (half the arch height of same-shell)
-  let archHeightRatio;
-  if (distance < 20) {
-    archHeightRatio = 0.05; // Half of same-shell
-  } else if (distance < 60) {
-    archHeightRatio = 0.05 + ((distance - 20) / 40) * 0.075; // Half of same-shell
-  } else {
-    archHeightRatio = 0.125; // Half of same-shell
-  }
-  const archHeight = distance * archHeightRatio;
-  
-  // Control point bulges OUTWARD from sphere center (convex)
-  const toOrigin = midPoint.clone().normalize();
-  const controlPoint = midPoint.clone().add(toOrigin.multiplyScalar(archHeight));
-  
-  // Quadratic Bezier curve
-  for (let i = 0; i <= segments; i++) {
-    const t = i / segments;
-    const point = new Vector3()
-      .addScaledVector(startVec, (1 - t) * (1 - t))
-      .addScaledVector(controlPoint, 2 * (1 - t) * t)
-      .addScaledVector(endVec, t * t);
-    points.push(point);
-  }
-  
-  return points;
-}
+// Idle / active opacity range for edges
+const EDGE_DIM_OPACITY = 0.1;
+const EDGE_ACTIVE_OPACITY = 0.75;
+// Asymmetric: fast brighten, slow dim
+const EDGE_RAMP_UP = 3.0;    // ~0.3s to full brightness
+const EDGE_RAMP_DOWN = 0.4;  // ~2.5s to fully dim
 
 interface Props {
   nodes: Map<string, NodeStateV2>;
@@ -138,6 +30,12 @@ interface EdgeMeshData {
 
 export function NeuralEdgesInstancedV2({ nodes, edges, timeScale }: Props) {
   const groupRef = useRef<Group>(null!);
+  
+  // Smooth activation level per edge id
+  const edgeActivationRef = useRef<Map<string, number>>(new Map());
+  
+  // Read active particles from store to know which edges have traffic
+  const activeParticles = useNeuralTelemetryStoreV2((s) => s.activeParticles);
   
   // Create curved tube meshes for each edge
   const edgeMeshes = useMemo<EdgeMeshData[]>(() => {
@@ -197,18 +95,39 @@ export function NeuralEdgesInstancedV2({ nodes, edges, timeScale }: Props) {
     return meshes;
   }, [edges, nodes]);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (!groupRef.current) return;
+    const dt = Math.min(delta, 0.1);
+    const act = edgeActivationRef.current;
+    
+    // Build a set of edge ids that currently have particles in flight.
+    // activeParticles is keyed by nodeId; we rebuild the set of *edges*
+    // by pairing each particle's sourceId->targetId.
+    const activeEdgeIds = new Set<string>();
+    activeParticles.forEach((particles) => {
+      for (const p of particles) {
+        activeEdgeIds.add(`${p.sourceId}->${p.targetId}`);
+      }
+    });
 
     edgeMeshes.forEach(({ mesh, edge }) => {
-      // Color based on event type only - no effects
-      const baseColor = new Color(
+      // Determine target activation (1 if edge has particles, else 0)
+      const edgeId = edge.id;
+      const target = activeEdgeIds.has(edgeId) ? 1.0 : 0.0;
+      const prev = act.get(edgeId) ?? 0;
+      const speed = target > prev ? EDGE_RAMP_UP : EDGE_RAMP_DOWN;
+      const step = speed * dt;
+      const next = prev + Math.sign(target - prev) * Math.min(step, Math.abs(target - prev));
+      act.set(edgeId, next);
+
+      // Color based on event type — mutate existing material color, no allocation
+      const mat = mesh.material as MeshBasicMaterial;
+      mat.color.set(
         edge.lastEventType
           ? EDGE_COLORS_BY_EVENT[edge.lastEventType]
           : '#555555'
       );
-      
-      (mesh.material as MeshBasicMaterial).color = baseColor;
+      mat.opacity = EDGE_DIM_OPACITY + (EDGE_ACTIVE_OPACITY - EDGE_DIM_OPACITY) * next;
     });
   });
 

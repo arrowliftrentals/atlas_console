@@ -30,6 +30,9 @@ import { convertV1ToV2, inferSubsystem } from './NeuralTelemetryUtilsV2';
 import { optimizeShellRotations } from './NeuralShellOptimizer';
 import { optimizeNodePositionsOnShell } from './NeuralNodePositionOptimizer';
 
+// Debug flag – set to true only when actively investigating telemetry / particle issues
+const DEBUG_NEURAL3D = false;
+
 // Camera animation component
 function CameraController({
   focus,
@@ -48,7 +51,7 @@ function CameraController({
 
   useEffect(() => {
     if (focus && !animatingRef.current) {
-      console.log('[CameraController] Starting camera animation');
+      DEBUG_NEURAL3D && console.log('[CameraController] Starting camera animation');
       animatingRef.current = true;
       startPosRef.current.copy(camera.position);
       if (controlsRef.current) {
@@ -79,7 +82,7 @@ function CameraController({
 
     // Complete animation
     if (t >= 1) {
-      console.log('[CameraController] Animation complete');
+      DEBUG_NEURAL3D && console.log('[CameraController] Animation complete');
       animatingRef.current = false;
       progressRef.current = 0;
       onComplete();
@@ -136,14 +139,14 @@ export default function NeuralArchitecture3DV2({
   
   // Optimization handler
   const handleOptimizeRotations = () => {
-    console.log('[V2] Optimizing shell rotations...');
+    DEBUG_NEURAL3D && console.log('[V2] Optimizing shell rotations...');
     const optimized = optimizeShellRotations(nodes, edges, shellRotations);
     setShellRotations(optimized);
   };
 
   // Handle node selection from panel - focus camera on node
   const handleNodeSelect = useCallback((nodeId: string, position: [number, number, number]) => {
-    console.log('[V2] Focusing camera on node:', nodeId, 'at position:', position);
+    DEBUG_NEURAL3D && console.log('[V2] Focusing camera on node:', nodeId, 'at position:', position);
     
     const targetPos = new Vector3(...position);
     const distance = 11.76; // Distance from node - 30% closer from 16.8 (16.8 * 0.7)
@@ -161,9 +164,9 @@ export default function NeuralArchitecture3DV2({
       return;
     }
 
-    console.log('[V2] ========================================');
-    console.log('[V2] OPTIMIZING MEMORY SHELL NODE POSITIONS');
-    console.log('[V2] Total nodes:', nodes.size, 'Total edges:', edges.size);
+    DEBUG_NEURAL3D && console.log('[V2] ========================================');
+    DEBUG_NEURAL3D && console.log('[V2] OPTIMIZING MEMORY SHELL NODE POSITIONS');
+    DEBUG_NEURAL3D && console.log('[V2] Total nodes:', nodes.size, 'Total edges:', edges.size);
     
     // Get current computed layout to know which nodes are on memory shell
     const computedLayout = computeCognitiveLayout(nodes, edges);
@@ -187,8 +190,8 @@ export default function NeuralArchitecture3DV2({
       }
     });
     
-    console.log('[V2] Node distribution - Core:', shellCounts.core, 'Memory:', shellCounts.memory, 'Perception:', shellCounts.perception);
-    console.log('[V2] Memory shell nodes:', memoryNodeIds.join(', '));
+    DEBUG_NEURAL3D && console.log('[V2] Node distribution - Core:', shellCounts.core, 'Memory:', shellCounts.memory, 'Perception:', shellCounts.perception);
+    DEBUG_NEURAL3D && console.log('[V2] Memory shell nodes:', memoryNodeIds.join(', '));
     
     if (shellCounts.memory === 0) {
       console.warn('[V2] No nodes found on memory shell (radius 30-70). Cannot optimize.');
@@ -196,7 +199,7 @@ export default function NeuralArchitecture3DV2({
     }
     
     // Optimize memory shell node positions
-    console.log('[V2] Starting optimization algorithm...');
+    DEBUG_NEURAL3D && console.log('[V2] Starting optimization algorithm...');
     const optimizedPositions = optimizeNodePositionsOnShell(
       nodesArray,
       edgesArray,
@@ -204,7 +207,7 @@ export default function NeuralArchitecture3DV2({
       1000 // iterations
     );
 
-    console.log('[V2] Optimization complete! Returned', optimizedPositions.size, 'positions');
+    DEBUG_NEURAL3D && console.log('[V2] Optimization complete! Returned', optimizedPositions.size, 'positions');
 
     if (optimizedPositions.size > 0) {
       // Clear existing memory shell positions and replace with optimized ones
@@ -220,29 +223,21 @@ export default function NeuralArchitecture3DV2({
       // Add all optimized memory shell positions
       optimizedPositions.forEach((newPos, nodeId) => {
         updated.set(nodeId, newPos);
-        console.log(`[V2] Node ${nodeId} optimized to [${newPos[0].toFixed(1)}, ${newPos[1].toFixed(1)}, ${newPos[2].toFixed(1)}]`);
+        DEBUG_NEURAL3D && console.log(`[V2] Node ${nodeId} optimized to [${newPos[0].toFixed(1)}, ${newPos[1].toFixed(1)}, ${newPos[2].toFixed(1)}]`);
       });
       
-      console.log('[V2] Applying', updated.size, 'custom positions (including', optimizedPositions.size, 'optimized memory nodes)');
+      DEBUG_NEURAL3D && console.log('[V2] Applying', updated.size, 'custom positions (including', optimizedPositions.size, 'optimized memory nodes)');
       
       // Force update by creating new Map instance
       setCustomNodePositions(new Map(updated));
       
       // Force re-render by triggering a state update
-      console.log('[V2] Custom positions state updated. Layout should recalculate.');
-      console.log('[V2] ========================================');
+      DEBUG_NEURAL3D && console.log('[V2] Custom positions state updated. Layout should recalculate.');
+      DEBUG_NEURAL3D && console.log('[V2] ========================================');
     }
   }, [nodes, edges, customNodePositions]);
 
-  // Debug: Track when particleEvents actually updates
-  useEffect(() => {
-    if (particleEvents.length > 0) {
-      console.log('[V2 EFFECT] particleEvents updated, length:', particleEvents.length);
-      console.log('[V2 EFFECT] First event:', particleEvents[0]);
-    }
-  }, [particleEvents]);
-
-  // Auto-optimize when new nodes are added to memory shell - DISABLED
+  // Auto-optimize
   // Optimization only runs once on initial load
   useEffect(() => {
     prevNodeCountRef.current = nodes.size;
@@ -253,7 +248,7 @@ export default function NeuralArchitecture3DV2({
     fetch('http://localhost:8000/v1/architecture/graph')
       .then(res => res.json())
       .then(data => {
-        console.log('[V2] Loaded architecture:', data.nodes?.length, 'nodes,', data.edges?.length, 'edges');
+        DEBUG_NEURAL3D && console.log('[V2] Loaded architecture:', data.nodes?.length, 'nodes,', data.edges?.length, 'edges');
         
         // Create events that will populate both nodes and edges
         const initialEvents: TelemetryEventV2[] = [];
@@ -285,13 +280,13 @@ export default function NeuralArchitecture3DV2({
           });
         });
 
-        console.log('[V2] Ingesting', initialEvents.length, 'initial events');
+        DEBUG_NEURAL3D && console.log('[V2] Ingesting', initialEvents.length, 'initial events');
         ingestEvents(initialEvents);
         
         // Optimize positions immediately to avoid showing old constrained layout
         // Use setTimeout with minimal delay to ensure nodes are in store first
         setTimeout(() => {
-          console.log('[V2] Auto-optimizing memory shell positions after initial load');
+          DEBUG_NEURAL3D && console.log('[V2] Auto-optimizing memory shell positions after initial load');
           handleOptimizeNodePositions();
         }, 100);
       })
@@ -305,12 +300,12 @@ export default function NeuralArchitecture3DV2({
   // Nodes ordered to minimize straight-line connection distances
   // Apply custom positions from dragging and shell rotations
   const positionedNodes = useMemo(() => {
-    console.log('[V2] Computing layout for', nodes.size, 'nodes');
+    DEBUG_NEURAL3D && console.log('[V2] Computing layout for', nodes.size, 'nodes');
     const nodeArray = Array.from(nodes.values());
-    console.log('[V2] Node IDs:', nodeArray.map(n => n.id).join(', '));
+    DEBUG_NEURAL3D && console.log('[V2] Node IDs:', nodeArray.map(n => n.id).join(', '));
     const hasDatabase = nodeArray.some(n => n.id === 'database');
     const hasVector = nodeArray.some(n => n.id === 'vector_store');
-    console.log('[V2] Has database:', hasDatabase, 'Has vector_store:', hasVector);
+    DEBUG_NEURAL3D && console.log('[V2] Has database:', hasDatabase, 'Has vector_store:', hasVector);
     
     const computedLayout = computeCognitiveLayout(nodes, edges);
     
@@ -337,7 +332,7 @@ export default function NeuralArchitecture3DV2({
       }
     });
     
-    console.log(`[V2 Layout] Showing ALL nodes: core=${coreCount}, memory=${memoryCount}, perception=${perceptionCount}, total=${filteredLayout.size}`);
+    DEBUG_NEURAL3D && console.log(`[V2 Layout] Showing ALL nodes: core=${coreCount}, memory=${memoryCount}, perception=${perceptionCount}, total=${filteredLayout.size}`);
     
     // Apply shell rotations and custom positions
     const finalLayout = new Map<string, NodeStateV2>();
@@ -354,7 +349,7 @@ export default function NeuralArchitecture3DV2({
         position = customNodePositions.get(nodeId)!;
         const [cx, cy, cz] = position;
         const cdist = Math.sqrt(cx*cx + cy*cy + cz*cz);
-        console.log(`[V2 Layout] Using custom position for ${nodeId}: [${cx.toFixed(1)}, ${cy.toFixed(1)}, ${cz.toFixed(1)}], dist=${cdist.toFixed(1)}`);
+        DEBUG_NEURAL3D && console.log(`[V2 Layout] Using custom position for ${nodeId}: [${cx.toFixed(1)}, ${cy.toFixed(1)}, ${cz.toFixed(1)}], dist=${cdist.toFixed(1)}`);
         
         // Custom positions are already in final world space - use directly without rotation
         finalLayout.set(nodeId, {
@@ -405,7 +400,7 @@ export default function NeuralArchitecture3DV2({
   const handleNodePositionChange = (nodeId: string, position: [number, number, number]) => {
     // Store the dragged position directly (already in world space)
     // The dragging component handles sphere constraint internally
-    console.log(`[V2 Drag] Setting position for ${nodeId}:`, position);
+    DEBUG_NEURAL3D && console.log(`[V2 Drag] Setting position for ${nodeId}:`, position);
     
     // Import dynamically to avoid SSR issues
     if (typeof window !== 'undefined') {
@@ -417,7 +412,7 @@ export default function NeuralArchitecture3DV2({
     setCustomNodePositions(prev => {
       const next = new Map(prev);
       next.set(nodeId, position);
-      console.log(`[V2 Drag] Total custom positions now:`, next.size);
+      DEBUG_NEURAL3D && console.log(`[V2 Drag] Total custom positions now:`, next.size);
       
       if (typeof window !== 'undefined') {
         import('@/lib/debugLogger').then(({ debugLogger }) => {
@@ -493,7 +488,7 @@ export default function NeuralArchitecture3DV2({
         ws.onopen = () => {
           if (isUnmounted) return;
           setTelemetryConnected(true);
-          console.log('[V2] Telemetry connected');
+          DEBUG_NEURAL3D && console.log('[V2] Telemetry connected');
           // Store state on window for health checks
           if (typeof window !== 'undefined') {
             (window as any).__atlasWebSocketState = { connected: true, error: false };
@@ -507,17 +502,15 @@ export default function NeuralArchitecture3DV2({
           
           try {
             const data = JSON.parse(event.data);
-            console.log('[Neural3D WebSocket] Message type:', data.type, 'Keys:', Object.keys(data));
+            DEBUG_NEURAL3D && console.log('[Neural3D WebSocket] Message type:', data.type, 'Keys:', Object.keys(data));
             
-            // Log what we received
-            if (data.type === 'execution_flow') {
-              console.log('[Neural3D WebSocket] ✅ execution_flow:', data.source, '→', data.target);
-            } else if (data.type === 'batch') {
-              console.log('[Neural3D WebSocket] ✅ batch with', data.events?.length, 'events');
-            } else if (data.type === 'connected') {
-              console.log('[Neural3D WebSocket] ✅ Connected message');
-            } else {
-              console.log('[Neural3D WebSocket] ⚠️ Unknown type:', data.type);
+            // Handle heartbeats — keep health alive during query processing
+            if (data.type === 'heartbeat' || data.type === 'connected') {
+              if (typeof window !== 'undefined') {
+                (window as any).__atlasWebSocketState = { connected: true, error: false };
+              }
+              window.dispatchEvent(new CustomEvent('telemetry-status', { detail: { connected: true } }));
+              if (data.type === 'heartbeat') return; // heartbeats carry no viz data
             }
             
             handleTelemetryUpdate(data);
@@ -541,7 +534,7 @@ export default function NeuralArchitecture3DV2({
         ws.onclose = () => {
           if (isUnmounted) return;
           setTelemetryConnected(false);
-          console.log('[V2] Telemetry disconnected, reconnecting...');
+          DEBUG_NEURAL3D && console.log('[V2] Telemetry disconnected, reconnecting...');
           // Store state on window for health checks
           if (typeof window !== 'undefined') {
             (window as any).__atlasWebSocketState = { connected: false, error: false };
@@ -600,7 +593,7 @@ export default function NeuralArchitecture3DV2({
       });
       
       if (removedCount > 0) {
-        console.log('[V2] Cleared', removedCount, 'expired edges from spawn tracking');
+        DEBUG_NEURAL3D && console.log('[V2] Cleared', removedCount, 'expired edges from spawn tracking');
       }
     }, 1000); // Check every second
     
@@ -609,7 +602,7 @@ export default function NeuralArchitecture3DV2({
 
   // Process telemetry data with debouncing to prevent UI freezing
   const handleTelemetryUpdate = (data: any) => {
-    console.log('[Neural3D handleTelemetryUpdate] type:', data.type);
+    DEBUG_NEURAL3D && console.log('[Neural3D handleTelemetryUpdate] type:', data.type);
     
     // Defer processing to next frame to prevent blocking render
     requestAnimationFrame(() => {
@@ -622,7 +615,7 @@ export default function NeuralArchitecture3DV2({
       
       if (data.type === 'execution_flow' && data.source && data.target) {
         // ACTUAL BACKEND FORMAT - Single execution flow
-        console.log('[Neural3D] execution_flow:', data.source, '→', data.target);
+        DEBUG_NEURAL3D && console.log('[Neural3D] execution_flow:', data.source, '→', data.target);
         events.push({
           source: data.source,
           target: data.target,
@@ -636,10 +629,10 @@ export default function NeuralArchitecture3DV2({
         });
       } else if (data.type === 'batch' && data.events && Array.isArray(data.events)) {
         // ACTUAL BACKEND FORMAT - Batch of flows
-        console.log('[Neural3D] batch with', data.events.length, 'flows');
+        DEBUG_NEURAL3D && console.log('[Neural3D] batch with', data.events.length, 'flows');
         data.events.forEach((evt: any) => {
           if (evt.source && evt.target) {
-            console.log('  ', evt.source, '→', evt.target);
+            DEBUG_NEURAL3D && console.log('  ', evt.source, '→', evt.target);
             events.push({
               source: evt.source,
               target: evt.target,
@@ -655,7 +648,7 @@ export default function NeuralArchitecture3DV2({
         });
       } else if (data.type === 'memory_write' && data.sourceId && data.targetId) {
         // Legacy format support
-        console.log('[Neural3D] memory_write (legacy):', data.sourceId, '→', data.targetId);
+        DEBUG_NEURAL3D && console.log('[Neural3D] memory_write (legacy):', data.sourceId, '→', data.targetId);
         events.push({
           source: data.sourceId,
           target: data.targetId,
@@ -670,14 +663,14 @@ export default function NeuralArchitecture3DV2({
       }
       
       if (events.length > 0) {
-        console.log('[Neural3D] Spawning particles for', events.length, 'flows');
+        DEBUG_NEURAL3D && console.log('[Neural3D] Spawning particles for', events.length, 'flows');
         ingestEvents(events);
       }
       
       if (data.type === 'update' || data.type === 'initial_state') {
         const traces = data.active_traces || data.traces || [];
       
-      console.log('[TELEMETRY UPDATE]', {
+      DEBUG_NEURAL3D && console.log('[TELEMETRY UPDATE]', {
         type: data.type,
         traceCount: traces.length,
         traceIds: traces.map((t: any) => t.trace_id || t.id)
@@ -757,12 +750,12 @@ export default function NeuralArchitecture3DV2({
             skipParticles: false, // Explicitly allow particles
           };
           
-          console.log('[EVENT PUSHED]', event);
+          DEBUG_NEURAL3D && console.log('[EVENT PUSHED]', event);
           events.push(event);
         });
       });
 
-      console.log('[EDGE AGGREGATION]', {
+      DEBUG_NEURAL3D && console.log('[EDGE AGGREGATION]', {
         sources: edgeMap.size,
         details: Array.from(edgeMap.entries()).map(([source, targets]) => ({
           source,
@@ -771,10 +764,10 @@ export default function NeuralArchitecture3DV2({
         }))
       });
 
-      console.log('[EVENTS CREATED]', events.length, 'events:', events);
+      DEBUG_NEURAL3D && console.log('[EVENTS CREATED]', events.length, 'events:', events);
 
         if (events.length > 0) {
-          console.log('[V2] Calling ingestEvents with', events.length, 'events');
+          DEBUG_NEURAL3D && console.log('[V2] Calling ingestEvents with', events.length, 'events');
           ingestEvents(events);
           // Note: particleEvents won't update until next render (Zustand state)
         }
@@ -796,15 +789,7 @@ export default function NeuralArchitecture3DV2({
     return () => clearInterval(interval);
   }, [nodes.size, edges.size, activeParticleCount]);
 
-  // Log particleEvents changes to debug store updates
-  useEffect(() => {
-    console.log('[V2 EFFECT] particleEvents updated, length:', particleEvents.length);
-    if (particleEvents.length > 0) {
-      console.log('[V2 EFFECT] First event:', particleEvents[0]);
-    }
-  }, [particleEvents]);
-
-  // NOTE: Removed auto-clear interval for particle events
+  // NOTE: Removed auto-clear
   // Particles are now cleared only after being spawned (one-time consumption)
   // This prevents continuous respawning from the same static edges
 
@@ -852,7 +837,7 @@ export default function NeuralArchitecture3DV2({
             selectedShell={selectedShellForRotation}
             shellRotations={shellRotations}
             onRotationChange={(shell, rotation) => {
-              console.log('[Architecture] Updating shell rotation:', shell, rotation);
+              DEBUG_NEURAL3D && console.log('[Architecture] Updating shell rotation:', shell, rotation);
               // Update local state
               setShellRotations(prev => ({ ...prev, [shell]: rotation }));
             }}

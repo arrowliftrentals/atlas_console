@@ -59,6 +59,8 @@ interface Proposal {
   description: string;
   diff?: string;
   test_passed?: boolean;
+  validation_passed?: boolean;
+  status?: string;
   sandbox_path?: string;
   tests_passed?: number;
   tests_failed?: number;
@@ -260,85 +262,52 @@ const SandboxView: React.FC = () => {
     rejectionReason?: string,
     userFeedback?: string
   ) => {
-    try {
-      const atlasApiBase = process.env.NEXT_PUBLIC_ATLAS_API_BASE || "http://127.0.0.1:8000";
-      const res = await fetch(`${atlasApiBase}/api/proposals/${proposalId}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status,
-          rejection_reason: rejectionReason,
-          user_feedback: userFeedback,
-        }),
-      });
-      
-      if (!res.ok) {
-        console.error("Failed to update proposal status:", res.status);
-      }
-    } catch (e) {
-      console.error("Failed to update proposal status:", e);
+    const atlasApiBase = process.env.NEXT_PUBLIC_ATLAS_API_BASE || "http://127.0.0.1:8000";
+    const res = await fetch(`${atlasApiBase}/api/proposals/${proposalId}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status,
+        rejection_reason: rejectionReason,
+        user_feedback: userFeedback,
+      }),
+    });
+
+    if (!res.ok) {
+      const errorBody = await res.text().catch(() => "");
+      throw new Error(`Failed to update proposal status (${res.status}): ${errorBody}`);
     }
   };
 
   const applyProposal = async (proposalId: string) => {
-    // STAGE 1: Verify changes in sandbox with regression testing
+    // Find the proposal to show its validation info in the confirmation
+    const proposal = proposals.find(p => p.proposal_id === proposalId);
+    const passed = proposal?.tests_passed ?? 0;
+    const failed = proposal?.tests_failed ?? 0;
+    const risk = proposal?.estimated_risk ?? "unknown";
+    const testStatus = failed === 0 ? "✅ ALL PASSED" : `⚠️ ${failed} FAILED`;
+
+    const confirmMessage =
+      `Apply Proposal?\n\n` +
+      `Tests: ${testStatus} (${passed} passed, ${failed} failed)\n` +
+      `Risk: ${risk}\n\n` +
+      `A git branch + commit will be created with these changes.\n` +
+      `Apply to production?`;
+
+    if (!confirm(confirmMessage)) return;
+
     try {
-      const atlasApiBase = process.env.NEXT_PUBLIC_ATLAS_API_BASE || "http://127.0.0.1:8000";
-      
-      // Call verify-changes endpoint (runs tests in sandbox)
-      const verifyRes = await fetch(
-        `${atlasApiBase}/api/sandbox/verify-changes?proposal_id=${proposalId}`,
-        { method: "POST" }
+      // Route directly through the proposals PATCH endpoint.
+      // The backend reconstructs the ImprovementProposal from disk
+      // and calls SelfModifier.apply_proposal_to_production() which
+      // creates a git branch + commit.
+      await updateProposalStatus(proposalId, "applied");
+      alert(
+        `✅ Changes Applied Successfully\n\n` +
+        `Git branch and commit created.\n` +
+        `Review with: git log --oneline -5`
       );
-      const verifyData = await verifyRes.json();
-      
-      if (!verifyData.success) {
-        alert(`Verification failed: ${verifyData.message || 'Unknown error'}`);
-        return;
-      }
-      
-      // If tests failed in sandbox, warn user
-      if (!verifyData.is_safe) {
-        alert(
-          `⚠️ SAFETY WARNING\n\n` +
-          `Regression tests FAILED in sandbox.\n` +
-          `Status: ${verifyData.message}\n\n` +
-          `It is NOT recommended to apply these changes.`
-        );
-        return;
-      }
-      
-      // STAGE 2: Show confirmation with safety info
-      const testStatus = verifyData.test_passed ? "✅ PASSED" : "❌ FAILED";
-      const confirmMessage = 
-        `Sandbox Verification Complete\n\n` +
-        `Tests: ${testStatus}\n` +
-        `Status: ${verifyData.message}\n\n` +
-        `A safety git commit will be created before applying.\n` +
-        `You can rollback with: git reset HEAD~1 && git restore .\n\n` +
-        `Apply changes to live code?`;
-      
-      if (!confirm(confirmMessage)) return;
-      
-      // STAGE 3: Apply to live code (automatic safety commit happens in backend)
-      const applyRes = await fetch("/api/sandbox/apply-changes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proposal_id: proposalId }),
-      });
-      const applyData = await applyRes.json();
-      
-      if (applyData.success) {
-        await updateProposalStatus(proposalId, "applied");
-        alert(
-          `✅ Changes Applied Successfully\n\n` +
-          `Safety commit created.\n` +
-          `To rollback: git reset HEAD~1 && git restore .`
-        );
-        loadProposals();
-      } else {
-        alert(`Failed to apply: ${applyData.error || applyData.message}`);
-      }
+      loadProposals();
     } catch (e) {
       console.error("Failed to apply proposal:", e);
       alert("Failed to apply proposal");
@@ -367,18 +336,12 @@ const SandboxView: React.FC = () => {
     }
     
     try {
-      const res = await fetch(`/api/sandbox/rollback-changes?proposal_id=${proposalId}`, {
-        method: "POST",
-      });
-      const data = await res.json();
-      
-      if (data.success) {
-        // Update status to rejected with reason and feedback
-        await updateProposalStatus(proposalId, "rejected", reason, feedback);
-        loadProposals();
-      }
+      // Reject via the proposals PATCH endpoint directly.
+      // No GitSandbox rollback needed — proposals haven't been applied yet.
+      await updateProposalStatus(proposalId, "rejected", reason, feedback);
+      loadProposals();
     } catch (e) {
-      console.error("Failed to rollback proposal:", e);
+      console.error("Failed to reject proposal:", e);
     }
   };
 

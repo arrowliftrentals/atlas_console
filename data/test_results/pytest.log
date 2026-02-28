@@ -1,4 +1,1300 @@
-2026-02-20 17:17:39 | INFO     | sentence_transformers.SentenceTransformer:219 | Use pytorch device_name: mps
-2026-02-20 17:17:39 | INFO     | sentence_transformers.SentenceTransformer:227 | Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
-2026-02-20 17:17:39 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
-2026-02-20 17:17:39 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:54:11 | INFO     | sentence_transformers.SentenceTransformer:219 | Use pytorch device_name: mps
+2026-02-24 05:54:11 | INFO     | sentence_transformers.SentenceTransformer:227 | Load pretrained SentenceTransformer: sentence-transformers/all-MiniLM-L6-v2
+2026-02-24 05:54:12 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:54:12 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:54:28 | INFO     | tests.conftest:392 | Starting module-scoped API client (one-time app startup)...
+2026-02-24 05:54:32 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 05:54:33 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:54:33 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:54:33 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 05:54:33 | INFO     | src.api.routes.security:167 | Security scan scheduler task created
+2026-02-24 05:54:33 | INFO     | src.api.routes.recommendations:941 | Strategic recommendations scheduler task created
+2026-02-24 05:54:33 | INFO     | src.api.routes.security:116 | Security scanner scheduler started (interval: 6h)
+2026-02-24 05:54:33 | INFO     | src.api.routes.recommendations:890 | Strategic recommendations scheduler started (interval: 12h)
+2026-02-24 05:54:33 | INFO     | tests.conftest:402 | API client started successfully
+2026-02-24 05:54:33 | INFO     | core.sandbox.executor:84 | ✅ Docker connection successful
+2026-02-24 05:54:33 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/execute "HTTP/1.1 200 OK"
+2026-02-24 05:54:33 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/sandbox/history?limit=10 "HTTP/1.1 200 OK"
+2026-02-24 05:54:33 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/sandbox/statistics "HTTP/1.1 200 OK"
+2026-02-24 05:54:33 | INFO     | core.sandbox.executor:84 | ✅ Docker connection successful
+2026-02-24 05:54:33 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/execute "HTTP/1.1 200 OK"
+2026-02-24 05:54:33 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/sandbox/statistics "HTTP/1.1 200 OK"
+2026-02-24 05:54:33 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/propose-changes "HTTP/1.1 200 OK"
+2026-02-24 05:54:33 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/sandbox/proposals "HTTP/1.1 200 OK"
+2026-02-24 05:54:33 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/sandbox/proposals/test-e2e-proposal-456/diff "HTTP/1.1 200 OK"
+2026-02-24 05:54:33 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/rollback-changes?proposal_id=test-e2e-proposal-456 "HTTP/1.1 200 OK"
+2026-02-24 05:54:33 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/apply-changes "HTTP/1.1 404 Not Found"
+2026-02-24 05:54:33 | INFO     | core.sandbox.executor:84 | ✅ Docker connection successful
+2026-02-24 05:54:33 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/execute "HTTP/1.1 200 OK"
+2026-02-24 05:54:33 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/propose-changes "HTTP/1.1 200 OK"
+2026-02-24 05:54:33 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/rollback-changes?proposal_id=test-workflow-789 "HTTP/1.1 200 OK"
+2026-02-24 05:54:33 | INFO     | core.sandbox.executor:84 | ✅ Docker connection successful
+2026-02-24 05:54:34 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/execute "HTTP/1.1 200 OK"
+2026-02-24 05:54:34 | INFO     | core.sandbox.executor:84 | ✅ Docker connection successful
+2026-02-24 05:54:34 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/execute "HTTP/1.1 200 OK"
+2026-02-24 05:54:34 | INFO     | core.sandbox.executor:84 | ✅ Docker connection successful
+2026-02-24 05:54:34 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/execute "HTTP/1.1 200 OK"
+2026-02-24 05:54:34 | INFO     | core.sandbox.executor:84 | ✅ Docker connection successful
+2026-02-24 05:54:35 | INFO     | src.research.question_generator:59 | ResearchQuestionGenerator initialized
+2026-02-24 05:54:35 | INFO     | src.orchestrator.assessment_manager:44 | AssessmentManager initialized with project_root: /Users/mac_m3/Projects/WARP Ecosystem/console
+2026-02-24 05:54:35 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/execute "HTTP/1.1 500 Internal Server Error"
+2026-02-24 05:54:35 | INFO     | core.sandbox.executor:84 | ✅ Docker connection successful
+2026-02-24 05:54:35 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/execute "HTTP/1.1 200 OK"
+2026-02-24 05:54:35 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/apply-changes "HTTP/1.1 404 Not Found"
+2026-02-24 05:54:35 | WARNING  | core.sandbox.git_sandbox:458 | No active sandbox for proposal failing_proposal
+2026-02-24 05:54:35 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/rollback-changes?proposal_id=failing_proposal "HTTP/1.1 404 Not Found"
+2026-02-24 05:54:35 | INFO     | src.api.routes.security:182 | Security scan scheduler stopped
+2026-02-24 05:54:35 | INFO     | src.api.routes.recommendations:955 | Strategic recommendations scheduler stopped
+2026-02-24 05:54:35 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 05:54:35 | INFO     | tests.conftest:405 | API client shutdown complete
+2026-02-24 05:54:35 | ERROR    | asyncio:1785 | Task was destroyed but it is pending!
+task: <Task pending name='Task-661' coro=<ProactiveActionExecutor.handle_suggestion() running at /Users/mac_m3/Projects/WARP Ecosystem/atlas/src/orchestrator/proactive_executor.py:115>>
+2026-02-24 05:54:35 | ERROR    | asyncio:1785 | Task was destroyed but it is pending!
+task: <Task pending name='Task-664' coro=<ProactiveActionExecutor.handle_suggestion() running at /Users/mac_m3/Projects/WARP Ecosystem/atlas/src/orchestrator/proactive_executor.py:115>>
+2026-02-24 05:54:35 | ERROR    | asyncio:1785 | Task was destroyed but it is pending!
+task: <Task pending name='Task-667' coro=<ProactiveActionExecutor.handle_suggestion() running at /Users/mac_m3/Projects/WARP Ecosystem/atlas/src/orchestrator/proactive_executor.py:115>>
+2026-02-24 05:54:42 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:54:42 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:54:44 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:54:44 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:54:44 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:54:44 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:54:45 | WARNING  | src.documentation.librarian:120 | Docs directory not found: /private/var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/pytest-of-mac_m3/pytest-371/test_scheduler_starts_and_stop0/docs
+2026-02-24 05:54:45 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 0 documents (L10=True)
+2026-02-24 05:54:45 | WARNING  | src.documentation.librarian:120 | Docs directory not found: /private/var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/pytest-of-mac_m3/pytest-371/test_goal_monitoring_generates0/docs
+2026-02-24 05:54:45 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 0 documents (L10=True)
+2026-02-24 05:54:46 | WARNING  | src.documentation.librarian:120 | Docs directory not found: /private/var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/pytest-of-mac_m3/pytest-371/test_proactive_engine_integrat0/docs
+2026-02-24 05:54:46 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 0 documents (L10=True)
+2026-02-24 05:54:46 | WARNING  | src.documentation.librarian:120 | Docs directory not found: /private/var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/pytest-of-mac_m3/pytest-371/test_intent_prediction_with_hi0/docs
+2026-02-24 05:54:46 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 0 documents (L10=True)
+2026-02-24 05:54:47 | WARNING  | src.documentation.librarian:120 | Docs directory not found: /private/var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/pytest-of-mac_m3/pytest-371/test_full_proactive_flow0/docs
+2026-02-24 05:54:47 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 0 documents (L10=True)
+2026-02-24 05:54:47 | WARNING  | src.documentation.librarian:120 | Docs directory not found: /private/var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/pytest-of-mac_m3/pytest-371/test_proactive_mode_disable_an0/docs
+2026-02-24 05:54:47 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 0 documents (L10=True)
+2026-02-24 05:54:53 | WARNING  | src.documentation.librarian:120 | Docs directory not found: /private/var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/pytest-of-mac_m3/pytest-371/test_multi_component_stats0/docs
+2026-02-24 05:54:53 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 0 documents (L10=True)
+2026-02-24 05:54:53 | WARNING  | src.documentation.librarian:120 | Docs directory not found: /private/var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/pytest-of-mac_m3/pytest-371/test_suggestion_dismissal_inte0/docs
+2026-02-24 05:54:53 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 0 documents (L10=True)
+2026-02-24 05:54:57 | INFO     | src.research.question_generator:59 | ResearchQuestionGenerator initialized
+2026-02-24 05:54:57 | INFO     | src.research.question_generator:59 | ResearchQuestionGenerator initialized
+2026-02-24 05:54:57 | INFO     | src.research.question_generator:104 | Formulating research question for component: intent_classifier
+2026-02-24 05:54:57 | INFO     | src.research.question_generator:152 | Research question formulated: priority=medium, impact=0.70, feasibility=0.80
+2026-02-24 05:54:57 | INFO     | src.research.question_generator:59 | ResearchQuestionGenerator initialized
+2026-02-24 05:54:57 | INFO     | src.research.question_generator:104 | Formulating research question for component: memory_retrieval
+2026-02-24 05:54:57 | INFO     | src.research.question_generator:152 | Research question formulated: priority=high, impact=1.00, feasibility=0.50
+2026-02-24 05:54:57 | INFO     | src.research.question_generator:59 | ResearchQuestionGenerator initialized
+2026-02-24 05:54:57 | INFO     | src.research.question_generator:178 | Prioritizing 2 research questions...
+2026-02-24 05:54:57 | INFO     | src.research.question_generator:198 | Questions prioritized: CRITICAL=0, HIGH=1, MEDIUM=0, LOW=1
+2026-02-24 05:54:57 | INFO     | src.research.question_generator:59 | ResearchQuestionGenerator initialized
+2026-02-24 05:54:58 | INFO     | src.research.question_generator:59 | ResearchQuestionGenerator initialized
+2026-02-24 05:54:58 | INFO     | src.research.question_generator:104 | Formulating research question for component: intent_classifier
+2026-02-24 05:54:58 | INFO     | src.research.question_generator:152 | Research question formulated: priority=medium, impact=0.70, feasibility=0.80
+2026-02-24 05:54:58 | INFO     | tests.conftest:392 | Starting module-scoped API client (one-time app startup)...
+2026-02-24 05:55:01 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:01 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:01 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 05:55:01 | INFO     | src.api.routes.security:167 | Security scan scheduler task created
+2026-02-24 05:55:01 | INFO     | src.api.routes.recommendations:941 | Strategic recommendations scheduler task created
+2026-02-24 05:55:01 | INFO     | src.api.routes.security:116 | Security scanner scheduler started (interval: 6h)
+2026-02-24 05:55:01 | INFO     | src.api.routes.recommendations:890 | Strategic recommendations scheduler started (interval: 12h)
+2026-02-24 05:55:01 | INFO     | tests.conftest:402 | API client started successfully
+2026-02-24 05:55:01 | INFO     | core.sandbox.executor:84 | ✅ Docker connection successful
+2026-02-24 05:55:01 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/execute "HTTP/1.1 200 OK"
+2026-02-24 05:55:01 | INFO     | core.sandbox.executor:84 | ✅ Docker connection successful
+2026-02-24 05:55:01 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/execute "HTTP/1.1 200 OK"
+2026-02-24 05:55:01 | INFO     | core.sandbox.executor:84 | ✅ Docker connection successful
+2026-02-24 05:55:01 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/execute "HTTP/1.1 200 OK"
+2026-02-24 05:55:01 | INFO     | core.sandbox.executor:84 | ✅ Docker connection successful
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/execute "HTTP/1.1 500 Internal Server Error"
+2026-02-24 05:55:02 | INFO     | core.sandbox.executor:84 | ✅ Docker connection successful
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/execute "HTTP/1.1 200 OK"
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/sandbox/health "HTTP/1.1 200 OK"
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/sandbox/health "HTTP/1.1 200 OK"
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/sandbox/history?limit=10 "HTTP/1.1 200 OK"
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/sandbox/history?limit=10&language=python "HTTP/1.1 200 OK"
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/sandbox/history "HTTP/1.1 200 OK"
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/sandbox/statistics "HTTP/1.1 200 OK"
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/sandbox/statistics "HTTP/1.1 200 OK"
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/sandbox/proposals "HTTP/1.1 200 OK"
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/propose-changes "HTTP/1.1 200 OK"
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/apply-changes "HTTP/1.1 404 Not Found"
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/apply-changes "HTTP/1.1 404 Not Found"
+2026-02-24 05:55:02 | WARNING  | core.sandbox.git_sandbox:458 | No active sandbox for proposal test123
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/rollback-changes?proposal_id=test123 "HTTP/1.1 404 Not Found"
+2026-02-24 05:55:02 | WARNING  | core.sandbox.git_sandbox:458 | No active sandbox for proposal nonexistent
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/rollback-changes?proposal_id=nonexistent "HTTP/1.1 404 Not Found"
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/sandbox/proposals/test123/diff "HTTP/1.1 404 Not Found"
+2026-02-24 05:55:02 | INFO     | core.sandbox.executor:84 | ✅ Docker connection successful
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/execute "HTTP/1.1 200 OK"
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/execute "HTTP/1.1 422 Unprocessable Entity"
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/sandbox/history?limit=-1 "HTTP/1.1 200 OK"
+2026-02-24 05:55:02 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/apply-changes "HTTP/1.1 422 Unprocessable Entity"
+2026-02-24 05:55:02 | INFO     | core.sandbox.executor:84 | ✅ Docker connection successful
+2026-02-24 05:55:03 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/sandbox/execute "HTTP/1.1 200 OK"
+2026-02-24 05:55:03 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/sandbox/health "HTTP/1.1 200 OK"
+2026-02-24 05:55:03 | INFO     | src.api.routes.security:182 | Security scan scheduler stopped
+2026-02-24 05:55:03 | INFO     | src.api.routes.recommendations:955 | Strategic recommendations scheduler stopped
+2026-02-24 05:55:03 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 05:55:03 | INFO     | tests.conftest:405 | API client shutdown complete
+2026-02-24 05:55:14 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:14 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:14 | WARNING  | src.documentation.librarian:120 | Docs directory not found: /docs
+2026-02-24 05:55:14 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 0 documents (L10=True)
+2026-02-24 05:55:17 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:17 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:22 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:22 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:22 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:22 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:23 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:23 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:25 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:25 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:29 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:29 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:31 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:31 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:31 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:31 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:32 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:32 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:32 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:32 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:32 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:32 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:32 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:32 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:32 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:32 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:32 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:32 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:32 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:32 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:34 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:34 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:36 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:36 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:36 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:36 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:36 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:36 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:36 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:36 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:40 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:40 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:40 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/v1/telemetry/inject "HTTP/1.1 200 OK"
+2026-02-24 05:55:40 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/v1/telemetry/inject "HTTP/1.1 200 OK"
+2026-02-24 05:55:40 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/v1/telemetry/inject "HTTP/1.1 400 Bad Request"
+2026-02-24 05:55:40 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/v1/telemetry/inject "HTTP/1.1 422 Unprocessable Entity"
+2026-02-24 05:55:40 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/v1/telemetry/inject "HTTP/1.1 401 Unauthorized"
+2026-02-24 05:55:40 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/v1/telemetry/inject "HTTP/1.1 200 OK"
+2026-02-24 05:55:42 | INFO     | httpx:1038 | HTTP Request: GET http://localhost:99999/api/tags "HTTP/1.1 403 Forbidden"
+2026-02-24 05:55:42 | INFO     | httpx:1038 | HTTP Request: GET http://localhost:99999/api/tags "HTTP/1.1 403 Forbidden"
+2026-02-24 05:55:42 | INFO     | tests.conftest:392 | Starting module-scoped API client (one-time app startup)...
+2026-02-24 05:55:46 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:46 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:46 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 05:55:46 | INFO     | src.api.routes.security:167 | Security scan scheduler task created
+2026-02-24 05:55:46 | INFO     | src.api.routes.recommendations:941 | Strategic recommendations scheduler task created
+2026-02-24 05:55:46 | INFO     | src.api.routes.security:116 | Security scanner scheduler started (interval: 6h)
+2026-02-24 05:55:46 | INFO     | src.api.routes.recommendations:890 | Strategic recommendations scheduler started (interval: 12h)
+2026-02-24 05:55:46 | INFO     | tests.conftest:402 | API client started successfully
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/health "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/status "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/commands "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/commands "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/commands "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/commands "HTTP/1.1 500 Internal Server Error"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/conversations?hours=24&limit=10 "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/conversations?hours=48&limit=5 "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/conversations/nonexistent_conv_id "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/conversations/conv1 "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/conversations/conv_active "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/memory/stats "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/patterns?min_occurrences=2 "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/patterns "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/suggestions "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/feedback?command=open%20chrome&correction=open%20Chrome "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/feedback?command=invalid%20command&success=false "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/feedback?command=open%20Safari&success=true "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/conversations "HTTP/1.1 500 Internal Server Error"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/patterns "HTTP/1.1 500 Internal Server Error"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/suggestions "HTTP/1.1 500 Internal Server Error"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/commands "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/commands "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/conversations/conv_test_123 "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/patterns "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/suggestions "HTTP/1.1 200 OK"
+2026-02-24 05:55:46 | INFO     | httpx:1038 | HTTP Request: OPTIONS http://testserver/api/commands "HTTP/1.1 405 Method Not Allowed"
+2026-02-24 05:55:46 | INFO     | src.api.routes.security:182 | Security scan scheduler stopped
+2026-02-24 05:55:46 | INFO     | src.api.routes.recommendations:955 | Strategic recommendations scheduler stopped
+2026-02-24 05:55:46 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 05:55:46 | INFO     | tests.conftest:405 | API client shutdown complete
+2026-02-24 05:55:56 | ERROR    | src.memory.l1_working:94 | L1 message validation failed: 1 validation error for Message
+role
+  String should match pattern '^(user|assistant|system)$' [type=string_pattern_mismatch, input_value='invalid_role', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_pattern_mismatch
+2026-02-24 05:55:56 | ERROR    | src.memory.l1_working:94 | L1 message validation failed: 1 validation error for Message
+content
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+2026-02-24 05:55:56 | ERROR    | src.memory.l1_working:129 | L1 context validation failed for key 'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx': 1 validation error for WorkingMemoryItem
+key
+  String should have at most 500 characters [type=string_too_long, input_value='xxxxxxxxxxxxxxxxxxxxxxxx...xxxxxxxxxxxxxxxxxxxxxxx', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_long
+2026-02-24 05:55:56 | ERROR    | src.memory.l1_working:129 | L1 context validation failed for key '': 1 validation error for WorkingMemoryItem
+key
+  String should have at least 1 character [type=string_too_short, input_value='', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_too_short
+2026-02-24 05:55:56 | ERROR    | src.memory.l1_working:94 | L1 message validation failed: 1 validation error for Message
+role
+  String should match pattern '^(user|assistant|system)$' [type=string_pattern_mismatch, input_value='bad_role', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_pattern_mismatch
+2026-02-24 05:55:56 | ERROR    | src.memory.l1_working:94 | L1 message validation failed: 1 validation error for Message
+role
+  String should match pattern '^(user|assistant|system)$' [type=string_pattern_mismatch, input_value='bad', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_pattern_mismatch
+2026-02-24 05:55:56 | ERROR    | src.memory.l1_working:94 | L1 message validation failed: 1 validation error for Message
+role
+  String should match pattern '^(user|assistant|system)$' [type=string_pattern_mismatch, input_value='invalid_role', input_type=str]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_pattern_mismatch
+2026-02-24 05:55:59 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/v1/demo/status "HTTP/1.1 200 OK"
+2026-02-24 05:55:59 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/api/v1/demo/status "HTTP/1.1 200 OK"
+2026-02-24 05:55:59 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/v1/demo/start "HTTP/1.1 200 OK"
+2026-02-24 05:55:59 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/v1/demo/start "HTTP/1.1 200 OK"
+2026-02-24 05:55:59 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/v1/demo/stop "HTTP/1.1 200 OK"
+2026-02-24 05:55:59 | INFO     | httpx:1038 | HTTP Request: POST http://testserver/api/v1/demo/stop "HTTP/1.1 409 Conflict"
+2026-02-24 05:55:59 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 1 documents (L10=True)
+2026-02-24 05:55:59 | WARNING  | src.documentation.librarian:120 | Docs directory not found: /private/var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/pytest-of-mac_m3/pytest-371/test_returns_none_for_non_doc_0/docs
+2026-02-24 05:55:59 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 0 documents (L10=True)
+2026-02-24 05:55:59 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 1 documents (L10=True)
+2026-02-24 05:55:59 | WARNING  | src.documentation.librarian:120 | Docs directory not found: /private/var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/pytest-of-mac_m3/pytest-371/test_formats_cited_response0/docs
+2026-02-24 05:55:59 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 0 documents (L10=True)
+2026-02-24 05:55:59 | WARNING  | src.documentation.librarian:120 | Docs directory not found: /private/var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/pytest-of-mac_m3/pytest-371/test_get_stats2/docs
+2026-02-24 05:55:59 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 0 documents (L10=True)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in warn mode with strict policy (L10=True)
+2026-02-24 05:55:59 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 0 documents (L10=True)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in warn mode with strict policy (L10=True)
+2026-02-24 05:55:59 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 0 documents (L10=True)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:183 | Indexed docs/api/test-endpoint.md to L10 after Authority approval
+2026-02-24 05:55:59 | INFO     | src.documentation.librarian:388 | Reindexed document: docs/api/test-endpoint.md
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in warn mode with strict policy (L10=True)
+2026-02-24 05:55:59 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 0 documents (L10=True)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:59 | WARNING  | src.documentation.authority:146 | L10 write guard blocked unauthorized write to 'documentation' for item 'malicious' (missing authority_approved flag)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:59 | WARNING  | src.documentation.librarian:120 | Docs directory not found: /private/var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/pytest-of-mac_m3/pytest-371/test_librarian_cannot_write_l10/docs
+2026-02-24 05:55:59 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 0 documents (L10=True)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:55:59 | ERROR    | src.documentation.authority:396 | Failed to create snapshot: Command '['git', 'add', 'docs/']' returned non-zero exit status 128.
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:183 | Indexed docs/memory.md to L10 after Authority approval
+2026-02-24 05:55:59 | WARNING  | src.documentation.librarian:120 | Docs directory not found: /private/var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/pytest-of-mac_m3/pytest-371/test_librarian_uses_l10_search0/docs
+2026-02-24 05:55:59 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 0 documents (L10=True)
+2026-02-24 05:55:59 | WARNING  | src.documentation.librarian:120 | Docs directory not found: /private/var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/pytest-of-mac_m3/pytest-371/test_librarian_fallback_to_tex0/docs
+2026-02-24 05:55:59 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 0 documents (L10=True)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:55:59 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:56:00 | INFO     | src.memory.l1_working:213 | Saved conversation test_conv_001 to L2 (3 messages)
+2026-02-24 05:56:00 | INFO     | src.memory.l1_working:213 | Saved conversation test_conv_002 to L2 (1 messages)
+2026-02-24 05:56:00 | INFO     | src.memory.l1_working:213 | Saved conversation test_conv_003 to L2 (1 messages)
+2026-02-24 05:56:00 | INFO     | src.memory.l1_working:213 | Saved conversation test_conv_004 to L2 (0 messages)
+2026-02-24 05:56:00 | INFO     | src.memory.l1_working:213 | Saved conversation test_conv_005 to L2 (4 messages)
+2026-02-24 05:58:41 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:41 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:45 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:45 | INFO     | src.memory.l1_working:213 | Saved conversation smoke_test_123 to L2 (1 messages)
+2026-02-24 05:58:46 | INFO     | src.memory.l1_working:213 | Saved conversation ctx_test_conv to L2 (0 messages)
+2026-02-24 05:58:46 | ERROR    | asyncio:1785 | Task was destroyed but it is pending!
+task: <Task pending name='Task-4188' coro=<ProactiveActionExecutor.handle_suggestion() running at /Users/mac_m3/Projects/WARP Ecosystem/atlas/src/orchestrator/proactive_executor.py:115>>
+2026-02-24 05:58:46 | ERROR    | asyncio:1785 | Task was destroyed but it is pending!
+task: <Task pending name='Task-4189' coro=<ProactiveActionExecutor.handle_suggestion() running at /Users/mac_m3/Projects/WARP Ecosystem/atlas/src/orchestrator/proactive_executor.py:115>>
+2026-02-24 05:58:46 | ERROR    | asyncio:1785 | Task was destroyed but it is pending!
+task: <Task pending name='Task-4190' coro=<ProactiveActionExecutor.handle_suggestion() running at /Users/mac_m3/Projects/WARP Ecosystem/atlas/src/orchestrator/proactive_executor.py:115>>
+2026-02-24 05:58:46 | ERROR    | asyncio:1785 | Task was destroyed but it is pending!
+task: <Task pending name='Task-4191' coro=<ProactiveActionExecutor.handle_suggestion() running at /Users/mac_m3/Projects/WARP Ecosystem/atlas/src/orchestrator/proactive_executor.py:115>>
+2026-02-24 05:58:46 | ERROR    | asyncio:1785 | Task was destroyed but it is pending!
+task: <Task pending name='Task-4192' coro=<ProactiveActionExecutor.handle_suggestion() running at /Users/mac_m3/Projects/WARP Ecosystem/atlas/src/orchestrator/proactive_executor.py:115>>
+2026-02-24 05:58:46 | ERROR    | asyncio:1785 | Task was destroyed but it is pending!
+task: <Task pending name='Task-4193' coro=<ProactiveActionExecutor.handle_suggestion() running at /Users/mac_m3/Projects/WARP Ecosystem/atlas/src/orchestrator/proactive_executor.py:115>>
+2026-02-24 05:58:46 | ERROR    | asyncio:1785 | Task was destroyed but it is pending!
+task: <Task pending name='Task-4194' coro=<ProactiveActionExecutor.handle_suggestion() running at /Users/mac_m3/Projects/WARP Ecosystem/atlas/src/orchestrator/proactive_executor.py:115>>
+2026-02-24 05:58:46 | ERROR    | asyncio:1785 | Task was destroyed but it is pending!
+task: <Task pending name='Task-4195' coro=<ProactiveActionExecutor.handle_suggestion() running at /Users/mac_m3/Projects/WARP Ecosystem/atlas/src/orchestrator/proactive_executor.py:115>>
+2026-02-24 05:58:49 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 05:58:51 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:51 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:51 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:51 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:53 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:58:53 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:53 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:54 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:58:56 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:58:56 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:56 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:57 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:58:57 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:58:58 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:58:58 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:58:58 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:00 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:01 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:04 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:04 | INFO     | httpx:1786 | HTTP Request: GET http://export.arxiv.org/api/query?search_query=all%3AExplain%20AND%20quantum%20AND%20entanglement%20AND%20beginner%20AND%20level&start=0&max_results=5&sortBy=relevance&sortOrder=descending "HTTP/1.1 403 Forbidden"
+2026-02-24 05:59:04 | INFO     | httpx:1786 | HTTP Request: GET https://api.semanticscholar.org/graph/v1/paper/search?query=Explain%20quantum%20entanglement%20at%20a%20beginner%20level&fields=paperId%2Ctitle%2Cabstract%2Cauthors%2Cyear%2CcitationCount%2CinfluentialCitationCount%2Creferences%2Curl%2CpublicationDate&limit=5 "HTTP/1.1 429 "
+2026-02-24 05:59:07 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:07 | INFO     | httpx:1786 | HTTP Request: GET http://export.arxiv.org/api/query?search_query=all%3AExplain%20AND%20quantum%20AND%20entanglement%20AND%20beginner%20AND%20level&start=0&max_results=5&sortBy=relevance&sortOrder=descending "HTTP/1.1 403 Forbidden"
+2026-02-24 05:59:07 | INFO     | httpx:1786 | HTTP Request: GET https://api.semanticscholar.org/graph/v1/paper/search?query=Explain%20quantum%20entanglement%20at%20a%20beginner%20level&fields=paperId%2Ctitle%2Cabstract%2Cauthors%2Cyear%2CcitationCount%2CinfluentialCitationCount%2Creferences%2Curl%2CpublicationDate&limit=5 "HTTP/1.1 429 "
+2026-02-24 05:59:09 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:11 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:16 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:21 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:24 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:26 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:26 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 400 Bad Request"
+2026-02-24 05:59:29 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:29 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:59:29 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:59:30 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:31 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:59:31 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:59:32 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:32 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:33 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:34 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:35 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:36 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:37 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:38 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:40 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:41 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:41 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:59:41 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:59:42 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:44 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:47 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 05:59:47 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 05:59:48 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:50 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:51 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:52 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:57 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 05:59:59 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:00 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:03 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:03 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:00:03 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:00:07 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:20 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:22 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:25 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:27 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:28 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:30 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:31 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:33 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:34 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:36 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:37 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:39 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:40 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:42 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:45 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:46 | INFO     | src.memory.l1_working:213 | Saved conversation test_session to L2 (1 messages)
+2026-02-24 06:00:46 | INFO     | src.memory.l1_working:252 | Consolidated 1 inactive conversations to L2 (threshold: 5m)
+2026-02-24 06:00:46 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:47 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:49 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:49 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:00:49 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:00:53 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:00:54 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:00:54 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:213 | Saved conversation validation_test to L2 (100 messages)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:252 | Consolidated 1 inactive conversations to L2 (threshold: 5m)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:213 | Saved conversation test to L2 (1 messages)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:252 | Consolidated 1 inactive conversations to L2 (threshold: 5m)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:213 | Saved conversation test to L2 (1 messages)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:252 | Consolidated 1 inactive conversations to L2 (threshold: 5m)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:213 | Saved conversation test_session to L2 (0 messages)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:213 | Saved conversation test_session to L2 (1 messages)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:213 | Saved conversation test_session to L2 (0 messages)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:252 | Consolidated 1 inactive conversations to L2 (threshold: 5m)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:252 | Consolidated 1 inactive conversations to L2 (threshold: 5m)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:252 | Consolidated 1 inactive conversations to L2 (threshold: 5m)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:213 | Saved conversation test_session to L2 (1 messages)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:252 | Consolidated 1 inactive conversations to L2 (threshold: 5m)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:213 | Saved conversation test_session to L2 (0 messages)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:252 | Consolidated 1 inactive conversations to L2 (threshold: 5m)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:213 | Saved conversation test_session to L2 (0 messages)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:252 | Consolidated 1 inactive conversations to L2 (threshold: 5m)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:213 | Saved conversation test to L2 (0 messages)
+2026-02-24 06:00:56 | INFO     | src.memory.l1_working:252 | Consolidated 1 inactive conversations to L2 (threshold: 5m)
+2026-02-24 06:01:02 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:03 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:01:03 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:01:05 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:06 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:01:06 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:01:07 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:08 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:08 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:01:08 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:01:09 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:12 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:12 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:01:12 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:01:15 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:15 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:01:15 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:01:16 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:17 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:24 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:25 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:01:25 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:01:31 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:31 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:01:31 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:01:39 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:41 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:43 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:45 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:47 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:49 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:49 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:01:49 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:01:50 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:51 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:54 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:57 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:01:57 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:01:58 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:01:59 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:02:00 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_055849_1 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_055853_2 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_055856_3 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_055857_4 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_055901_5 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_055929_6 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_055930_7 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_055941_8 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_055944_9 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_055957_10 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060003_11 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060020_12 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060049_13 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060053_14 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060102_15 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060105_16 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060108_17 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060112_18 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060115_19 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060124_20 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060131_21 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060139_22 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060149_23 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060149_24 to L2 (2 messages)
+2026-02-24 06:02:00 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060154_25 to L2 (2 messages)
+2026-02-24 06:02:02 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 06:02:03 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:02:03 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:02:04 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:02:05 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:02:07 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:02:09 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 06:02:10 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:02:10 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:02:11 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:02:12 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:02:14 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 06:02:16 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:02:17 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:02:19 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 06:02:20 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:02:20 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:02:21 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:02:21 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:02:21 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060220_1 to L2 (2 messages)
+2026-02-24 06:02:24 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 06:02:24 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:02:24 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:02:25 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:02:26 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:02:26 | INFO     | src.introspection.self_model:536 | Updated line ranges for 8 components
+2026-02-24 06:02:26 | INFO     | src.introspection.self_model:536 | Updated line ranges for 8 components
+2026-02-24 06:02:28 | INFO     | src.introspection.self_model:632 | Discovered 1368 new components via AST analysis
+2026-02-24 06:02:29 | INFO     | src.introspection.self_model:632 | Discovered 1368 new components via AST analysis
+2026-02-24 06:02:29 | INFO     | src.introspection.self_model:536 | Updated line ranges for 8 components
+2026-02-24 06:02:30 | INFO     | src.introspection.self_model:632 | Discovered 1368 new components via AST analysis
+2026-02-24 06:02:30 | INFO     | src.introspection.self_model:685 | SelfModel sync complete: 8 updated, 1368 discovered, 0 stale
+2026-02-24 06:02:30 | INFO     | src.introspection.self_model:536 | Updated line ranges for 8 components
+2026-02-24 06:02:32 | INFO     | src.introspection.self_model:632 | Discovered 1368 new components via AST analysis
+2026-02-24 06:02:32 | INFO     | src.introspection.self_model:685 | SelfModel sync complete: 8 updated, 1368 discovered, 0 stale
+2026-02-24 06:02:32 | INFO     | src.introspection.self_model:632 | Discovered 1 new components via AST analysis
+2026-02-24 06:02:32 | INFO     | src.introspection.self_model:632 | Discovered 1 new components via AST analysis
+2026-02-24 06:02:32 | INFO     | src.introspection.self_model:536 | Updated line ranges for 1 components
+2026-02-24 06:02:32 | INFO     | src.introspection.self_model:632 | Discovered 1 new components via AST analysis
+2026-02-24 06:02:32 | INFO     | src.introspection.self_model:685 | SelfModel sync complete: 0 updated, 1 discovered, 8 stale
+2026-02-24 06:02:32 | INFO     | src.introspection.self_model:685 | SelfModel sync complete: 0 updated, 0 discovered, 9 stale
+2026-02-24 06:02:32 | INFO     | src.introspection.self_model:632 | Discovered 1 new components via AST analysis
+2026-02-24 06:02:32 | INFO     | src.introspection.self_model:632 | Discovered 1 new components via AST analysis
+2026-02-24 06:02:32 | INFO     | src.introspection.self_model:632 | Discovered 1 new components via AST analysis
+2026-02-24 06:02:49 | WARNING  | src.memory.l1_working:106 | Cannot add message to conversation test-conv-123: conversation not found in L1. Call start_conversation() first.
+2026-02-24 06:02:52 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 06:02:52 | WARNING  | src.memory.l1_working:276 | Conversation long-conv-pipeline not found in L2
+2026-02-24 06:02:53 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:02:53 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:02:55 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:02:55 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:02:55 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:02:56 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:02:56 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:02:58 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:02:58 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:02:58 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:02:59 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:02:59 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:02:59 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:00 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:00 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:00 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:02 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:02 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:02 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:03 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:03 | WARNING  | src.memory.l1_working:276 | Conversation device-switch-1 not found in L2
+2026-02-24 06:03:03 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:03 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:04 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:05 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:05 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:05 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:07 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:07 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:07 | WARNING  | src.memory.l1_working:276 | Conversation l1-clear-1 not found in L2
+2026-02-24 06:03:11 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:11 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:12 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:13 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:14 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:15 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:16 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:16 | WARNING  | src.memory.l1_working:276 | Conversation conc-1 not found in L2
+2026-02-24 06:03:16 | WARNING  | src.memory.l1_working:276 | Conversation conc-2 not found in L2
+2026-02-24 06:03:18 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:18 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:22 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:22 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:22 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:22 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:22 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:22 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:22 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:22 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:22 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:22 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:22 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:22 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:22 | WARNING  | src.memory.l1_working:276 | Conversation external-conv-123 not found in L2
+2026-02-24 06:03:22 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:22 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:23 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:23 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:23 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:24 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:24 | WARNING  | src.memory.l1_working:276 | Conversation burst-test-1 not found in L2
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:24 | WARNING  | src.memory.l1_working:276 | Conversation l3-test-1 not found in L2
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:24 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:25 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation conc-1 to L2 (8 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation conc-2 to L2 (8 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation external-conv-123 to L2 (4 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060324_7 to L2 (2 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation burst-test-1 to L2 (20 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation l3-test-1 to L2 (2 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation conv-1 to L2 (1 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:252 | Consolidated 1 inactive conversations to L2 (threshold: 5m)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation conv-2 to L2 (1 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation conv-1 to L2 (1 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:291 | Restored conversation conv-1 from L2 to L1 (2 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation conv-1 to L2 (2 messages)
+2026-02-24 06:03:25 | WARNING  | src.memory.l1_working:276 | Conversation nonexistent not found in L2
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation conv-1 to L2 (1 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation conv-1 to L2 (1 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:252 | Consolidated 1 inactive conversations to L2 (threshold: 5m)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:291 | Restored conversation conv-1 from L2 to L1 (1 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation conv-1 to L2 (1 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation conv-1 to L2 (2 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:252 | Consolidated 1 inactive conversations to L2 (threshold: 5m)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:291 | Restored conversation conv-1 from L2 to L1 (2 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation conv-1 to L2 (3 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation conv-1 to L2 (2 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:252 | Consolidated 1 inactive conversations to L2 (threshold: 5m)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:291 | Restored conversation conv-1 from L2 to L1 (2 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation conv-1 to L2 (3 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:252 | Consolidated 1 inactive conversations to L2 (threshold: 5m)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation test_conv_001 to L2 (3 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation conv_0 to L2 (1 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation conv_1 to L2 (1 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation conv_2 to L2 (1 messages)
+2026-02-24 06:03:25 | INFO     | src.memory.l1_working:213 | Saved conversation empty_conv to L2 (0 messages)
+2026-02-24 06:03:26 | INFO     | memory.l1_working:213 | Saved conversation flow_test_001 to L2 (2 messages)
+2026-02-24 06:03:26 | INFO     | memory.l1_working:213 | Saved conversation workflow_session to L2 (1 messages)
+2026-02-24 06:03:27 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:27 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:27 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:27 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:27 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:27 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:27 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:27 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:27 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:27 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:28 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:28 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:28 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:28 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:28 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:28 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:28 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:28 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:33 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 06:03:36 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 06:03:39 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 06:03:39 | WARNING  | asyncio:1420 | Loop <_UnixSelectorEventLoop running=False closed=True debug=False> that handles pid 57305 is closed
+2026-02-24 06:03:42 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 06:03:45 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 06:03:46 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060346_1 to L2 (2 messages)
+2026-02-24 06:03:48 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 06:03:49 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:49 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:50 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:51 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:51 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060349_1 to L2 (2 messages)
+2026-02-24 06:03:54 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 06:03:54 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:03:54 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:03:55 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:56 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:56 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:57 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:03:57 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060354_1 to L2 (2 messages)
+2026-02-24 06:04:00 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 06:04:01 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:04:01 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:04:01 | INFO     | httpx:1038 | HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2026-02-24 06:04:01 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060400_1 to L2 (4 messages)
+2026-02-24 06:04:04 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 06:04:05 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060405_1 to L2 (2 messages)
+2026-02-24 06:04:05 | INFO     | src.memory.l1_working:213 | Saved conversation conv_20260224_060405_2 to L2 (2 messages)
+2026-02-24 06:04:07 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 06:04:11 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 06:04:14 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 7 documents (L10=True)
+2026-02-24 06:04:22 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 215 documents (L10=True)
+2026-02-24 06:04:24 | WARNING  | src.memory.l1_working:276 | Conversation test-conv-001 not found in L2
+2026-02-24 06:04:24 | INFO     | src.memory.l1_working:213 | Saved conversation test-conv-001 to L2 (1 messages)
+2026-02-24 06:04:27 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 215 documents (L10=True)
+2026-02-24 06:04:27 | ERROR    | fsevents:310 | Unhandled exception in FSEventsEmitter
+Traceback (most recent call last):
+  File "/Users/mac_m3/Projects/WARP Ecosystem/atlas/.venv/lib/python3.11/site-packages/watchdog/observers/fsevents.py", line 307, in run
+    _fsevents.add_watch(self, self.watch, self.events_callback, self.pathnames)
+RuntimeError: Cannot add watch <ObservedWatch: path='/Users/mac_m3/Projects/WARP Ecosystem/atlas/src', is_recursive=True> - it is already scheduled
+2026-02-24 06:04:29 | WARNING  | src.memory.l1_working:276 | Conversation test-conv-002 not found in L2
+2026-02-24 06:04:29 | INFO     | src.memory.l1_working:213 | Saved conversation test-conv-002 to L2 (1 messages)
+2026-02-24 06:04:32 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 215 documents (L10=True)
+2026-02-24 06:04:32 | ERROR    | fsevents:310 | Unhandled exception in FSEventsEmitter
+Traceback (most recent call last):
+  File "/Users/mac_m3/Projects/WARP Ecosystem/atlas/.venv/lib/python3.11/site-packages/watchdog/observers/fsevents.py", line 307, in run
+    _fsevents.add_watch(self, self.watch, self.events_callback, self.pathnames)
+RuntimeError: Cannot add watch <ObservedWatch: path='/Users/mac_m3/Projects/WARP Ecosystem/atlas/src', is_recursive=True> - it is already scheduled
+2026-02-24 06:04:35 | WARNING  | src.memory.l1_working:276 | Conversation test-conv-003 not found in L2
+2026-02-24 06:04:35 | INFO     | src.memory.l1_working:213 | Saved conversation test-conv-003 to L2 (1 messages)
+2026-02-24 06:04:38 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 215 documents (L10=True)
+2026-02-24 06:04:38 | ERROR    | fsevents:310 | Unhandled exception in FSEventsEmitter
+Traceback (most recent call last):
+  File "/Users/mac_m3/Projects/WARP Ecosystem/atlas/.venv/lib/python3.11/site-packages/watchdog/observers/fsevents.py", line 307, in run
+    _fsevents.add_watch(self, self.watch, self.events_callback, self.pathnames)
+RuntimeError: Cannot add watch <ObservedWatch: path='/Users/mac_m3/Projects/WARP Ecosystem/atlas/src', is_recursive=True> - it is already scheduled
+2026-02-24 06:04:40 | WARNING  | src.memory.l1_working:276 | Conversation test-conv-004 not found in L2
+2026-02-24 06:04:40 | INFO     | src.memory.l1_working:213 | Saved conversation test-conv-004 to L2 (1 messages)
+2026-02-24 06:04:43 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 215 documents (L10=True)
+2026-02-24 06:04:43 | ERROR    | fsevents:310 | Unhandled exception in FSEventsEmitter
+Traceback (most recent call last):
+  File "/Users/mac_m3/Projects/WARP Ecosystem/atlas/.venv/lib/python3.11/site-packages/watchdog/observers/fsevents.py", line 307, in run
+    _fsevents.add_watch(self, self.watch, self.events_callback, self.pathnames)
+RuntimeError: Cannot add watch <ObservedWatch: path='/Users/mac_m3/Projects/WARP Ecosystem/atlas/src', is_recursive=True> - it is already scheduled
+2026-02-24 06:04:46 | WARNING  | src.memory.l1_working:276 | Conversation test-conv-005 not found in L2
+2026-02-24 06:04:46 | INFO     | src.memory.l1_working:291 | Restored conversation test-conv-005 from L2 to L1 (2 messages)
+2026-02-24 06:04:46 | INFO     | src.memory.l1_working:213 | Saved conversation test-conv-005 to L2 (3 messages)
+2026-02-24 06:04:48 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 215 documents (L10=True)
+2026-02-24 06:04:49 | ERROR    | fsevents:310 | Unhandled exception in FSEventsEmitter
+Traceback (most recent call last):
+  File "/Users/mac_m3/Projects/WARP Ecosystem/atlas/.venv/lib/python3.11/site-packages/watchdog/observers/fsevents.py", line 307, in run
+    _fsevents.add_watch(self, self.watch, self.events_callback, self.pathnames)
+RuntimeError: Cannot add watch <ObservedWatch: path='/Users/mac_m3/Projects/WARP Ecosystem/atlas/src', is_recursive=True> - it is already scheduled
+2026-02-24 06:04:51 | WARNING  | src.memory.l1_working:276 | Conversation test-turn-001 not found in L2
+2026-02-24 06:04:51 | INFO     | src.memory.l1_working:213 | Saved conversation test-turn-001 to L2 (2 messages)
+2026-02-24 06:04:54 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 215 documents (L10=True)
+2026-02-24 06:04:54 | ERROR    | fsevents:310 | Unhandled exception in FSEventsEmitter
+Traceback (most recent call last):
+  File "/Users/mac_m3/Projects/WARP Ecosystem/atlas/.venv/lib/python3.11/site-packages/watchdog/observers/fsevents.py", line 307, in run
+    _fsevents.add_watch(self, self.watch, self.events_callback, self.pathnames)
+RuntimeError: Cannot add watch <ObservedWatch: path='/Users/mac_m3/Projects/WARP Ecosystem/atlas/src', is_recursive=True> - it is already scheduled
+2026-02-24 06:04:56 | WARNING  | src.memory.l1_working:276 | Conversation test-turn-002 not found in L2
+2026-02-24 06:04:56 | INFO     | src.memory.l1_working:213 | Saved conversation test-turn-002 to L2 (2 messages)
+2026-02-24 06:04:59 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 215 documents (L10=True)
+2026-02-24 06:04:59 | ERROR    | fsevents:310 | Unhandled exception in FSEventsEmitter
+Traceback (most recent call last):
+  File "/Users/mac_m3/Projects/WARP Ecosystem/atlas/.venv/lib/python3.11/site-packages/watchdog/observers/fsevents.py", line 307, in run
+    _fsevents.add_watch(self, self.watch, self.events_callback, self.pathnames)
+RuntimeError: Cannot add watch <ObservedWatch: path='/Users/mac_m3/Projects/WARP Ecosystem/atlas/src', is_recursive=True> - it is already scheduled
+2026-02-24 06:05:02 | WARNING  | src.memory.l1_working:276 | Conversation test-turn-003 not found in L2
+2026-02-24 06:05:02 | INFO     | src.memory.l1_working:213 | Saved conversation test-turn-003 to L2 (2 messages)
+2026-02-24 06:05:05 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 215 documents (L10=True)
+2026-02-24 06:05:05 | ERROR    | fsevents:310 | Unhandled exception in FSEventsEmitter
+Traceback (most recent call last):
+  File "/Users/mac_m3/Projects/WARP Ecosystem/atlas/.venv/lib/python3.11/site-packages/watchdog/observers/fsevents.py", line 307, in run
+    _fsevents.add_watch(self, self.watch, self.events_callback, self.pathnames)
+RuntimeError: Cannot add watch <ObservedWatch: path='/Users/mac_m3/Projects/WARP Ecosystem/atlas/src', is_recursive=True> - it is already scheduled
+2026-02-24 06:05:07 | WARNING  | src.memory.l1_working:276 | Conversation test-multi-001 not found in L2
+2026-02-24 06:05:07 | INFO     | src.memory.l1_working:213 | Saved conversation test-multi-001 to L2 (3 messages)
+2026-02-24 06:05:10 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 215 documents (L10=True)
+2026-02-24 06:05:10 | ERROR    | fsevents:310 | Unhandled exception in FSEventsEmitter
+Traceback (most recent call last):
+  File "/Users/mac_m3/Projects/WARP Ecosystem/atlas/.venv/lib/python3.11/site-packages/watchdog/observers/fsevents.py", line 307, in run
+    _fsevents.add_watch(self, self.watch, self.events_callback, self.pathnames)
+RuntimeError: Cannot add watch <ObservedWatch: path='/Users/mac_m3/Projects/WARP Ecosystem/atlas/src', is_recursive=True> - it is already scheduled
+2026-02-24 06:05:13 | WARNING  | src.memory.l1_working:276 | Conversation test-multi-002 not found in L2
+2026-02-24 06:05:13 | INFO     | src.memory.l1_working:213 | Saved conversation test-multi-002 to L2 (6 messages)
+2026-02-24 06:05:15 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 215 documents (L10=True)
+2026-02-24 06:05:15 | ERROR    | fsevents:310 | Unhandled exception in FSEventsEmitter
+Traceback (most recent call last):
+  File "/Users/mac_m3/Projects/WARP Ecosystem/atlas/.venv/lib/python3.11/site-packages/watchdog/observers/fsevents.py", line 307, in run
+    _fsevents.add_watch(self, self.watch, self.events_callback, self.pathnames)
+RuntimeError: Cannot add watch <ObservedWatch: path='/Users/mac_m3/Projects/WARP Ecosystem/atlas/src', is_recursive=True> - it is already scheduled
+2026-02-24 06:05:18 | WARNING  | src.memory.l1_working:276 | Conversation test-api-001 not found in L2
+2026-02-24 06:05:18 | INFO     | src.memory.l1_working:213 | Saved conversation test-api-001 to L2 (2 messages)
+2026-02-24 06:05:21 | INFO     | src.documentation.librarian:115 | DocumentationLibrarian initialized with 215 documents (L10=True)
+2026-02-24 06:05:21 | ERROR    | fsevents:310 | Unhandled exception in FSEventsEmitter
+Traceback (most recent call last):
+  File "/Users/mac_m3/Projects/WARP Ecosystem/atlas/.venv/lib/python3.11/site-packages/watchdog/observers/fsevents.py", line 307, in run
+    _fsevents.add_watch(self, self.watch, self.events_callback, self.pathnames)
+RuntimeError: Cannot add watch <ObservedWatch: path='/Users/mac_m3/Projects/WARP Ecosystem/atlas/src', is_recursive=True> - it is already scheduled
+2026-02-24 06:05:25 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:25 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:29 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:29 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:30 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:30 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:31 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:31 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:31 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:31 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:31 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:31 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:33 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:33 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:34 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:34 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:35 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:35 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:36 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:36 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:37 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:37 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:37 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:37 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:40 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:40 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:42 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:42 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:44 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:44 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:46 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:46 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:46 | INFO     | src.memory.l1_working:213 | Saved conversation test_conv to L2 (1 messages)
+2026-02-24 06:05:46 | INFO     | src.memory.l1_working:252 | Consolidated 1 inactive conversations to L2 (threshold: 5m)
+2026-02-24 06:05:46 | INFO     | src.memory.l1_working:213 | Saved conversation test to L2 (1 messages)
+2026-02-24 06:05:46 | INFO     | src.memory.l1_working:252 | Consolidated 1 inactive conversations to L2 (threshold: 5m)
+2026-02-24 06:05:48 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:48 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:49 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:49 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:49 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:49 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:50 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:50 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:52 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:52 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:53 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:53 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:53 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:53 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:54 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:54 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:55 | INFO     | src.memory.l1_working:213 | Saved conversation perf_test to L2 (1000 messages)
+2026-02-24 06:05:55 | INFO     | src.memory.l1_working:252 | Consolidated 1 inactive conversations to L2 (threshold: 5m)
+2026-02-24 06:05:56 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:56 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:56 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:56 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:57 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:57 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:05:58 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:05:58 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:00 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:00 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:02 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:02 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:04 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:04 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:04 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:04 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:05 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:05 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:05 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:05 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:06 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:06 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:07 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:07 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:09 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:09 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:09 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:09 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:10 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:10 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:11 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:11 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:11 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:11 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:12 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:12 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:12 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:12 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:14 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:14 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:17 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:17 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:17 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:17 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:17 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:17 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:18 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:18 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:18 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:18 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:19 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:19 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:19 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:19 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:19 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:19 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:20 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:21 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:21 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:21 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:21 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:21 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:21 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:21 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:21 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:21 | INFO     | src.documentation.authority:118 | L10 documentation collection initialized with Authority write guard (via MemoryManager)
+2026-02-24 06:06:21 | INFO     | src.documentation.authority:92 | DocumentationAuthority initialized in enforce mode with strict policy (L10=True)
+2026-02-24 06:06:22 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/analytics/health "HTTP/1.1 200 OK"
+2026-02-24 06:06:22 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/analytics/quality?concept_count=100&relation_count=200 "HTTP/1.1 200 OK"
+2026-02-24 06:06:22 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/analytics/intelligence?days=30&addressed_challenges=5 "HTTP/1.1 200 OK"
+2026-02-24 06:06:22 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/analytics/engagement?days=7 "HTTP/1.1 200 OK"
+2026-02-24 06:06:22 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/analytics/alerts "HTTP/1.1 200 OK"
+2026-02-24 06:06:22 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/analytics/summary "HTTP/1.1 200 OK"
+2026-02-24 06:06:22 | INFO     | httpx:1038 | HTTP Request: GET http://testserver/analytics/alerts?severity=INVALID "HTTP/1.1 400 Bad Request"
+2026-02-24 06:06:23 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060623_465767 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060623_465767
+2026-02-24 06:06:23 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060623_465767: Update greeting message
+2026-02-24 06:06:23 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060623_465767
+2026-02-24 06:06:23 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:24 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060624_019797 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060624_019797
+2026-02-24 06:06:24 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060624_019797: Update multiple files
+2026-02-24 06:06:24 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060624_019797
+2026-02-24 06:06:24 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:24 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060624_635056 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060624_635056
+2026-02-24 06:06:24 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060624_635056: Add new feature file
+2026-02-24 06:06:24 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060624_635056
+2026-02-24 06:06:24 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:25 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060625_187610 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060625_187610
+2026-02-24 06:06:25 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060625_187610: Remove utils module
+2026-02-24 06:06:25 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060625_187610
+2026-02-24 06:06:25 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:25 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060625_739231 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060625_739231
+2026-02-24 06:06:25 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060625_739231: Update main.py
+2026-02-24 06:06:25 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060625_739231
+2026-02-24 06:06:25 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:26 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060626_370617 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060626_370617
+2026-02-24 06:06:26 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060626_370617: Test context lines
+2026-02-24 06:06:26 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060626_370617
+2026-02-24 06:06:26 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:27 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060627_064525 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060627_064525
+2026-02-24 06:06:27 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060627_064525: Test without tests
+2026-02-24 06:06:27 | WARNING  | core.sandbox.git_sandbox:239 | No test command specified or detected
+2026-02-24 06:06:27 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060627_064525
+2026-02-24 06:06:27 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:27 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060627_622089 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060627_622089
+2026-02-24 06:06:27 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060627_622089: Test with custom command
+2026-02-24 06:06:27 | INFO     | core.sandbox.git_sandbox:242 | Running tests in sandbox: python3 -c 'print("Test passed")'
+2026-02-24 06:06:27 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060627_622089
+2026-02-24 06:06:27 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:28 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060628_247034 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060628_247034
+2026-02-24 06:06:28 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060628_247034: Test with failing command
+2026-02-24 06:06:28 | INFO     | core.sandbox.git_sandbox:242 | Running tests in sandbox: python3 -c 'exit(1)'
+2026-02-24 06:06:28 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060628_247034
+2026-02-24 06:06:28 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:28 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060628_875101 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060628_875101
+2026-02-24 06:06:29 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060628_875101: Test apply changes
+2026-02-24 06:06:29 | INFO     | core.sandbox.git_sandbox:304 | Running regression tests in sandbox for proposal_20260224_060628_875101
+2026-02-24 06:06:29 | WARNING  | core.sandbox.git_sandbox:239 | No test command specified or detected
+2026-02-24 06:06:29 | INFO     | core.sandbox.git_sandbox:389 | Creating safety commit before applying changes...
+2026-02-24 06:06:29 | INFO     | core.sandbox.git_sandbox:348 | No uncommitted changes - repo is clean
+2026-02-24 06:06:29 | INFO     | core.sandbox.git_sandbox:416 | Applying 1 file(s) to live code...
+2026-02-24 06:06:29 | INFO     | core.sandbox.git_sandbox:429 | ✅ Applied changes from proposal proposal_20260224_060628_875101 to live code
+2026-02-24 06:06:29 | INFO     | core.sandbox.git_sandbox:430 | To rollback: git reset HEAD~1 && git restore .
+2026-02-24 06:06:29 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060628_875101
+2026-02-24 06:06:29 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:29 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060629_611903 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060629_611903
+2026-02-24 06:06:29 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060629_611903: Create new module
+2026-02-24 06:06:29 | INFO     | core.sandbox.git_sandbox:304 | Running regression tests in sandbox for proposal_20260224_060629_611903
+2026-02-24 06:06:29 | WARNING  | core.sandbox.git_sandbox:239 | No test command specified or detected
+2026-02-24 06:06:29 | INFO     | core.sandbox.git_sandbox:389 | Creating safety commit before applying changes...
+2026-02-24 06:06:29 | INFO     | core.sandbox.git_sandbox:348 | No uncommitted changes - repo is clean
+2026-02-24 06:06:29 | INFO     | core.sandbox.git_sandbox:416 | Applying 1 file(s) to live code...
+2026-02-24 06:06:29 | INFO     | core.sandbox.git_sandbox:429 | ✅ Applied changes from proposal proposal_20260224_060629_611903 to live code
+2026-02-24 06:06:29 | INFO     | core.sandbox.git_sandbox:430 | To rollback: git reset HEAD~1 && git restore .
+2026-02-24 06:06:29 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060629_611903
+2026-02-24 06:06:29 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:30 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060630_348825 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060630_348825
+2026-02-24 06:06:30 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060630_348825: Delete utils module
+2026-02-24 06:06:30 | INFO     | core.sandbox.git_sandbox:304 | Running regression tests in sandbox for proposal_20260224_060630_348825
+2026-02-24 06:06:30 | WARNING  | core.sandbox.git_sandbox:239 | No test command specified or detected
+2026-02-24 06:06:30 | INFO     | core.sandbox.git_sandbox:389 | Creating safety commit before applying changes...
+2026-02-24 06:06:30 | INFO     | core.sandbox.git_sandbox:348 | No uncommitted changes - repo is clean
+2026-02-24 06:06:30 | INFO     | core.sandbox.git_sandbox:416 | Applying 1 file(s) to live code...
+2026-02-24 06:06:30 | INFO     | core.sandbox.git_sandbox:429 | ✅ Applied changes from proposal proposal_20260224_060630_348825 to live code
+2026-02-24 06:06:30 | INFO     | core.sandbox.git_sandbox:430 | To rollback: git reset HEAD~1 && git restore .
+2026-02-24 06:06:30 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060630_348825
+2026-02-24 06:06:30 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:31 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060631_080990 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060631_080990
+2026-02-24 06:06:31 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060631_080990: Test rollback
+2026-02-24 06:06:31 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060631_080990
+2026-02-24 06:06:31 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060631_635743 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060631_635743
+2026-02-24 06:06:31 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060631_635743: Proposal 0
+2026-02-24 06:06:31 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060631_762401 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060631_762401
+2026-02-24 06:06:31 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060631_762401: Proposal 1
+2026-02-24 06:06:31 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060631_889765 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060631_889765
+2026-02-24 06:06:32 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060631_889765: Proposal 2
+2026-02-24 06:06:32 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060631_635743
+2026-02-24 06:06:32 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060631_762401
+2026-02-24 06:06:32 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060631_889765
+2026-02-24 06:06:32 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:32 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060632_576932 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060632_576932
+2026-02-24 06:06:32 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060632_576932: Test context manager
+2026-02-24 06:06:32 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060632_576932
+2026-02-24 06:06:32 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:33 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060633_194431 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060633_194431
+2026-02-24 06:06:33 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060633_194431: First proposal
+2026-02-24 06:06:33 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060633_322311 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060633_322311
+2026-02-24 06:06:33 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060633_322311: Second proposal
+2026-02-24 06:06:33 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060633_194431
+2026-02-24 06:06:33 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060633_322311
+2026-02-24 06:06:33 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:34 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060634_059256 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060634_059256
+2026-02-24 06:06:34 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060634_059256: Create nested file
+2026-02-24 06:06:34 | INFO     | core.sandbox.git_sandbox:304 | Running regression tests in sandbox for proposal_20260224_060634_059256
+2026-02-24 06:06:34 | WARNING  | core.sandbox.git_sandbox:239 | No test command specified or detected
+2026-02-24 06:06:34 | INFO     | core.sandbox.git_sandbox:389 | Creating safety commit before applying changes...
+2026-02-24 06:06:34 | INFO     | core.sandbox.git_sandbox:348 | No uncommitted changes - repo is clean
+2026-02-24 06:06:34 | INFO     | core.sandbox.git_sandbox:416 | Applying 1 file(s) to live code...
+2026-02-24 06:06:34 | INFO     | core.sandbox.git_sandbox:429 | ✅ Applied changes from proposal proposal_20260224_060634_059256 to live code
+2026-02-24 06:06:34 | INFO     | core.sandbox.git_sandbox:430 | To rollback: git reset HEAD~1 && git restore .
+2026-02-24 06:06:34 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060634_059256
+2026-02-24 06:06:34 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:35 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060635_159760 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060635_159760
+2026-02-24 06:06:35 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060635_159760: Test self-modification
+2026-02-24 06:06:35 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060635_159760
+2026-02-24 06:06:35 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:35 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060635_469392 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060635_469392
+2026-02-24 06:06:35 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060635_469392: Test apply
+2026-02-24 06:06:35 | INFO     | core.sandbox.git_sandbox:304 | Running regression tests in sandbox for proposal_20260224_060635_469392
+2026-02-24 06:06:35 | WARNING  | core.sandbox.git_sandbox:239 | No test command specified or detected
+2026-02-24 06:06:35 | INFO     | core.sandbox.git_sandbox:389 | Creating safety commit before applying changes...
+2026-02-24 06:06:35 | INFO     | core.sandbox.git_sandbox:348 | No uncommitted changes - repo is clean
+2026-02-24 06:06:35 | INFO     | core.sandbox.git_sandbox:416 | Applying 1 file(s) to live code...
+2026-02-24 06:06:35 | INFO     | core.sandbox.git_sandbox:429 | ✅ Applied changes from proposal proposal_20260224_060635_469392 to live code
+2026-02-24 06:06:35 | INFO     | core.sandbox.git_sandbox:430 | To rollback: git reset HEAD~1 && git restore .
+2026-02-24 06:06:35 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060635_469392
+2026-02-24 06:06:35 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:36 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060636_231969 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060636_231969
+2026-02-24 06:06:36 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060636_231969: Performance test
+2026-02-24 06:06:36 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060636_231969
+2026-02-24 06:06:36 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:36 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060636_787549 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060636_787549
+2026-02-24 06:06:36 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060636_787549: Diff performance test
+2026-02-24 06:06:37 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060636_787549
+2026-02-24 06:06:37 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:37 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060637_401092 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060637_401092
+2026-02-24 06:06:37 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060637_401092: Apply performance test
+2026-02-24 06:06:37 | INFO     | core.sandbox.git_sandbox:304 | Running regression tests in sandbox for proposal_20260224_060637_401092
+2026-02-24 06:06:37 | WARNING  | core.sandbox.git_sandbox:239 | No test command specified or detected
+2026-02-24 06:06:37 | INFO     | core.sandbox.git_sandbox:389 | Creating safety commit before applying changes...
+2026-02-24 06:06:37 | INFO     | core.sandbox.git_sandbox:348 | No uncommitted changes - repo is clean
+2026-02-24 06:06:37 | INFO     | core.sandbox.git_sandbox:416 | Applying 1 file(s) to live code...
+2026-02-24 06:06:37 | INFO     | core.sandbox.git_sandbox:429 | ✅ Applied changes from proposal proposal_20260224_060637_401092 to live code
+2026-02-24 06:06:37 | INFO     | core.sandbox.git_sandbox:430 | To rollback: git reset HEAD~1 && git restore .
+2026-02-24 06:06:37 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060637_401092
+2026-02-24 06:06:37 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:38 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060638_174240 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060638_174240
+2026-02-24 06:06:38 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060638_174240: Rollback performance test
+2026-02-24 06:06:38 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060638_174240
+2026-02-24 06:06:38 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060638_879629 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060638_879629
+2026-02-24 06:06:39 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060638_879629: Large file test
+2026-02-24 06:06:39 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060638_879629
+2026-02-24 06:06:39 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:39 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060639_453959 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060639_453959
+2026-02-24 06:06:39 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060639_453959: Proposal 0
+2026-02-24 06:06:39 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060639_584741 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060639_584741
+2026-02-24 06:06:39 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060639_584741: Proposal 1
+2026-02-24 06:06:39 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060639_717964 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060639_717964
+2026-02-24 06:06:39 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060639_717964: Proposal 2
+2026-02-24 06:06:39 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060639_845541 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060639_845541
+2026-02-24 06:06:39 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060639_845541: Proposal 3
+2026-02-24 06:06:40 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060639_973638 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060639_973638
+2026-02-24 06:06:40 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060639_973638: Proposal 4
+2026-02-24 06:06:40 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060639_453959
+2026-02-24 06:06:40 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060639_584741
+2026-02-24 06:06:40 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060639_717964
+2026-02-24 06:06:40 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060639_845541
+2026-02-24 06:06:40 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060639_973638
+2026-02-24 06:06:40 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:40 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060640_768532 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060640_768532
+2026-02-24 06:06:40 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060640_768532: Empty file test
+2026-02-24 06:06:40 | INFO     | core.sandbox.git_sandbox:304 | Running regression tests in sandbox for proposal_20260224_060640_768532
+2026-02-24 06:06:40 | WARNING  | core.sandbox.git_sandbox:239 | No test command specified or detected
+2026-02-24 06:06:40 | INFO     | core.sandbox.git_sandbox:389 | Creating safety commit before applying changes...
+2026-02-24 06:06:40 | INFO     | core.sandbox.git_sandbox:348 | No uncommitted changes - repo is clean
+2026-02-24 06:06:41 | INFO     | core.sandbox.git_sandbox:416 | Applying 1 file(s) to live code...
+2026-02-24 06:06:41 | INFO     | core.sandbox.git_sandbox:429 | ✅ Applied changes from proposal proposal_20260224_060640_768532 to live code
+2026-02-24 06:06:41 | INFO     | core.sandbox.git_sandbox:430 | To rollback: git reset HEAD~1 && git restore .
+2026-02-24 06:06:41 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060640_768532
+2026-02-24 06:06:41 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:41 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060641_500707 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060641_500707
+2026-02-24 06:06:41 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060641_500707: Unicode test
+2026-02-24 06:06:41 | INFO     | core.sandbox.git_sandbox:304 | Running regression tests in sandbox for proposal_20260224_060641_500707
+2026-02-24 06:06:41 | WARNING  | core.sandbox.git_sandbox:239 | No test command specified or detected
+2026-02-24 06:06:41 | INFO     | core.sandbox.git_sandbox:389 | Creating safety commit before applying changes...
+2026-02-24 06:06:41 | INFO     | core.sandbox.git_sandbox:348 | No uncommitted changes - repo is clean
+2026-02-24 06:06:41 | INFO     | core.sandbox.git_sandbox:416 | Applying 1 file(s) to live code...
+2026-02-24 06:06:41 | INFO     | core.sandbox.git_sandbox:429 | ✅ Applied changes from proposal proposal_20260224_060641_500707 to live code
+2026-02-24 06:06:41 | INFO     | core.sandbox.git_sandbox:430 | To rollback: git reset HEAD~1 && git restore .
+2026-02-24 06:06:41 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060641_500707
+2026-02-24 06:06:41 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:42 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060642_312976 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060642_312976
+2026-02-24 06:06:42 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060642_312976: Long filename test
+2026-02-24 06:06:42 | INFO     | core.sandbox.git_sandbox:304 | Running regression tests in sandbox for proposal_20260224_060642_312976
+2026-02-24 06:06:42 | WARNING  | core.sandbox.git_sandbox:239 | No test command specified or detected
+2026-02-24 06:06:42 | INFO     | core.sandbox.git_sandbox:389 | Creating safety commit before applying changes...
+2026-02-24 06:06:42 | INFO     | core.sandbox.git_sandbox:348 | No uncommitted changes - repo is clean
+2026-02-24 06:06:42 | INFO     | core.sandbox.git_sandbox:416 | Applying 1 file(s) to live code...
+2026-02-24 06:06:42 | INFO     | core.sandbox.git_sandbox:429 | ✅ Applied changes from proposal proposal_20260224_060642_312976 to live code
+2026-02-24 06:06:42 | INFO     | core.sandbox.git_sandbox:430 | To rollback: git reset HEAD~1 && git restore .
+2026-02-24 06:06:42 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060642_312976
+2026-02-24 06:06:42 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:43 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060643_065648 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060643_065648
+2026-02-24 06:06:43 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060643_065648: Special characters test
+2026-02-24 06:06:43 | INFO     | core.sandbox.git_sandbox:304 | Running regression tests in sandbox for proposal_20260224_060643_065648
+2026-02-24 06:06:43 | WARNING  | core.sandbox.git_sandbox:239 | No test command specified or detected
+2026-02-24 06:06:43 | INFO     | core.sandbox.git_sandbox:389 | Creating safety commit before applying changes...
+2026-02-24 06:06:43 | INFO     | core.sandbox.git_sandbox:348 | No uncommitted changes - repo is clean
+2026-02-24 06:06:43 | INFO     | core.sandbox.git_sandbox:416 | Applying 1 file(s) to live code...
+2026-02-24 06:06:43 | INFO     | core.sandbox.git_sandbox:429 | ✅ Applied changes from proposal proposal_20260224_060643_065648 to live code
+2026-02-24 06:06:43 | INFO     | core.sandbox.git_sandbox:430 | To rollback: git reset HEAD~1 && git restore .
+2026-02-24 06:06:43 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060643_065648
+2026-02-24 06:06:43 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:43 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060643_799094 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060643_799094
+2026-02-24 06:06:43 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060643_799094: Binary-like content test
+2026-02-24 06:06:43 | INFO     | core.sandbox.git_sandbox:304 | Running regression tests in sandbox for proposal_20260224_060643_799094
+2026-02-24 06:06:43 | WARNING  | core.sandbox.git_sandbox:239 | No test command specified or detected
+2026-02-24 06:06:43 | INFO     | core.sandbox.git_sandbox:389 | Creating safety commit before applying changes...
+2026-02-24 06:06:43 | INFO     | core.sandbox.git_sandbox:348 | No uncommitted changes - repo is clean
+2026-02-24 06:06:44 | INFO     | core.sandbox.git_sandbox:416 | Applying 1 file(s) to live code...
+2026-02-24 06:06:44 | INFO     | core.sandbox.git_sandbox:429 | ✅ Applied changes from proposal proposal_20260224_060643_799094 to live code
+2026-02-24 06:06:44 | INFO     | core.sandbox.git_sandbox:430 | To rollback: git reset HEAD~1 && git restore .
+2026-02-24 06:06:44 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060643_799094
+2026-02-24 06:06:44 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:44 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060644_654998 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060644_654998
+2026-02-24 06:06:44 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060644_654998: Symlink target test
+2026-02-24 06:06:44 | INFO     | core.sandbox.git_sandbox:304 | Running regression tests in sandbox for proposal_20260224_060644_654998
+2026-02-24 06:06:44 | WARNING  | core.sandbox.git_sandbox:239 | No test command specified or detected
+2026-02-24 06:06:44 | INFO     | core.sandbox.git_sandbox:389 | Creating safety commit before applying changes...
+2026-02-24 06:06:44 | INFO     | core.sandbox.git_sandbox:348 | No uncommitted changes - repo is clean
+2026-02-24 06:06:44 | INFO     | core.sandbox.git_sandbox:416 | Applying 1 file(s) to live code...
+2026-02-24 06:06:44 | INFO     | core.sandbox.git_sandbox:429 | ✅ Applied changes from proposal proposal_20260224_060644_654998 to live code
+2026-02-24 06:06:44 | INFO     | core.sandbox.git_sandbox:430 | To rollback: git reset HEAD~1 && git restore .
+2026-02-24 06:06:45 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060644_654998
+2026-02-24 06:06:45 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:45 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060645_511477 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060645_511477
+2026-02-24 06:06:45 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060645_511477: Whitespace test
+2026-02-24 06:06:45 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060645_511477
+2026-02-24 06:06:45 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:46 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060646_124949 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060646_124949
+2026-02-24 06:06:46 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060646_124949: Version 1
+2026-02-24 06:06:46 | INFO     | core.sandbox.git_sandbox:304 | Running regression tests in sandbox for proposal_20260224_060646_124949
+2026-02-24 06:06:46 | WARNING  | core.sandbox.git_sandbox:239 | No test command specified or detected
+2026-02-24 06:06:46 | INFO     | core.sandbox.git_sandbox:389 | Creating safety commit before applying changes...
+2026-02-24 06:06:46 | INFO     | core.sandbox.git_sandbox:348 | No uncommitted changes - repo is clean
+2026-02-24 06:06:46 | INFO     | core.sandbox.git_sandbox:416 | Applying 1 file(s) to live code...
+2026-02-24 06:06:46 | INFO     | core.sandbox.git_sandbox:429 | ✅ Applied changes from proposal proposal_20260224_060646_124949 to live code
+2026-02-24 06:06:46 | INFO     | core.sandbox.git_sandbox:430 | To rollback: git reset HEAD~1 && git restore .
+2026-02-24 06:06:46 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060646_431037 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060646_431037
+2026-02-24 06:06:46 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060646_431037: Version 2
+2026-02-24 06:06:46 | INFO     | core.sandbox.git_sandbox:304 | Running regression tests in sandbox for proposal_20260224_060646_431037
+2026-02-24 06:06:46 | WARNING  | core.sandbox.git_sandbox:239 | No test command specified or detected
+2026-02-24 06:06:46 | INFO     | core.sandbox.git_sandbox:389 | Creating safety commit before applying changes...
+2026-02-24 06:06:46 | WARNING  | core.sandbox.git_sandbox:336 | Found uncommitted changes - creating safety commit
+2026-02-24 06:06:46 | INFO     | core.sandbox.git_sandbox:346 | Created safety commit - changes can be reverted with 'git reset HEAD~1'
+2026-02-24 06:06:46 | INFO     | core.sandbox.git_sandbox:416 | Applying 1 file(s) to live code...
+2026-02-24 06:06:46 | INFO     | core.sandbox.git_sandbox:429 | ✅ Applied changes from proposal proposal_20260224_060646_431037 to live code
+2026-02-24 06:06:46 | INFO     | core.sandbox.git_sandbox:430 | To rollback: git reset HEAD~1 && git restore .
+2026-02-24 06:06:46 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060646_124949
+2026-02-24 06:06:46 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060646_431037
+2026-02-24 06:06:46 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:47 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060647_348744 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060647_348744
+2026-02-24 06:06:47 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060647_348744: Deep nesting test
+2026-02-24 06:06:47 | INFO     | core.sandbox.git_sandbox:304 | Running regression tests in sandbox for proposal_20260224_060647_348744
+2026-02-24 06:06:47 | WARNING  | core.sandbox.git_sandbox:239 | No test command specified or detected
+2026-02-24 06:06:47 | INFO     | core.sandbox.git_sandbox:389 | Creating safety commit before applying changes...
+2026-02-24 06:06:47 | INFO     | core.sandbox.git_sandbox:348 | No uncommitted changes - repo is clean
+2026-02-24 06:06:47 | INFO     | core.sandbox.git_sandbox:416 | Applying 1 file(s) to live code...
+2026-02-24 06:06:47 | INFO     | core.sandbox.git_sandbox:429 | ✅ Applied changes from proposal proposal_20260224_060647_348744 to live code
+2026-02-24 06:06:47 | INFO     | core.sandbox.git_sandbox:430 | To rollback: git reset HEAD~1 && git restore .
+2026-02-24 06:06:47 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060647_348744
+2026-02-24 06:06:47 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:48 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060648_088711 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060648_088711
+2026-02-24 06:06:48 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060648_088711: Modify
+2026-02-24 06:06:48 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060648_232863 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060648_232863
+2026-02-24 06:06:48 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060648_232863: Delete
+2026-02-24 06:06:48 | INFO     | core.sandbox.git_sandbox:304 | Running regression tests in sandbox for proposal_20260224_060648_232863
+2026-02-24 06:06:48 | WARNING  | core.sandbox.git_sandbox:239 | No test command specified or detected
+2026-02-24 06:06:48 | INFO     | core.sandbox.git_sandbox:389 | Creating safety commit before applying changes...
+2026-02-24 06:06:48 | INFO     | core.sandbox.git_sandbox:348 | No uncommitted changes - repo is clean
+2026-02-24 06:06:48 | INFO     | core.sandbox.git_sandbox:416 | Applying 1 file(s) to live code...
+2026-02-24 06:06:48 | INFO     | core.sandbox.git_sandbox:429 | ✅ Applied changes from proposal proposal_20260224_060648_232863 to live code
+2026-02-24 06:06:48 | INFO     | core.sandbox.git_sandbox:430 | To rollback: git reset HEAD~1 && git restore .
+2026-02-24 06:06:48 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060648_088711
+2026-02-24 06:06:48 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060648_232863
+2026-02-24 06:06:48 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes
+2026-02-24 06:06:49 | INFO     | core.sandbox.git_sandbox:135 | Created sandbox for proposal proposal_20260224_060649_151263 at /var/folders/fy/5d_77zb95_jcgk0vxmb3712r0000gn/T/atlas_sandbox/sandbox_proposal_20260224_060649_151263
+2026-02-24 06:06:49 | INFO     | core.sandbox.git_sandbox:185 | Created change proposal proposal_20260224_060649_151263: After external changes
+2026-02-24 06:06:49 | INFO     | core.sandbox.git_sandbox:304 | Running regression tests in sandbox for proposal_20260224_060649_151263
+2026-02-24 06:06:49 | WARNING  | core.sandbox.git_sandbox:239 | No test command specified or detected
+2026-02-24 06:06:49 | INFO     | core.sandbox.git_sandbox:389 | Creating safety commit before applying changes...
+2026-02-24 06:06:49 | INFO     | core.sandbox.git_sandbox:348 | No uncommitted changes - repo is clean
+2026-02-24 06:06:49 | INFO     | core.sandbox.git_sandbox:416 | Applying 1 file(s) to live code...
+2026-02-24 06:06:49 | INFO     | core.sandbox.git_sandbox:429 | ✅ Applied changes from proposal proposal_20260224_060649_151263 to live code
+2026-02-24 06:06:49 | INFO     | core.sandbox.git_sandbox:430 | To rollback: git reset HEAD~1 && git restore .
+2026-02-24 06:06:49 | INFO     | core.sandbox.git_sandbox:477 | Rolled back proposal proposal_20260224_060649_151263
+2026-02-24 06:06:49 | INFO     | core.sandbox.git_sandbox:498 | Cleaned up all sandboxes

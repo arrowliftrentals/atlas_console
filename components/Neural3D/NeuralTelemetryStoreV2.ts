@@ -12,6 +12,10 @@ interface ParticleProgress {
   timestamp: number;
 }
 
+// How long (ms) a node/edge stays "active" after its last particle finishes.
+// This is the afterglow window that the lerp fades through.
+const AFTERGLOW_MS = 4000;
+
 interface NeuralTelemetryStoreState {
   nodes: Map<string, NodeStateV2>;
   edges: Map<string, EdgeStateV2>;
@@ -64,32 +68,31 @@ export const useNeuralTelemetryStoreV2 = create<NeuralTelemetryStoreState>((set,
   },
 
   updateParticleProgress: (particles) => {
-    const activeParticles = new Map<string, ParticleProgress[]>();
+    // MERGE into existing map (don't rebuild from scratch) so that
+    // entries persist with their timestamps even after particles finish.
+    // Stale entries are pruned in decayActivityPeriodically().
+    const activeParticles = new Map(get().activeParticles);
     const now = Date.now();
     
     for (const p of particles) {
       // Track for source node (always active)
-      if (!activeParticles.has(p.sourceId)) {
-        activeParticles.set(p.sourceId, []);
-      }
-      activeParticles.get(p.sourceId)!.push({
+      const srcEntry: ParticleProgress = {
         sourceId: p.sourceId,
         targetId: p.targetId,
         progress: p.progress,
         timestamp: now,
-      });
+      };
+      activeParticles.set(p.sourceId, [srcEntry]);
       
       // Track for target node (only if progress >= 50%)
       if (p.progress >= 0.5) {
-        if (!activeParticles.has(p.targetId)) {
-          activeParticles.set(p.targetId, []);
-        }
-        activeParticles.get(p.targetId)!.push({
+        const tgtEntry: ParticleProgress = {
           sourceId: p.sourceId,
           targetId: p.targetId,
           progress: p.progress,
           timestamp: now,
-        });
+        };
+        activeParticles.set(p.targetId, [tgtEntry]);
       }
     }
     
@@ -105,7 +108,7 @@ export const useNeuralTelemetryStoreV2 = create<NeuralTelemetryStoreState>((set,
   },
 
   decayActivityPeriodically: () => {
-    const now = performance.now();
+    const now = Date.now();
     const nodes = get().nodes;
     const updates = decayNodeActivity(nodes, now);
     
@@ -113,6 +116,27 @@ export const useNeuralTelemetryStoreV2 = create<NeuralTelemetryStoreState>((set,
       const newNodes = new Map(nodes);
       updates.forEach((v, k) => newNodes.set(k, v));
       set({ nodes: newNodes });
+    }
+    
+    // Prune stale activeParticles entries (afterglow expired)
+    const activeParticles = get().activeParticles;
+    if (activeParticles.size > 0) {
+      let pruned = false;
+      const next = new Map(activeParticles);
+      next.forEach((entries, nodeId) => {
+        // Keep only entries younger than AFTERGLOW_MS
+        const fresh = entries.filter(e => now - e.timestamp < AFTERGLOW_MS);
+        if (fresh.length === 0) {
+          next.delete(nodeId);
+          pruned = true;
+        } else if (fresh.length !== entries.length) {
+          next.set(nodeId, fresh);
+          pruned = true;
+        }
+      });
+      if (pruned) {
+        set({ activeParticles: next });
+      }
     }
   },
 
@@ -125,9 +149,9 @@ export const useNeuralTelemetryStoreV2 = create<NeuralTelemetryStoreState>((set,
   }),
 }));
 
-// Auto-decay activity every 2 seconds
+// Auto-decay activity every 500ms (was 2s) with gentler per-tick factor
 if (typeof window !== 'undefined') {
   setInterval(() => {
     useNeuralTelemetryStoreV2.getState().decayActivityPeriodically();
-  }, 2000);
+  }, 500);
 }

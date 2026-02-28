@@ -112,10 +112,6 @@ export function computeEdgeStateFromEvent(
   
   const existing = edges.get(edgeId);
   
-  if (!existing) {
-    console.log('[UTILS] Creating NEW edge:', edgeId, 'type:', event.type);
-  }
-  
   updates.set(edgeId, {
     id: edgeId,
     sourceId: event.source,
@@ -130,16 +126,19 @@ export function computeEdgeStateFromEvent(
 }
 
 // Decay node activity over time (call periodically)
+// Using a gentler factor (0.985 vs 0.95) and a longer grace period (3s vs 1s)
+// so that activity fades smoothly rather than blinking off.
 export function decayNodeActivity(nodes: Map<string, NodeStateV2>, now: number): Map<string, NodeStateV2> {
+  // `now` MUST be Date.now() (epoch ms) — same time base as node.lastEventTs.
   const updates = new Map<string, NodeStateV2>();
   
   nodes.forEach((node) => {
     const age = now - node.lastEventTs;
-    if (age > 1000) { // More than 1 second since last event
+    if (age > 5000) { // 5 seconds grace before decay starts
       updates.set(node.id, {
         ...node,
-        utilization: node.utilization * 0.95,
-        state: node.utilization < 0.1 ? 'idle' : node.state,
+        utilization: node.utilization * 0.993, // very gentle decay
+        state: node.utilization < 0.03 ? 'idle' : node.state,
       });
     }
   });

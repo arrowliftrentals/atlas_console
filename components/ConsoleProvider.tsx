@@ -1,14 +1,18 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo, ReactNode } from 'react';
 import { ConsoleSession, AgentResponse } from '@/lib/types';
+
+const EMPTY_MESSAGES: ChatMessage[] = [];
 import { fetchConsoleSessions, createConsoleSession } from '@/lib/atlasConsoleClient';
+import type { ThinkingStep } from '@/lib/atlasConsoleClient';
 import { getStoredSessionId, storeSessionId } from '@/lib/session';
 
 export interface ChatMessage {
   type: 'user' | 'assistant';
   content: string;
   response?: AgentResponse;
+  thinkingSteps?: ThinkingStep[];
   tasks?: Array<{
     id: string;
     description: string;
@@ -31,6 +35,7 @@ interface ConsoleContextType {
   messagesBySession: Map<string, ChatMessage[]>;
   addMessage: (sessionId: string, message: ChatMessage) => void;
   updateLastMessage: (sessionId: string, content: string, response?: AgentResponse) => void;
+  updateLastMessageThinking: (sessionId: string, step: ThinkingStep) => void;
   getMessages: (sessionId: string) => ChatMessage[];
   clearMessages: (sessionId: string) => void;
   // File viewer state
@@ -58,6 +63,75 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [messagesBySession, setMessagesBySession] = useState<Map<string, ChatMessage[]>>(new Map());
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+
+  // --- Streaming throttle: buffer high-frequency updates, flush at ~150ms ---
+  const pendingThinkingRef = useRef<Map<string, ThinkingStep[]>>(new Map());
+  const pendingContentRef = useRef<Map<string, { content: string; response?: AgentResponse }>>(new Map());
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushPendingUpdates = useCallback(() => {
+    const hasPendingThinking = pendingThinkingRef.current.size > 0;
+    const hasPendingContent = pendingContentRef.current.size > 0;
+    if (!hasPendingThinking && !hasPendingContent) return;
+
+    setMessagesBySession(prev => {
+      const updated = new Map(prev);
+
+      // Flush buffered thinking steps
+      for (const [sessionId, steps] of pendingThinkingRef.current) {
+        const existing = updated.get(sessionId) || [];
+        if (existing.length > 0) {
+          const lastIndex = existing.length - 1;
+          const lastMsg = existing[lastIndex];
+          if (lastMsg.type === 'assistant') {
+            const updatedMessages = [...existing];
+            updatedMessages[lastIndex] = {
+              ...lastMsg,
+              thinkingSteps: [...(lastMsg.thinkingSteps || []), ...steps],
+            };
+            updated.set(sessionId, updatedMessages);
+          }
+        }
+      }
+
+      // Flush buffered content updates
+      for (const [sessionId, { content, response }] of pendingContentRef.current) {
+        const existing = updated.get(sessionId) || [];
+        if (existing.length > 0) {
+          const lastIndex = existing.length - 1;
+          const updatedMessages = [...existing];
+          updatedMessages[lastIndex] = {
+            ...updatedMessages[lastIndex],
+            content,
+            response,
+          };
+          updated.set(sessionId, updatedMessages);
+        }
+      }
+
+      pendingThinkingRef.current.clear();
+      pendingContentRef.current.clear();
+      return updated;
+    });
+  }, []);
+
+  const scheduleFlush = useCallback(() => {
+    if (flushTimerRef.current) return; // already scheduled
+    flushTimerRef.current = setTimeout(() => {
+      flushTimerRef.current = null;
+      flushPendingUpdates();
+    }, 150);
+  }, [flushPendingUpdates]);
+
+  // Cleanup flush timer on unmount
+  useEffect(() => {
+    return () => {
+      if (flushTimerRef.current) {
+        clearTimeout(flushTimerRef.current);
+        flushPendingUpdates(); // final flush
+      }
+    };
+  }, [flushPendingUpdates]);
   
   // Use ref to track latest activeSessionId for refreshSessions
   const activeSessionIdRef = useRef<string | null>(null);
@@ -135,49 +209,43 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
 
   // Removed complex validation effect - all logic now in refreshSessions
 
-  const addMessage = (sessionId: string, message: ChatMessage) => {
+  const addMessage = useCallback((sessionId: string, message: ChatMessage) => {
     setMessagesBySession(prev => {
       const updated = new Map(prev);
-      const existing = updated.get(sessionId) || [];
+      const existing = updated.get(sessionId) || EMPTY_MESSAGES;
       const newMessages = [...existing, message];
       // Keep only last 100 messages per session to prevent memory bloat
       const trimmed = newMessages.slice(-100);
       updated.set(sessionId, trimmed);
       return updated;
     });
-  };
+  }, []);
 
-  const updateLastMessage = (sessionId: string, content: string, response?: AgentResponse) => {
-    setMessagesBySession(prev => {
-      const updated = new Map(prev);
-      const existing = updated.get(sessionId) || [];
-      if (existing.length > 0) {
-        const lastIndex = existing.length - 1;
-        const updatedMessages = [...existing];
-        updatedMessages[lastIndex] = {
-          ...updatedMessages[lastIndex],
-          content,
-          response,
-        };
-        updated.set(sessionId, updatedMessages);
-      }
-      return updated;
-    });
-  };
+  const updateLastMessage = useCallback((sessionId: string, content: string, response?: AgentResponse) => {
+    pendingContentRef.current.set(sessionId, { content, response });
+    scheduleFlush();
+  }, [scheduleFlush]);
 
-  const getMessages = (sessionId: string): ChatMessage[] => {
-    return messagesBySession.get(sessionId) || [];
-  };
+  const updateLastMessageThinking = useCallback((sessionId: string, step: ThinkingStep) => {
+    const existing = pendingThinkingRef.current.get(sessionId) || [];
+    existing.push(step);
+    pendingThinkingRef.current.set(sessionId, existing);
+    scheduleFlush();
+  }, [scheduleFlush]);
 
-  const clearMessages = (sessionId: string) => {
+  const getMessages = useCallback((sessionId: string): ChatMessage[] => {
+    return messagesBySession.get(sessionId) ?? EMPTY_MESSAGES;
+  }, [messagesBySession]);
+
+  const clearMessages = useCallback((sessionId: string) => {
     setMessagesBySession(prev => {
       const updated = new Map(prev);
       updated.delete(sessionId);
       return updated;
     });
-  };
+  }, []);
 
-  const createSession = async () => {
+  const createSession = useCallback(async () => {
     try {
       const sessionId = `session_${Date.now()}`;
       const newSession = await createConsoleSession({ session_id: sessionId });
@@ -195,7 +263,7 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
       setError(err.message || 'Failed to create session');
       throw err;
     }
-  };
+  }, [setActiveSessionId]);
 
   // Initial session load after hydration
   useEffect(() => {
@@ -213,25 +281,42 @@ export function ConsoleProvider({ children }: { children: ReactNode }) {
     }
   }, [sessions, activeSessionId, loadingSessions, setActiveSessionId]);
 
+  const contextValue = useMemo(() => ({
+    sessions,
+    activeSessionId,
+    loadingSessions,
+    error,
+    refreshSessions,
+    createSession,
+    setActiveSessionId,
+    messagesBySession,
+    addMessage,
+    updateLastMessage,
+    updateLastMessageThinking,
+    getMessages,
+    clearMessages,
+    selectedFile,
+    setSelectedFile,
+  }), [
+    sessions,
+    activeSessionId,
+    loadingSessions,
+    error,
+    refreshSessions,
+    createSession,
+    setActiveSessionId,
+    messagesBySession,
+    addMessage,
+    updateLastMessage,
+    updateLastMessageThinking,
+    getMessages,
+    clearMessages,
+    selectedFile,
+    setSelectedFile,
+  ]);
+
   return (
-    <ConsoleContext.Provider
-      value={{
-        sessions,
-        activeSessionId,
-        loadingSessions,
-        error,
-        refreshSessions,
-        createSession,
-        setActiveSessionId,
-        messagesBySession,
-        addMessage,
-        updateLastMessage,
-        getMessages,
-        clearMessages,
-        selectedFile,
-        setSelectedFile,
-      }}
-    >
+    <ConsoleContext.Provider value={contextValue}>
       {children}
     </ConsoleContext.Provider>
   );

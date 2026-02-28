@@ -1,0 +1,14 @@
+{
+  "python_executable": "/Users/mac_m3/Projects/WARP Ecosystem/atlas/.venv/bin/python",
+  "python_hash": "bb94adf1811609bbc51a10c4c566097ce47433a94d2ce7c680b02cbb41a1a15c",
+  "python_version": "3.11.14 (main, Oct  9 2025, 16:16:55) [Clang 16.0.0 (clang-1600.0.26.6)]",
+  "version_info": {
+    "major": 3,
+    "minor": 11,
+    "micro": 14,
+    "releaselevel": "final",
+    "serial": 0
+  },
+  "created_at": "2026-02-24T12:06:58.521681",
+  "signature": "4254a33ea70deb62468164b8ca340e2ca6693706a329fe019032fba4af5c6994"
+}

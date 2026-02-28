@@ -10,7 +10,14 @@ class EchoAwareCapture extends AudioWorkletProcessor {
 
     this.port.onmessage = (ev) => {
       const { type, block } = ev.data || {};
-      if (type === 'gate') this.gate = !!block;
+      if (type === 'gate') {
+        const prev = this.gate;
+        this.gate = !!block;
+        // Notify main thread of gate state transitions
+        if (prev !== this.gate) {
+          this.port.postMessage({ type: 'echo_gate_state', blocked: this.gate });
+        }
+      }
     };
   }
 

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import TTSProviderSelector from './TTSProviderSelector';
 import { STTProviderFactory } from '@/lib/stt/providers';
+import VoiceEnrollment from './VoiceEnrollment';
 
 interface VoiceSettingsProps {
   onVoiceEnabledChange?: (enabled: boolean) => void;
@@ -11,12 +12,20 @@ interface VoiceSettingsProps {
 export default function VoiceSettings({ onVoiceEnabledChange }: VoiceSettingsProps) {
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [showProviderSettings, setShowProviderSettings] = useState(false);
+  const [enrolled, setEnrolled] = useState(false);
+  const [showEnrollment, setShowEnrollment] = useState(false);
   
   useEffect(() => {
     // Load voice enabled state from localStorage
     const stored = localStorage.getItem('voice_enabled');
     const enabled = stored === 'true';
     setVoiceEnabled(enabled);
+
+    // Check voiceprint enrollment status
+    fetch('/api/voiceprint/status?user_id=owner')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.enrolled) setEnrolled(true); })
+      .catch(() => {});
   }, []);
   
   const handleToggle = () => {
@@ -106,6 +115,77 @@ export default function VoiceSettings({ onVoiceEnabledChange }: VoiceSettingsPro
         <TTSProviderSelector />
       )}
       
+      {/* Speaker Verification */}
+      <div 
+        className="p-4 border rounded-lg"
+        style={{
+          backgroundColor: 'var(--atlas-bg-card)',
+          borderColor: 'var(--atlas-border)',
+        }}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex-1">
+            <div 
+              className="text-sm font-semibold mb-1"
+              style={{ color: 'var(--atlas-text-primary)' }}
+            >
+              Speaker Verification
+            </div>
+            <div 
+              className="text-xs"
+              style={{ color: 'var(--atlas-text-secondary)' }}
+            >
+              Only your voice will be transcribed when enabled
+            </div>
+          </div>
+        </div>
+
+        {showEnrollment ? (
+          <VoiceEnrollment
+            onComplete={(vpId) => {
+              setEnrolled(true);
+              setShowEnrollment(false);
+              console.log('[VoiceSettings] Enrolled:', vpId);
+            }}
+            onCancel={() => setShowEnrollment(false)}
+          />
+        ) : enrolled ? (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--atlas-text-secondary)' }}>
+              <span className="inline-block w-2 h-2 rounded-full bg-green-500" />
+              Voiceprint enrolled
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowEnrollment(true)}
+                className="text-xs underline"
+                style={{ color: 'var(--atlas-accent-primary)' }}
+              >
+                Re-enroll
+              </button>
+              <button
+                onClick={async () => {
+                  await fetch('/api/voiceprint/status?user_id=owner'); // Could use DELETE
+                  setEnrolled(false);
+                }}
+                className="text-xs underline"
+                style={{ color: '#dc2626' }}
+              >
+                Delete voiceprint
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            onClick={() => setShowEnrollment(true)}
+            className="px-4 py-2 text-xs font-medium rounded-lg text-white"
+            style={{ backgroundColor: 'var(--atlas-accent-primary)' }}
+          >
+            Enroll Voiceprint
+          </button>
+        )}
+      </div>
+
       {/* Speech Input (STT) Settings */}
       <div 
         className="p-4 border rounded-lg"

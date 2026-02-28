@@ -1,0 +1,31 @@
+{
+  "import_guard": {
+    "enabled": true,
+    "protected_modules": [
+      "os",
+      "src.orchestrator.verified_orchestrator",
+      "src.self_modify.integrity_guard",
+      "src.self_modify.subprocess_enforcer",
+      "src.self_modify.verification_tracker",
+      "src.self_modify.verified_agent",
+      "subprocess"
+    ],
+    "hooks_installed": true
+  },
+  "subprocess_guard": {
+    "enabled": true,
+    "patched_functions": [
+      "call",
+      "check_output",
+      "run"
+    ],
+    "original_backed_up": true
+  },
+  "database_guard": {
+    "enabled": true,
+    "last_checkpoint": null
+  },
+  "active_sessions": [],
+  "last_updated": "2026-02-24T12:07:00.570790",
+  "signature": "178612bd619f5431404ce591fda4faacd49a5c6a5f430df2cfcd825ce8f87b54"
+}
