@@ -436,3 +436,170 @@ export async function engageOpportunity(
     );
   });
 }
+
+
+// =============================================================================
+// Autonomous Implementation
+// =============================================================================
+
+export interface ImplementEvent {
+  type: 'thinking' | 'progress' | 'tool_call' | 'tool_result' | 'observation' | 'chunk' | 'proposal' | 'done' | 'error';
+  content: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface ProposalData {
+  proposal_id: string;
+  title: string;
+  changes: Array<{ file_path: string; diff: string; rationale: string }>;
+  validation_passed: boolean;
+  tests_passed: number;
+  tests_failed: number;
+  estimated_risk: string;
+  test_output?: string;
+}
+
+/**
+ * Stream autonomous implementation of an opportunity.
+ *
+ * Sends the approved plan to the backend which runs AutonomousExecutor
+ * (sandbox-first, test-validated). Emits events for each execution phase.
+ */
+export function implementOpportunityStream(
+  opportunityId: string,
+  planContent: string,
+  callbacks: {
+    onEvent: (event: ImplementEvent) => void;
+    onProposal: (proposal: ProposalData) => void;
+    onDone: () => void;
+    onError: (error: string) => void;
+  },
+): AbortController {
+  const controller = new AbortController();
+
+  (async () => {
+    try {
+      const res = await fetch(
+        `http://localhost:8000/v1/recommendations/engage/${encodeURIComponent(opportunityId)}/implement`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan_content: planContent, opportunity_id: opportunityId }),
+          signal: controller.signal,
+        },
+      );
+
+      if (!res.ok) {
+        const errorBody = await res.text();
+        callbacks.onError(`Implementation failed (${res.status}): ${errorBody}`);
+        return;
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) {
+        callbacks.onError('Response body is not readable');
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const data = JSON.parse(line.slice(6));
+
+            switch (data.type) {
+              case 'proposal':
+                callbacks.onProposal({
+                  proposal_id: data.metadata?.proposal_id || '',
+                  title: data.content || '',
+                  changes: data.metadata?.changes || [],
+                  validation_passed: data.metadata?.validation_passed ?? false,
+                  tests_passed: data.metadata?.tests_passed ?? 0,
+                  tests_failed: data.metadata?.tests_failed ?? 0,
+                  estimated_risk: data.metadata?.estimated_risk || 'unknown',
+                  test_output: data.metadata?.test_output,
+                });
+                break;
+
+              case 'done':
+                callbacks.onDone();
+                break;
+
+              case 'error':
+                callbacks.onError(data.content || 'Unknown error');
+                break;
+
+              default:
+                // thinking, progress, tool_call, tool_result, observation, chunk
+                callbacks.onEvent({
+                  type: data.type,
+                  content: data.content || '',
+                  metadata: data.metadata,
+                });
+                break;
+            }
+          } catch {
+            // Ignore unparseable lines
+          }
+        }
+      }
+
+      // Stream ended without explicit done event
+      callbacks.onDone();
+    } catch (err) {
+      if (controller.signal.aborted) return;
+      callbacks.onError(err instanceof Error ? err.message : String(err));
+    }
+  })();
+
+  return controller;
+}
+
+/**
+ * Approve a proposal and apply it to production.
+ */
+export async function approveProposal(proposalId: string): Promise<void> {
+  const res = await fetch(
+    `http://localhost:8000/v1/proposals/${encodeURIComponent(proposalId)}/status`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'applied' }),
+    },
+  );
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Failed to approve proposal: ${body}`);
+  }
+}
+
+/**
+ * Reject a proposal.
+ */
+export async function rejectProposal(
+  proposalId: string,
+  reason: string = 'User rejected',
+): Promise<void> {
+  const res = await fetch(
+    `http://localhost:8000/v1/proposals/${encodeURIComponent(proposalId)}/status`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'rejected', rejection_reason: reason }),
+    },
+  );
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Failed to reject proposal: ${body}`);
+  }
+}

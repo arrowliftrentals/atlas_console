@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import TabHeader from "./TabHeader";
 import { useHealth } from "@/contexts/HealthContext";
-import { engageOpportunityStream } from "@/lib/atlasConsoleClient";
+import { engageOpportunityStream, implementOpportunityStream, approveProposal, rejectProposal } from "@/lib/atlasConsoleClient";
+import type { ImplementEvent, ProposalData } from "@/lib/atlasConsoleClient";
 import MarkdownRenderer from "./MarkdownRenderer";
 
 interface StrategicOpportunity {
@@ -104,10 +105,26 @@ const RecommendationsView: React.FC = () => {
   const [engageExpanded, setEngageExpanded] = useState<Record<string, boolean>>({});
   const engageControllerRef = useRef<Record<string, AbortController>>({});
 
+  // Implementation state — separate from plan generation
+  const [implStatus, setImplStatus] = useState<
+    Record<string, 'idle' | 'running' | 'done' | 'error'>
+  >({});
+  const [implEvents, setImplEvents] = useState<
+    Record<string, ImplementEvent[]>
+  >({});
+  const [implProposals, setImplProposals] = useState<
+    Record<string, ProposalData>
+  >({});
+  const [implErrors, setImplErrors] = useState<Record<string, string>>({});
+  const [implSummary, setImplSummary] = useState<Record<string, string>>({});
+  const [proposalActionLoading, setProposalActionLoading] = useState<Record<string, boolean>>({});
+  const implControllerRef = useRef<Record<string, AbortController>>({});
+
   // Cleanup abort controllers on unmount
   useEffect(() => {
     return () => {
       Object.values(engageControllerRef.current).forEach((c) => c.abort());
+      Object.values(implControllerRef.current).forEach((c) => c.abort());
     };
   }, []);
 
@@ -150,6 +167,78 @@ const RecommendationsView: React.FC = () => {
 
     engageControllerRef.current[oppId] = controller;
   }, []);
+
+  const handleImplement = useCallback((oppId: string) => {
+    const planContent = engageResults[oppId]?.content;
+    if (!planContent) return;
+
+    // Abort any existing implementation stream
+    implControllerRef.current[oppId]?.abort();
+
+    // Reset implementation state
+    setImplStatus((prev) => ({ ...prev, [oppId]: 'running' }));
+    setImplEvents((prev) => ({ ...prev, [oppId]: [] }));
+    setImplErrors((prev) => { const n = { ...prev }; delete n[oppId]; return n; });
+    setImplSummary((prev) => { const n = { ...prev }; delete n[oppId]; return n; });
+    setImplProposals((prev) => { const n = { ...prev }; delete n[oppId]; return n; });
+
+    const controller = implementOpportunityStream(oppId, planContent, {
+      onEvent: (event) => {
+        setImplEvents((prev) => ({
+          ...prev,
+          [oppId]: [...(prev[oppId] || []), event].slice(-50), // Keep last 50 events
+        }));
+        // Accumulate chunk events into summary
+        if (event.type === 'chunk') {
+          setImplSummary((prev) => ({
+            ...prev,
+            [oppId]: (prev[oppId] || '') + event.content,
+          }));
+        }
+      },
+      onProposal: (proposal) => {
+        setImplProposals((prev) => ({ ...prev, [oppId]: proposal }));
+      },
+      onDone: () => {
+        setImplStatus((prev) => ({ ...prev, [oppId]: 'done' }));
+      },
+      onError: (err) => {
+        setImplStatus((prev) => ({ ...prev, [oppId]: 'error' }));
+        setImplErrors((prev) => ({ ...prev, [oppId]: err }));
+      },
+    });
+
+    implControllerRef.current[oppId] = controller;
+  }, [engageResults]);
+
+  const handleApproveProposal = useCallback(async (oppId: string) => {
+    const proposal = implProposals[oppId];
+    if (!proposal) return;
+    setProposalActionLoading((prev) => ({ ...prev, [oppId]: true }));
+    try {
+      await approveProposal(proposal.proposal_id);
+      setImplStatus((prev) => ({ ...prev, [oppId]: 'done' }));
+    } catch (e) {
+      setImplErrors((prev) => ({ ...prev, [oppId]: e instanceof Error ? e.message : String(e) }));
+    } finally {
+      setProposalActionLoading((prev) => ({ ...prev, [oppId]: false }));
+    }
+  }, [implProposals]);
+
+  const handleRejectProposal = useCallback(async (oppId: string) => {
+    const proposal = implProposals[oppId];
+    if (!proposal) return;
+    setProposalActionLoading((prev) => ({ ...prev, [oppId]: true }));
+    try {
+      await rejectProposal(proposal.proposal_id);
+      setImplStatus((prev) => ({ ...prev, [oppId]: 'idle' }));
+      setImplProposals((prev) => { const n = { ...prev }; delete n[oppId]; return n; });
+    } catch (e) {
+      setImplErrors((prev) => ({ ...prev, [oppId]: e instanceof Error ? e.message : String(e) }));
+    } finally {
+      setProposalActionLoading((prev) => ({ ...prev, [oppId]: false }));
+    }
+  }, [implProposals]);
 
   const fetchRecommendations = async () => {
     setLoading(true);
@@ -711,6 +800,221 @@ const RecommendationsView: React.FC = () => {
                                         <MarkdownRenderer content={result.content} />
                                       </div>
                                     )}
+
+                                    {/* Approve & Implement Button — appears when plan is done */}
+                                    {isDone && hasContent && (() => {
+                                      const iStatus = implStatus[opp.id] || 'idle';
+                                      const iEvents = implEvents[opp.id] || [];
+                                      const iProposal = implProposals[opp.id];
+                                      const iError = implErrors[opp.id];
+                                      const iSummary = implSummary[opp.id];
+                                      const isImplRunning = iStatus === 'running';
+                                      const isImplDone = iStatus === 'done';
+                                      const isImplError = iStatus === 'error';
+                                      const isActionLoading = proposalActionLoading[opp.id] || false;
+                                      const latestEvent = iEvents[iEvents.length - 1];
+
+                                      return (
+                                        <div className="mt-4 border-t border-gray-700/30 pt-4">
+                                          {/* Implement button row */}
+                                          <div className="flex items-center gap-3">
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleImplement(opp.id);
+                                              }}
+                                              disabled={isImplRunning || isActionLoading}
+                                              className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                              style={{
+                                                background: isImplRunning
+                                                  ? 'rgba(34, 197, 94, 0.1)'
+                                                  : 'linear-gradient(135deg, rgba(34, 197, 94, 0.3), rgba(34, 197, 94, 0.1))',
+                                                color: '#22C55E',
+                                                border: '1px solid rgba(34, 197, 94, 0.4)',
+                                              }}
+                                            >
+                                              {isImplRunning ? (
+                                                <>
+                                                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                                                  </svg>
+                                                  Implementing...
+                                                </>
+                                              ) : isImplDone && iProposal ? (
+                                                <>
+                                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                  </svg>
+                                                  Re-implement
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                  </svg>
+                                                  Approve &amp; Implement
+                                                </>
+                                              )}
+                                            </button>
+
+                                            {isImplRunning && (
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  implControllerRef.current[opp.id]?.abort();
+                                                  setImplStatus((prev) => ({ ...prev, [opp.id]: 'error' }));
+                                                  setImplErrors((prev) => ({ ...prev, [opp.id]: 'Cancelled by user' }));
+                                                }}
+                                                className="text-xs text-gray-500 hover:text-red-400 transition-colors"
+                                              >
+                                                Cancel
+                                              </button>
+                                            )}
+                                          </div>
+
+                                          {/* Implementation progress panel */}
+                                          {(isImplRunning || isImplDone || isImplError) && (
+                                            <div className="mt-3 p-4 bg-[#141418] rounded-lg border border-gray-700/40">
+                                              {/* Live status */}
+                                              {isImplRunning && latestEvent && (
+                                                <div className="mb-3 flex items-center gap-2">
+                                                  <span className="relative flex h-2 w-2">
+                                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                                                  </span>
+                                                  <span className="text-xs text-gray-300 truncate">
+                                                    {latestEvent.type === 'progress' && latestEvent.content}
+                                                    {latestEvent.type === 'thinking' && `Thinking: ${latestEvent.content.slice(0, 80)}...`}
+                                                    {latestEvent.type === 'tool_call' && `Tool: ${latestEvent.content}`}
+                                                    {latestEvent.type === 'tool_result' && `Result: ${latestEvent.content.slice(0, 80)}`}
+                                                    {latestEvent.type === 'observation' && latestEvent.content}
+                                                    {latestEvent.type === 'chunk' && 'Generating summary...'}
+                                                  </span>
+                                                </div>
+                                              )}
+
+                                              {/* Event log (last 8 non-chunk events) */}
+                                              {iEvents.filter((e) => e.type !== 'chunk').length > 0 && (
+                                                <div className="mb-3 space-y-1 max-h-[200px] overflow-auto">
+                                                  {iEvents
+                                                    .filter((e) => e.type !== 'chunk')
+                                                    .slice(-8)
+                                                    .map((ev, idx) => (
+                                                      <div key={idx} className="flex items-center gap-2 text-[11px]">
+                                                        <span className={`px-1.5 py-0.5 rounded font-mono ${
+                                                          ev.type === 'tool_call' ? 'bg-blue-500/20 text-blue-400' :
+                                                          ev.type === 'tool_result' ? 'bg-cyan-500/20 text-cyan-400' :
+                                                          ev.type === 'progress' ? 'bg-yellow-500/20 text-yellow-400' :
+                                                          ev.type === 'thinking' ? 'bg-purple-500/20 text-purple-400' :
+                                                          ev.type === 'observation' ? 'bg-green-500/20 text-green-400' :
+                                                          'bg-gray-500/20 text-gray-400'
+                                                        }`}>
+                                                          {ev.type}
+                                                        </span>
+                                                        <span className="text-gray-400 truncate">{ev.content.slice(0, 100)}</span>
+                                                      </div>
+                                                    ))}
+                                                </div>
+                                              )}
+
+                                              {/* Execution summary */}
+                                              {iSummary && (
+                                                <div className="mb-3">
+                                                  <div className="text-[10px] text-gray-400 uppercase tracking-wider mb-1">Execution Summary</div>
+                                                  <div className="text-sm text-gray-300">
+                                                    <MarkdownRenderer content={iSummary} />
+                                                  </div>
+                                                </div>
+                                              )}
+
+                                              {/* Proposal card */}
+                                              {iProposal && (
+                                                <div className={`mt-3 p-3 rounded-lg border ${
+                                                  iProposal.validation_passed
+                                                    ? 'bg-green-500/5 border-green-500/30'
+                                                    : 'bg-red-500/5 border-red-500/30'
+                                                }`}>
+                                                  <div className="flex items-center justify-between mb-2">
+                                                    <div className="text-[10px] uppercase tracking-wider font-medium" style={{
+                                                      color: iProposal.validation_passed ? '#22C55E' : '#EF4444'
+                                                    }}>
+                                                      {iProposal.validation_passed ? '✓ Proposal Ready' : '✗ Validation Failed'}
+                                                    </div>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                                                      iProposal.estimated_risk === 'low' ? 'bg-green-500/20 text-green-400' :
+                                                      iProposal.estimated_risk === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
+                                                      'bg-red-500/20 text-red-400'
+                                                    }`}>
+                                                      Risk: {iProposal.estimated_risk}
+                                                    </span>
+                                                  </div>
+
+                                                  <div className="text-sm text-gray-300 mb-2">{iProposal.title}</div>
+
+                                                  <div className="flex gap-4 text-xs text-gray-400 mb-3">
+                                                    <span>Tests passed: <span className="text-green-400">{iProposal.tests_passed}</span></span>
+                                                    <span>Tests failed: <span className={iProposal.tests_failed > 0 ? 'text-red-400' : 'text-gray-500'}>{iProposal.tests_failed}</span></span>
+                                                    <span>Files changed: <span className="text-blue-400">{iProposal.changes.length}</span></span>
+                                                  </div>
+
+                                                  {/* File change list */}
+                                                  {iProposal.changes.length > 0 && (
+                                                    <div className="mb-3 space-y-1">
+                                                      {iProposal.changes.slice(0, 10).map((ch, idx) => (
+                                                        <div key={idx} className="flex items-center gap-2 text-[11px]">
+                                                          <span className="text-blue-400 font-mono">{ch.file_path}</span>
+                                                          <span className="text-gray-500">—</span>
+                                                          <span className="text-gray-400 truncate">{ch.rationale}</span>
+                                                        </div>
+                                                      ))}
+                                                      {iProposal.changes.length > 10 && (
+                                                        <div className="text-[11px] text-gray-500">...and {iProposal.changes.length - 10} more</div>
+                                                      )}
+                                                    </div>
+                                                  )}
+
+                                                  {/* Approve / Reject buttons */}
+                                                  {iProposal.validation_passed && (
+                                                    <div className="flex items-center gap-3 pt-2 border-t border-gray-700/30">
+                                                      <button
+                                                        onClick={(e) => { e.stopPropagation(); handleApproveProposal(opp.id); }}
+                                                        disabled={isActionLoading}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 transition-colors disabled:opacity-50"
+                                                      >
+                                                        {isActionLoading ? 'Applying...' : 'Apply to Production'}
+                                                      </button>
+                                                      <button
+                                                        onClick={(e) => { e.stopPropagation(); handleRejectProposal(opp.id); }}
+                                                        disabled={isActionLoading}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-medium bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-colors disabled:opacity-50"
+                                                      >
+                                                        Reject
+                                                      </button>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              )}
+
+                                              {/* Implementation error */}
+                                              {isImplError && iError && (
+                                                <div className="mt-2 p-3 bg-red-500/10 border border-red-500/20 rounded">
+                                                  <div className="flex items-center justify-between">
+                                                    <span className="text-sm text-red-400">{iError}</span>
+                                                    <button
+                                                      onClick={(e) => { e.stopPropagation(); handleImplement(opp.id); }}
+                                                      className="text-xs px-2 py-1 bg-red-500/20 text-red-400 rounded hover:bg-red-500/30 transition-colors"
+                                                    >
+                                                      Retry
+                                                    </button>
+                                                  </div>
+                                                </div>
+                                              )}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    })()}
                                   </>
                                 );
                               })()}
