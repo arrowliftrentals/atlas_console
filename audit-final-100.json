@@ -1,0 +1,400 @@
+{
+  "timestamp": "2026-03-01T22:22:49.723711Z",
+  "total_endpoints": 86,
+  "passed": 49,
+  "failed": 31,
+  "skipped": 6,
+  "score": 61.25000000000001,
+  "duration_seconds": 82.65328598022461,
+  "violations": [
+    {
+      "path": "/api/atlasLearning/pattern/{tool}/{errorCode}",
+      "method": "GET",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "404",
+      "consumers": [
+        "LearningView.tsx"
+      ],
+      "message": "HTTP 404: Not Found"
+    },
+    {
+      "path": "/api/sandbox",
+      "method": "POST",
+      "violation_type": "missing_field",
+      "field": "execution_id",
+      "expected": "required field 'execution_id'",
+      "actual": "missing",
+      "consumers": [
+        "SandboxView.tsx"
+      ],
+      "message": "Required field 'execution_id' missing from response"
+    },
+    {
+      "path": "/api/sandbox",
+      "method": "POST",
+      "violation_type": "missing_field",
+      "field": "status",
+      "expected": "required field 'status'",
+      "actual": "missing",
+      "consumers": [
+        "SandboxView.tsx"
+      ],
+      "message": "Required field 'status' missing from response"
+    },
+    {
+      "path": "/api/proposals/{proposalId}",
+      "method": "GET",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "404",
+      "consumers": [
+        "SandboxView.tsx"
+      ],
+      "message": "HTTP 404: Not Found"
+    },
+    {
+      "path": "/api/proposals/{proposalId}/status",
+      "method": "PATCH",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "404",
+      "consumers": [
+        "SandboxView.tsx"
+      ],
+      "message": "HTTP 404: Not Found"
+    },
+    {
+      "path": "/api/systems/{subsystemName}/initialize",
+      "method": "POST",
+      "violation_type": "missing_field",
+      "field": "subsystem",
+      "expected": "required field 'subsystem'",
+      "actual": "missing",
+      "consumers": [
+        "SystemsView.tsx"
+      ],
+      "message": "Required field 'subsystem' missing from response"
+    },
+    {
+      "path": "/api/logs",
+      "method": "GET",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "404",
+      "consumers": [
+        "LogsView.tsx"
+      ],
+      "message": "HTTP 404: Not Found"
+    },
+    {
+      "path": "/api/console-logs",
+      "method": "GET",
+      "violation_type": "wrong_type",
+      "field": "logs",
+      "expected": "array",
+      "actual": "str",
+      "consumers": [
+        "ConsoleProvider.tsx"
+      ],
+      "message": "Field 'logs' has wrong type: expected array, got str"
+    },
+    {
+      "path": "/v1/atlas/tasks/{taskId}/status",
+      "method": "PATCH",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "400",
+      "consumers": [
+        "TasksView.tsx"
+      ],
+      "message": "HTTP 400: Bad Request"
+    },
+    {
+      "path": "/v1/atlas/tasks/{taskId}",
+      "method": "DELETE",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "404",
+      "consumers": [
+        "TasksView.tsx"
+      ],
+      "message": "HTTP 404: Not Found"
+    },
+    {
+      "path": "/v1/documentation/drift/review",
+      "method": "POST",
+      "violation_type": "timeout",
+      "field": null,
+      "expected": null,
+      "actual": null,
+      "consumers": [
+        "DriftReviewView.tsx"
+      ],
+      "message": "Request timed out after 10s"
+    },
+    {
+      "path": "/api/analysis/issues/{runId}",
+      "method": "GET",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "404",
+      "consumers": [
+        "DashboardView.tsx",
+        "CodeAnalysisDashboard.tsx"
+      ],
+      "message": "HTTP 404: Not Found"
+    },
+    {
+      "path": "/api/analysis/progress/{runId}",
+      "method": "GET",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "404",
+      "consumers": [
+        "CodeAnalysisDashboard.tsx"
+      ],
+      "message": "HTTP 404: Not Found"
+    },
+    {
+      "path": "/api/analysis/cancel/{currentRunId}",
+      "method": "POST",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "404",
+      "consumers": [
+        "CodeAnalysisDashboard.tsx"
+      ],
+      "message": "HTTP 404: Not Found"
+    },
+    {
+      "path": "/api/analysis/delete/{runId}",
+      "method": "DELETE",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "404",
+      "consumers": [
+        "CodeAnalysisDashboard.tsx"
+      ],
+      "message": "HTTP 404: Not Found"
+    },
+    {
+      "path": "/api/analysis/mark-fixed",
+      "method": "POST",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "422",
+      "consumers": [
+        "CodeAnalysisDashboard.tsx"
+      ],
+      "message": "HTTP 422: Unprocessable Entity"
+    },
+    {
+      "path": "/api/fix/generate",
+      "method": "POST",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "502",
+      "consumers": [
+        "CodeAnalysisDashboard.tsx"
+      ],
+      "message": "HTTP 502: Bad Gateway"
+    },
+    {
+      "path": "/api/fix/batch",
+      "method": "POST",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "400",
+      "consumers": [
+        "CodeAnalysisDashboard.tsx"
+      ],
+      "message": "HTTP 400: Bad Request"
+    },
+    {
+      "path": "/api/fix/status/{jobId}",
+      "method": "GET",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "404",
+      "consumers": [
+        "CodeAnalysisDashboard.tsx"
+      ],
+      "message": "HTTP 404: Not Found"
+    },
+    {
+      "path": "/api/fix/cancel/{fixJobId}",
+      "method": "POST",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "404",
+      "consumers": [
+        "CodeAnalysisDashboard.tsx"
+      ],
+      "message": "HTTP 404: Not Found"
+    },
+    {
+      "path": "/api/neural-graph",
+      "method": "GET",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "404",
+      "consumers": [
+        "NeuralOrganismView.tsx"
+      ],
+      "message": "HTTP 404: Not Found"
+    },
+    {
+      "path": "/api/console/commands/run",
+      "method": "POST",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "404",
+      "consumers": [
+        "atlasConsoleClient.ts"
+      ],
+      "message": "HTTP 404: Not Found"
+    },
+    {
+      "path": "/api/debug-log",
+      "method": "POST",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "500",
+      "consumers": [
+        "ConsoleProvider.tsx"
+      ],
+      "message": "HTTP 500: Internal Server Error"
+    },
+    {
+      "path": "/api/atlasChat/stream",
+      "method": "POST",
+      "violation_type": "invalid_json",
+      "field": null,
+      "expected": null,
+      "actual": null,
+      "consumers": [
+        "atlasClient.ts"
+      ],
+      "message": "Response is not valid JSON"
+    },
+    {
+      "path": "/v1/atlas/chat/chunk/{sessionId}",
+      "method": "GET",
+      "violation_type": "wrong_type",
+      "field": "notes",
+      "expected": "string",
+      "actual": "NoneType",
+      "consumers": [
+        "atlasClient.ts"
+      ],
+      "message": "Field 'notes' has wrong type: expected string, got NoneType"
+    },
+    {
+      "path": "/api/stt/elevenlabs/token",
+      "method": "GET",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "405",
+      "consumers": [
+        "VoicePanel.tsx"
+      ],
+      "message": "HTTP 405: Method Not Allowed"
+    },
+    {
+      "path": "/v1/voice/realtime/session",
+      "method": "POST",
+      "violation_type": "http_error",
+      "field": null,
+      "expected": "200",
+      "actual": "500",
+      "consumers": [
+        "VoicePanel.tsx"
+      ],
+      "message": "HTTP 500: Internal Server Error"
+    },
+    {
+      "path": "/api/learning/corrections",
+      "method": "GET",
+      "violation_type": "missing_field",
+      "field": "corrections",
+      "expected": "required field 'corrections'",
+      "actual": "missing",
+      "consumers": [
+        "LearningView.tsx"
+      ],
+      "message": "Required field 'corrections' missing from response"
+    },
+    {
+      "path": "/v1/telemetry/stream",
+      "method": "WS",
+      "violation_type": "ws_connection_failed",
+      "field": null,
+      "expected": null,
+      "actual": null,
+      "consumers": [
+        "TelemetryContext.tsx",
+        "ArchitectureViewV2.tsx",
+        "NeuralArchitecture3DV2.tsx",
+        "NeuralNetworkScene.tsx"
+      ],
+      "message": "WebSocket connection failed: proxy rejected connection: HTTP 400"
+    },
+    {
+      "path": "/v1/progress/stream/{sessionId}",
+      "method": "WS",
+      "violation_type": "ws_connection_failed",
+      "field": null,
+      "expected": null,
+      "actual": null,
+      "consumers": [
+        "ProgressIndicator.tsx",
+        "PermanentProgressBar.tsx"
+      ],
+      "message": "WebSocket connection failed: proxy rejected connection: HTTP 400"
+    },
+    {
+      "path": "/api/analysis/ws/{runId}",
+      "method": "WS",
+      "violation_type": "ws_connection_failed",
+      "field": null,
+      "expected": null,
+      "actual": null,
+      "consumers": [
+        "CodeAnalysisDashboard.tsx"
+      ],
+      "message": "WebSocket connection failed: proxy rejected connection: HTTP 400"
+    },
+    {
+      "path": "/v1/benchmarks/stream",
+      "method": "SSE",
+      "violation_type": "sse_connection_failed",
+      "field": null,
+      "expected": null,
+      "actual": null,
+      "consumers": [
+        "BenchmarkLiveView.tsx"
+      ],
+      "message": "SSE connection failed: HTTPConnectionPool(host='localhost', port=3000): Max retries exceeded with url: /v1/benchmarks/stream (Caused by ReadTimeoutError(\"HTTPConnectionPool(host='localhost', port=3000): Read timed out. (read timeout=10)\"))"
+    }
+  ]
+}

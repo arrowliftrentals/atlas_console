@@ -26,11 +26,14 @@ const nextConfig = {
     ];
   },
   async rewrites() {
+    const backend =
+      process.env.ATLAS_BACKEND_URL ||
+      process.env.NEXT_PUBLIC_ATLAS_API_URL ||
+      'http://127.0.0.1:8000';
     return [
-      {
-        source: '/api/:path*',
-        destination: 'http://127.0.0.1:8000/api/:path*',
-      },
+      { source: '/v1/:path*', destination: `${backend}/v1/:path*` },
+      { source: '/api/:path*', destination: `${backend}/api/:path*` },
+      { source: '/health', destination: `${backend}/health` },
     ];
   },
 };

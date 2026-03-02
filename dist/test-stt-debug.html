@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>STT Debug Test</title>
+  <style>
+    body {
+      font-family: 'SF Mono', Monaco, monospace;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .section {
+      background: #2a2a2a;
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 8px;
+      border: 1px solid #3a3a3a;
+    }
+    h2 {
+      color: #4CAF50;
+      margin-top: 0;
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-right: 10px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    button:disabled {
+      background: #555;
+      cursor: not-allowed;
+    }
+    button.stop {
+      background: #f44336;
+    }
+    button.stop:hover {
+      background: #da190b;
+    }
+    .log {
+      background: #1a1a1a;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+    .log-entry {
+      margin: 3px 0;
+      padding: 2px 0;
+    }
+    .log-entry.error {
+      color: #ff5555;
+    }
+    .log-entry.success {
+      color: #50fa7b;
+    }
+    .log-entry.info {
+      color: #8be9fd;
+    }
+    .log-entry.warn {
+      color: #ffb86c;
+    }
+    .transcript {
+      background: #2a2a2a;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 4px;
+      border: 2px solid #4CAF50;
+      min-height: 50px;
+      font-size: 16px;
+    }
+    .transcript.interim {
+      border-color: #ffb86c;
+      opacity: 0.7;
+    }
+    .status {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 4px;
+      font-size: 14px;
+      margin-left: 10px;
+    }
+    .status.idle {
+      background: #555;
+    }
+    .status.listening {
+      background: #f44336;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+  </style>
+</head>
+<body>
+  <h1>ElevenLabs STT Debug Test</h1>
+  
+  <div class="section">
+    <h2>Controls</h2>
+    <button id="startBtn" onclick="startSTT()">Start Listening</button>
+    <button id="stopBtn" class="stop" onclick="stopSTT()" disabled>Stop Listening</button>
+    <span id="status" class="status idle">Idle</span>
+  </div>
+
+  <div class="section">
+    <h2>Browser Info</h2>
+    <div id="browserInfo"></div>
+  </div>
+
+  <div class="section">
+    <h2>Transcripts</h2>
+    <div><strong>Interim (real-time):</strong></div>
+    <div id="interimTranscript" class="transcript interim">Waiting for audio...</div>
+    <div><strong>Final:</strong></div>
+    <div id="finalTranscript" class="transcript">Waiting for audio...</div>
+  </div>
+
+  <div class="section">
+    <h2>Audio Stats</h2>
+    <div id="audioStats"></div>
+  </div>
+
+  <div class="section">
+    <h2>WebSocket Messages</h2>
+    <div id="wsLog" class="log"></div>
+  </div>
+
+  <div class="section">
+    <h2>Console Logs</h2>
+    <div id="consoleLog" class="log"></div>
+  </div>
+
+  <script>
+    let ws = null;
+    let mediaRecorder = null;
+    let audioStream = null;
+    let chunkCount = 0;
+    let bytesSent = 0;
+    let startTime = 0;
+
+    // Intercept console logs
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+
+    function addLog(message, type = 'info') {
+      const logDiv = document.getElementById('consoleLog');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logDiv.appendChild(entry);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    console.log = (...args) => {
+      originalLog(...args);
+      addLog(args.join(' '), 'info');
+    };
+
+    console.error = (...args) => {
+      originalError(...args);
+      addLog(args.join(' '), 'error');
+    };
+
+    console.warn = (...args) => {
+      originalWarn(...args);
+      addLog(args.join(' '), 'warn');
+    };
+
+    // Display browser info
+    function displayBrowserInfo() {
+      const info = document.getElementById('browserInfo');
+      const ua = navigator.userAgent;
+      const browser = ua.match(/(firefox|chrome|safari|edge)/i)?.[0] || 'Unknown';
+      
+      const mimeTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/ogg',
+        'audio/mp4',
+      ];
+      
+      const supported = mimeTypes.filter(t => MediaRecorder.isTypeSupported(t));
+      
+      info.innerHTML = `
+        <p><strong>Browser:</strong> ${browser}</p>
+        <p><strong>User Agent:</strong> ${ua}</p>
+        <p><strong>Supported MIME Types:</strong></p>
+        <ul>
+          ${supported.map(t => `<li style="color: #50fa7b;">${t}</li>`).join('')}
+          ${mimeTypes.filter(t => !supported.includes(t)).map(t => `<li style="color: #555; text-decoration: line-through;">${t}</li>`).join('')}
+        </ul>
+      `;
+    }
+
+    async function startSTT() {
+      console.log('=== STARTING STT TEST ===');
+      chunkCount = 0;
+      bytesSent = 0;
+      startTime = Date.now();
+      
+      document.getElementById('startBtn').disabled = true;
+      document.getElementById('stopBtn').disabled = false;
+      document.getElementById('status').textContent = 'Initializing...';
+      document.getElementById('status').className = 'status listening';
+      
+      try {
+        // Step 1: Get microphone access
+        console.log('Step 1: Requesting microphone access...');
+        audioStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            channelCount: 1,
+            sampleRate: 16000,
+            echoCancellation: true,
+            noiseSuppression: true,
+          }
+        });
+        console.log('✓ Microphone access granted');
+        console.log('Audio tracks:', audioStream.getAudioTracks().map(t => ({
+          label: t.label,
+          enabled: t.enabled,
+          readyState: t.readyState,
+          muted: t.muted,
+        })));
+        
+        // Step 2: Get authentication token
+        console.log('Step 2: Fetching authentication token...');
+        const tokenResponse = await fetch('/api/stt/elevenlabs/token', {
+          method: 'POST',
+        });
+        
+        if (!tokenResponse.ok) {
+          const errorText = await tokenResponse.text();
+          throw new Error(`Token fetch failed: ${tokenResponse.status} - ${errorText}`);
+        }
+        
+        const { token } = await tokenResponse.json();
+        console.log('✓ Token received:', token.substring(0, 20) + '...');
+        
+        // Step 3: Connect WebSocket
+        console.log('Step 3: Connecting to ElevenLabs WebSocket...');
+        const wsUrl = `wss://api.elevenlabs.io/v1/speech-to-text/realtime?token=${token}`;
+        ws = new WebSocket(wsUrl);
+        
+        ws.onopen = () => {
+          console.log('✓ WebSocket connected!');
+          addWSLog('Connected', 'success');
+          document.getElementById('status').textContent = 'Connected - Waiting for audio...';
+          
+          // Step 4: Start audio streaming
+          console.log('Step 4: Starting audio streaming...');
+          startAudioStreaming();
+        };
+        
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            addWSLog(`← ${data.message_type}`, 'info');
+            
+            if (data.message_type === 'partial_transcript') {
+              document.getElementById('interimTranscript').textContent = data.text;
+              console.log('Interim:', data.text);
+            } else if (data.message_type === 'committed_transcript') {
+              document.getElementById('finalTranscript').textContent = data.text;
+              console.log('Final:', data.text);
+            } else if (data.message_type === 'session_started') {
+              console.log('Session started:', data.session_id);
+              addWSLog(`Session: ${data.session_id}`, 'success');
+            } else if (data.message_type === 'error') {
+              console.error('STT Error:', data.error);
+              addWSLog(`Error: ${data.error}`, 'error');
+            } else if (data.message_type === 'input_error') {
+              console.error('Input Error:', data.error || data);
+              addWSLog(`Input Error: ${data.error || JSON.stringify(data)}`, 'error');
+            } else {
+              console.log('Message:', data);
+            }
+          } catch (err) {
+            console.error('Failed to parse message:', err);
+          }
+        };
+        
+        ws.onerror = (error) => {
+          console.error('WebSocket error:', error);
+          addWSLog('Connection error', 'error');
+        };
+        
+        ws.onclose = (event) => {
+          console.log('WebSocket closed - Code:', event.code, 'Reason:', event.reason, 'Clean:', event.wasClean);
+          addWSLog(`Closed: ${event.code} - ${event.reason}`, event.wasClean ? 'info' : 'error');
+          
+          if (event.code === 1000 && !event.reason) {
+            console.warn('⚠️ WebSocket closed immediately after connection - likely audio format rejection');
+          }
+        };
+        
+      } catch (error) {
+        console.error('Failed to start STT:', error);
+        alert('Error: ' + error.message);
+        stopSTT();
+      }
+    }
+
+    function startAudioStreaming() {
+      // Try to use WebM with Opus
+      const mimeTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/ogg',
+      ];
+      
+      let mimeType = '';
+      for (const type of mimeTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          mimeType = type;
+          break;
+        }
+      }
+      
+      console.log('Selected MIME type:', mimeType || 'browser default');
+      
+      const options = mimeType ? { mimeType } : {};
+      
+      try {
+        mediaRecorder = new MediaRecorder(audioStream, options);
+        console.log('✓ MediaRecorder created with MIME type:', mediaRecorder.mimeType);
+        
+        if (mediaRecorder.mimeType.includes('mp4')) {
+          console.warn('⚠️ Browser is using MP4 format - ElevenLabs may reject this!');
+        }
+        
+      } catch (error) {
+        console.error('MediaRecorder creation failed:', error);
+        mediaRecorder = new MediaRecorder(audioStream);
+        console.log('✓ MediaRecorder created with browser default:', mediaRecorder.mimeType);
+      }
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0 && ws?.readyState === WebSocket.OPEN) {
+          chunkCount++;
+          bytesSent += event.data.size;
+          
+          console.log(`Audio chunk #${chunkCount}: ${event.data.size} bytes`);
+          
+          // Convert to base64 and send
+          event.data.arrayBuffer().then((buffer) => {
+            if (ws?.readyState === WebSocket.OPEN) {
+              const base64Audio = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+              const message = {
+                message_type: 'input_audio_chunk',
+                audio_base_64: base64Audio,
+                sample_rate: 16000,
+              };
+              
+              ws.send(JSON.stringify(message));
+              addWSLog(`→ audio_chunk #${chunkCount} (${event.data.size}b)`, 'info');
+              
+              // Update stats
+              const elapsed = (Date.now() - startTime) / 1000;
+              document.getElementById('audioStats').innerHTML = `
+                <p><strong>Chunks sent:</strong> ${chunkCount}</p>
+                <p><strong>Total bytes:</strong> ${bytesSent.toLocaleString()}</p>
+                <p><strong>Duration:</strong> ${elapsed.toFixed(1)}s</p>
+                <p><strong>Rate:</strong> ${(bytesSent / elapsed / 1024).toFixed(2)} KB/s</p>
+              `;
+              
+              document.getElementById('status').textContent = `Listening (${chunkCount} chunks sent)`;
+            }
+          });
+        }
+      };
+      
+      mediaRecorder.onerror = (event) => {
+        console.error('MediaRecorder error:', event);
+      };
+      
+      mediaRecorder.onstart = () => {
+        console.log('✓ MediaRecorder started');
+      };
+      
+      mediaRecorder.onstop = () => {
+        console.log('MediaRecorder stopped');
+      };
+      
+      // Start recording with 250ms chunks
+      mediaRecorder.start(250);
+      console.log('✓ Audio streaming started (250ms chunks)');
+    }
+
+    function stopSTT() {
+      console.log('=== STOPPING STT ===');
+      
+      if (mediaRecorder?.state === 'recording') {
+        mediaRecorder.stop();
+      }
+      
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.close();
+      }
+      
+      if (audioStream) {
+        audioStream.getTracks().forEach(track => track.stop());
+      }
+      
+      ws = null;
+      mediaRecorder = null;
+      audioStream = null;
+      
+      document.getElementById('startBtn').disabled = false;
+      document.getElementById('stopBtn').disabled = true;
+      document.getElementById('status').textContent = 'Idle';
+      document.getElementById('status').className = 'status idle';
+    }
+
+    function addWSLog(message, type = 'info') {
+      const logDiv = document.getElementById('wsLog');
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logDiv.appendChild(entry);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    // Initialize
+    displayBrowserInfo();
+    console.log('STT Debug Test Ready');
+    console.log('Click "Start Listening" to begin');
+  </script>
+</body>
+</html>

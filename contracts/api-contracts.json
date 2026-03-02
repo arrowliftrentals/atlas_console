@@ -1,0 +1,964 @@
+{
+  "version": "1.0.0",
+  "generated_at": "2026-03-01T19:02:00Z",
+  "description": "API contract definitions for ATLAS Web Console endpoints",
+  "endpoints": [
+    {
+      "path": "/health",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx"],
+      "expected_fields": {
+        "status": {"type": "string", "required": true}
+      }
+    },
+    {
+      "path": "/v1/architecture/graph",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx", "ArchitectureViewV2.tsx"],
+      "expected_fields": {
+        "nodes": {"type": "array", "required": true},
+        "edges": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/v1/architecture/stats",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["ArchitectureViewV2.tsx"],
+      "expected_fields": {
+        "node_count": {"type": "number", "required": true},
+        "edge_count": {"type": "number", "required": true},
+        "live_count": {"type": "number", "required": false},
+        "uninit_count": {"type": "number", "required": false}
+      }
+    },
+    {
+      "path": "/api/memory/stats",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx", "MemoryView.tsx"],
+      "expected_fields": {
+        "l1": {"type": "object", "required": false},
+        "l2": {"type": "object", "required": false},
+        "l3": {"type": "object", "required": false},
+        "l4": {"type": "object", "required": false},
+        "l5": {"type": "object", "required": false},
+        "l6": {"type": "object", "required": false},
+        "l7": {"type": "object", "required": false},
+        "l8": {"type": "object", "required": false},
+        "l9": {"type": "object", "required": false},
+        "l10": {"type": "object", "required": false}
+      }
+    },
+    {
+      "path": "/v1/memory/l3/episodes",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["dashboard-cards/index.tsx"],
+      "params": {"limit": "10"},
+      "expected_fields": {
+        "episodes": {"type": "array", "required": true},
+        "total": {"type": "number", "required": false}
+      }
+    },
+    {
+      "path": "/v1/memory/l4/facts",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["dashboard-cards/index.tsx"],
+      "params": {"limit": "10"},
+      "expected_fields": {
+        "facts": {"type": "array", "required": true},
+        "total": {"type": "number", "required": false}
+      }
+    },
+    {
+      "path": "/v1/memory/l5/skills",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["dashboard-cards/index.tsx"],
+      "params": {"limit": "10"},
+      "expected_fields": {
+        "skills": {"type": "array", "required": true},
+        "total": {"type": "number", "required": false}
+      }
+    },
+    {
+      "path": "/v1/memory/l6/focus",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["dashboard-cards/index.tsx", "AttentionView.tsx"],
+      "expected_fields": {
+        "current_focus": {"type": "object", "required": false},
+        "focus_states": {"type": "array", "required": false}
+      }
+    },
+    {
+      "path": "/v1/memory/l7/snapshots",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["dashboard-cards/index.tsx"],
+      "params": {"limit": "10"},
+      "expected_fields": {
+        "snapshots": {"type": "array", "required": true},
+        "total": {"type": "number", "required": false}
+      }
+    },
+    {
+      "path": "/v1/memory/l8/goals",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["dashboard-cards/index.tsx"],
+      "params": {"limit": "10"},
+      "expected_fields": {
+        "goals": {"type": "array", "required": true},
+        "total": {"type": "number", "required": false}
+      }
+    },
+    {
+      "path": "/api/system/resources",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx"],
+      "expected_fields": {
+        "cpu_percent": {"type": "number", "required": true},
+        "memory_mb": {"type": "number", "required": true},
+        "memory_percent": {"type": "number", "required": true},
+        "total_ram_gb": {"type": "number", "required": true},
+        "disk_mb": {"type": "number", "required": true},
+        "open_connections": {"type": "number", "required": true},
+        "pending_tasks": {"type": "number", "required": true},
+        "timeout_rate": {"type": "number", "required": true},
+        "server_start_time": {"type": "string", "required": false}
+      }
+    },
+    {
+      "path": "/v1/meta/dynamic/latest",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx", "MetaView.tsx"],
+      "expected_fields": {
+        "assessment_id": {"type": "string", "required": false},
+        "generated_at": {"type": "string", "required": true},
+        "version": {"type": "string", "required": false},
+        "overall_score": {"type": "number", "required": false},
+        "dimensions": {"type": "object", "required": false},
+        "total_tests_run": {"type": "number", "required": false},
+        "overall_success_rate": {"type": "number", "required": false}
+      }
+    },
+    {
+      "path": "/v1/meta/dynamic/history",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["MetaView.tsx"],
+      "params": {"limit": "50"},
+      "expected_fields": {
+        "assessments": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/v1/meta/progress/status",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["MetaView.tsx"],
+      "expected_fields": {
+        "percentage": {"type": "number", "required": true},
+        "step": {"type": "string", "required": false}
+      }
+    },
+    {
+      "path": "/v1/meta/assess",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["MetaView.tsx"],
+      "expected_fields": {
+        "assessment_id": {"type": "string", "required": true},
+        "overall_score": {"type": "number", "required": false},
+        "dimensions": {"type": "object", "required": false}
+      }
+    },
+    {
+      "path": "/v1/security/summary",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx"],
+      "expected_fields": {
+        "total_findings": {"type": "number", "required": true},
+        "overall_score": {"type": "number", "required": true},
+        "top_findings": {"type": "array", "required": false},
+        "findings_by_severity": {"type": "object", "required": false},
+        "compliance_summary": {"type": "object", "required": false}
+      }
+    },
+    {
+      "path": "/v1/security/scan",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["SecurityView.tsx"],
+      "params": {"force_refresh": "false"},
+      "unwrap": "result",
+      "wrapper_fields": {
+        "status": {"type": "string", "required": true},
+        "cache_age_seconds": {"type": "number", "required": false}
+      },
+      "expected_fields": {
+        "scan_id": {"type": "string", "required": true},
+        "total_findings": {"type": "number", "required": true},
+        "findings": {"type": "array", "required": true},
+        "overall_score": {"type": "number", "required": true}
+      }
+    },
+    {
+      "path": "/v1/recommendations/summary",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx", "RecommendationsView.tsx"],
+      "expected_fields": {
+        "overall_strategic_score": {"type": "number", "required": true},
+        "competitive_position": {"type": "string", "required": true},
+        "total_opportunities": {"type": "number", "required": true},
+        "opportunities_by_category": {"type": "object", "required": false},
+        "top_opportunities": {"type": "array", "required": false}
+      }
+    },
+    {
+      "path": "/v1/recommendations/analyze",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["RecommendationsView.tsx"],
+      "params": {"force_refresh": "false"},
+      "unwrap": "result",
+      "wrapper_fields": {
+        "status": {"type": "string", "required": true},
+        "cache_age_seconds": {"type": "number", "required": false}
+      },
+      "expected_fields": {
+        "opportunities": {"type": "array", "required": true},
+        "total_opportunities": {"type": "number", "required": true}
+      }
+    },
+    {
+      "path": "/v1/safety/stats",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx"],
+      "expected_fields": {
+        "total_checks": {"type": "number", "required": true},
+        "blocked_operations": {"type": "number", "required": true},
+        "safety_score": {"type": "number", "required": false}
+      }
+    },
+    {
+      "path": "/v1/classify/stats",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx"],
+      "expected_fields": {
+        "total_classifications": {"type": "number", "required": true},
+        "accuracy": {"type": "number", "required": false}
+      }
+    },
+    {
+      "path": "/v1/learning/corrections/stats",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx", "LearningView.tsx"],
+      "expected_fields": {
+        "total_corrections": {"type": "number", "required": true},
+        "unique_corrections": {"type": "number", "required": false}
+      }
+    },
+    {
+      "path": "/api/atlasLearning/patterns",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["LearningView.tsx"],
+      "expected_fields": {
+        "patterns": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/api/atlasLearning/corrections",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["LearningView.tsx"],
+      "params": {"limit": "50"},
+      "expected_fields": {
+        "corrections": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/api/atlasLearning/corrections",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["LearningView.tsx"],
+      "params": {"limit": "1"},
+      "expected_fields": {
+        "corrections": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/api/atlasLearning/stats",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["LearningView.tsx"],
+      "expected_fields": {
+        "pattern_learning": {"type": "object", "required": false},
+        "feedback": {"type": "object", "required": false},
+        "fix_learning": {"type": "object", "required": false}
+      }
+    },
+    {
+      "path": "/api/atlasLearning/pattern/{tool}/{errorCode}",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["LearningView.tsx"],
+      "expected_fields": {
+        "tool": {"type": "string", "required": true},
+        "error_code": {"type": "string", "required": true},
+        "pattern": {"type": "object", "required": false}
+      }
+    },
+    {
+      "path": "/v1/telemetry/bottlenecks",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx"],
+      "expected_fields": {
+        "bottlenecks": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/v1/telemetry/critical-paths",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx"],
+      "expected_fields": {
+        "paths": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/v1/telemetry/hot-paths",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx"],
+      "params": {"limit": "10"},
+      "expected_fields": {
+        "paths": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/v1/telemetry/error-edges",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["ArchitectureViewV2.tsx"],
+      "expected_fields": {
+        "edges": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/v1/telemetry/flows",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx"],
+      "params": {"limit": "1000"},
+      "expected_fields": {
+        "flows": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/v1/telemetry/traces/recent",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx"],
+      "params": {"limit": "1000"},
+      "expected_fields": {
+        "traces": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/v1/telemetry/clear",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["AnalysisPanel.tsx"],
+      "skip_in_audit": true
+    },
+    {
+      "path": "/api/database/health",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx", "SystemsView.tsx"],
+      "expected_fields": {
+        "status": {"type": "string", "required": true},
+        "total_size_mb": {"type": "number", "required": false}
+      }
+    },
+    {
+      "path": "/api/database/check",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["SystemsView.tsx"],
+      "safe_payload": {"layer": "test"},
+      "expected_fields": {
+        "status": {"type": "string", "required": true},
+        "issues": {"type": "array", "required": false}
+      }
+    },
+    {
+      "path": "/api/database/checkpoint",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["SystemsView.tsx"],
+      "skip_in_audit": true
+    },
+    {
+      "path": "/api/sandbox",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["SandboxView.tsx"],
+      "skip_in_audit": true,
+      "comment": "Endpoint not implemented yet",
+      "safe_payload": {
+        "code": "print('Contract audit test')",
+        "language": "python"
+      },
+      "expected_fields": {
+        "execution_id": {"type": "string", "required": true},
+        "status": {"type": "string", "required": true},
+        "output": {"type": "string", "required": false}
+      }
+    },
+    {
+      "path": "/api/sandbox/health",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx", "SandboxView.tsx"],
+      "expected_fields": {
+        "status": {"type": "string", "required": true},
+        "docker_available": {"type": "boolean", "required": false}
+      }
+    },
+    {
+      "path": "/api/sandbox/history",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["SandboxView.tsx"],
+      "params": {"limit": "50"},
+      "expected_fields": {
+        "executions": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/api/sandbox/proposals",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["SandboxView.tsx"],
+      "expected_fields": {
+        "proposals": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/api/sandbox/statistics",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx", "SandboxView.tsx"],
+      "expected_fields": {
+        "total_executions": {"type": "number", "required": true},
+        "success_rate": {"type": "number", "required": true}
+      }
+    },
+    {
+      "path": "/api/proposals/{proposalId}",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["SandboxView.tsx"],
+      "expected_fields": {
+        "proposal_id": {"type": "string", "required": true},
+        "status": {"type": "string", "required": true},
+        "changes": {"type": "array", "required": false}
+      }
+    },
+    {
+      "path": "/api/proposals/{proposalId}/status",
+      "method": "PATCH",
+      "protocol": "http",
+      "consumers": ["SandboxView.tsx"],
+      "safe_payload": {"status": "reviewed"},
+      "expected_fields": {
+        "proposal_id": {"type": "string", "required": true},
+        "status": {"type": "string", "required": true}
+      }
+    },
+    {
+      "path": "/api/scheduler/stats",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx"],
+      "expected_fields": {
+        "task_count": {"type": "number", "required": true},
+        "tasks": {"type": "array", "required": false}
+      }
+    },
+    {
+      "path": "/api/metrics/summary",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx"],
+      "expected_fields": {
+        "total_attempts": {"type": "number", "required": true},
+        "legacy": {"type": "object", "required": false},
+        "symbolic": {"type": "object", "required": false}
+      }
+    },
+    {
+      "path": "/api/systems",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx", "SystemsView.tsx"],
+      "expected_fields": {
+        "llm_client": {"type": "object", "required": false},
+        "subsystems": {"type": "array", "required": false}
+      }
+    },
+    {
+      "path": "/api/systems/{subsystemName}/initialize",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["SystemsView.tsx"],
+      "safe_payload": {"subsystem": "test_subsystem"},
+      "expected_fields": {
+        "status": {"type": "string", "required": true},
+        "subsystem": {"type": "string", "required": true}
+      }
+    },
+    {
+      "path": "/v1/atlas/logs",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx", "LogsView.tsx"],
+      "params": {"limit": "20"},
+      "expected_fields": {
+        "logs": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/api/logs",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["LogsView.tsx"],
+      "expected_fields": {
+        "logs": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/api/console-logs",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["ConsoleProvider.tsx"],
+      "expected_fields": {
+        "logs": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/v1/atlas/tasks",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["TasksView.tsx"],
+      "expected_fields": {
+        "tasks": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/v1/atlas/tasks",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["TasksView.tsx"],
+      "safe_payload": {
+        "name": "Contract Audit Test Task",
+        "priority": "MEDIUM"
+      },
+      "cleanup": {
+        "method": "DELETE",
+        "path_template": "/v1/atlas/tasks/{id}"
+      },
+      "expected_fields": {
+        "id": {"type": "string", "required": true},
+        "name": {"type": "string", "required": true},
+        "status": {"type": "string", "required": true}
+      }
+    },
+    {
+      "path": "/v1/atlas/tasks/{taskId}/status",
+      "method": "PATCH",
+      "protocol": "http",
+      "consumers": ["TasksView.tsx"],
+      "safe_payload": {"status": "completed"},
+      "expected_fields": {
+        "id": {"type": "string", "required": true},
+        "status": {"type": "string", "required": true}
+      }
+    },
+    {
+      "path": "/v1/atlas/tasks/{taskId}",
+      "method": "DELETE",
+      "protocol": "http",
+      "consumers": ["TasksView.tsx"],
+      "expected_fields": {
+        "status": {"type": "string", "required": true}
+      }
+    },
+    {
+      "path": "/v1/benchmarks",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["BenchmarkLiveView.tsx"],
+      "expected_fields": {
+        "benchmarks": {"type": "array", "required": true},
+        "total": {"type": "number", "required": false}
+      }
+    },
+    {
+      "path": "/v1/documentation/drift/statistics",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DriftReviewView.tsx"],
+      "expected_fields": {
+        "total_mismatches": {"type": "number", "required": true},
+        "by_confidence": {"type": "object", "required": false}
+      }
+    },
+    {
+      "path": "/v1/documentation/drift/review",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["DriftReviewView.tsx"],
+      "params": {"min_confidence": "0.5"},
+      "safe_payload": {"min_confidence": 0.5},
+      "expected_fields": {
+        "review_id": {"type": "string", "required": true},
+        "findings": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/api/analysis/run",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["CodeAnalysisDashboard.tsx"],
+      "safe_payload": {"target": "test"},
+      "expected_fields": {
+        "run_id": {"type": "string", "required": true},
+        "status": {"type": "string", "required": true}
+      }
+    },
+    {
+      "path": "/api/analysis/runs",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx", "CodeAnalysisDashboard.tsx"],
+      "expected_fields": {
+        "runs": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/api/analysis/issues/{runId}",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["DashboardView.tsx", "CodeAnalysisDashboard.tsx"],
+      "expected_fields": {
+        "issues": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/api/analysis/progress/{runId}",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["CodeAnalysisDashboard.tsx"],
+      "expected_fields": {
+        "progress": {"type": "number", "required": true},
+        "status": {"type": "string", "required": true}
+      }
+    },
+    {
+      "path": "/api/analysis/cancel/{currentRunId}",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["CodeAnalysisDashboard.tsx"],
+      "expected_fields": {
+        "status": {"type": "string", "required": true}
+      }
+    },
+    {
+      "path": "/api/analysis/delete/{runId}",
+      "method": "DELETE",
+      "protocol": "http",
+      "consumers": ["CodeAnalysisDashboard.tsx"],
+      "expected_fields": {
+        "status": {"type": "string", "required": true}
+      }
+    },
+    {
+      "path": "/api/analysis/mark-fixed",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["CodeAnalysisDashboard.tsx"],
+      "safe_payload": {"issue_id": "test"},
+      "expected_fields": {
+        "status": {"type": "string", "required": true}
+      }
+    },
+    {
+      "path": "/api/fix/generate",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["CodeAnalysisDashboard.tsx"],
+      "safe_payload": {"issue_id": "test"},
+      "expected_fields": {
+        "job_id": {"type": "string", "required": true},
+        "status": {"type": "string", "required": true}
+      }
+    },
+    {
+      "path": "/api/fix/batch",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["CodeAnalysisDashboard.tsx"],
+      "safe_payload": {"issue_ids": ["test"]},
+      "expected_fields": {
+        "job_id": {"type": "string", "required": true},
+        "status": {"type": "string", "required": true}
+      }
+    },
+    {
+      "path": "/api/fix/status/{jobId}",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["CodeAnalysisDashboard.tsx"],
+      "expected_fields": {
+        "status": {"type": "string", "required": true},
+        "progress": {"type": "number", "required": false}
+      }
+    },
+    {
+      "path": "/api/fix/cancel/{fixJobId}",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["CodeAnalysisDashboard.tsx"],
+      "expected_fields": {
+        "status": {"type": "string", "required": true}
+      }
+    },
+    {
+      "path": "/api/neural-graph",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["NeuralOrganismView.tsx"],
+      "expected_fields": {
+        "nodes": {"type": "array", "required": true},
+        "edges": {"type": "array", "required": false}
+      }
+    },
+    {
+      "path": "/api/console/commands/run",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["atlasConsoleClient.ts"],
+      "safe_payload": {"command": "echo test"},
+      "expected_fields": {
+        "output": {"type": "string", "required": false},
+        "exit_code": {"type": "number", "required": false}
+      }
+    },
+    {
+      "path": "/api/debug-log",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["ConsoleProvider.tsx"],
+      "safe_payload": {"level": "info", "message": "test"},
+      "expected_fields": {
+        "status": {"type": "string", "required": true}
+      }
+    },
+    {
+      "path": "/api/atlasChat/stream",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["atlasClient.ts"],
+      "safe_payload": {
+        "query": "Contract audit test",
+        "session_id": "test"
+      },
+      "expected_fields": {
+        "type": {"type": "string", "required": true},
+        "content": {"type": "string", "required": false}
+      }
+    },
+    {
+      "path": "/v1/atlas/chat/chunk/{sessionId}",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["atlasClient.ts"],
+      "expected_fields": {
+        "answer": {"type": "string", "required": true},
+        "notes": {"type": "string", "required": false, "nullable": true}
+      }
+    },
+    {
+      "path": "/api/tts",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["atlasClient.ts"],
+      "safe_payload": {"text": "test", "voice": "onyx"},
+      "skip_in_audit": true
+    },
+    {
+      "path": "/api/tts/cartesia",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["VoicePanel.tsx"],
+      "safe_payload": {"text": "test"},
+      "skip_in_audit": true
+    },
+    {
+      "path": "/api/stt/elevenlabs/token",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["VoicePanel.tsx"],
+      "expected_fields": {
+        "token": {"type": "string", "required": true}
+      }
+    },
+    {
+      "path": "/api/stt/elevenlabs/convert",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["VoicePanel.tsx"],
+      "skip_in_audit": true
+    },
+    {
+      "path": "/api/voiceprint/status",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["VoicePanel.tsx"],
+      "params": {"user_id": "owner"},
+      "expected_fields": {
+        "enrolled": {"type": "boolean", "required": true}
+      }
+    },
+    {
+      "path": "/api/voiceprint/enroll",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["VoicePanel.tsx"],
+      "skip_in_audit": true
+    },
+    {
+      "path": "/v1/voice/realtime/session",
+      "method": "POST",
+      "protocol": "http",
+      "consumers": ["VoicePanel.tsx"],
+      "safe_payload": {"user_id": "test"},
+      "expected_fields": {
+        "session_id": {"type": "string", "required": true},
+        "token": {"type": "string", "required": false}
+      }
+    },
+    {
+      "path": "/api/learning/corrections",
+      "method": "GET",
+      "protocol": "http",
+      "consumers": ["LearningView.tsx"],
+      "expected_fields": {
+        "corrections": {"type": "array", "required": true}
+      }
+    },
+    {
+      "path": "/v1/telemetry/stream",
+      "method": "GET",
+      "protocol": "ws",
+      "consumers": [
+        "TelemetryContext.tsx",
+        "ArchitectureViewV2.tsx",
+        "NeuralArchitecture3DV2.tsx",
+        "NeuralNetworkScene.tsx"
+      ],
+      "message_types": [
+        {
+          "type": "telemetry_update",
+          "expected_fields": {
+            "type": {"type": "string", "required": true},
+            "timestamp": {"type": "string", "required": true},
+            "component": {"type": "string", "required": false},
+            "event_type": {"type": "string", "required": false}
+          }
+        },
+        {
+          "type": "node_update",
+          "expected_fields": {
+            "type": {"type": "string", "required": true},
+            "node_id": {"type": "string", "required": true},
+            "status": {"type": "string", "required": false}
+          }
+        }
+      ]
+    },
+    {
+      "path": "/v1/progress/stream/{sessionId}",
+      "method": "GET",
+      "protocol": "ws",
+      "consumers": ["ProgressIndicator.tsx", "PermanentProgressBar.tsx"],
+      "message_types": [
+        {
+          "type": "progress_update",
+          "expected_fields": {
+            "type": {"type": "string", "required": true},
+            "percentage": {"type": "number", "required": true},
+            "step": {"type": "string", "required": false}
+          }
+        }
+      ]
+    },
+    {
+      "path": "/api/analysis/ws/{runId}",
+      "method": "GET",
+      "protocol": "ws",
+      "consumers": ["CodeAnalysisDashboard.tsx"],
+      "message_types": [
+        {
+          "type": "analysis_progress",
+          "expected_fields": {
+            "type": {"type": "string", "required": true},
+            "progress": {"type": "number", "required": true},
+            "status": {"type": "string", "required": false}
+          }
+        }
+      ]
+    },
+    {
+      "path": "/v1/benchmarks/stream",
+      "method": "GET",
+      "protocol": "sse",
+      "consumers": ["BenchmarkLiveView.tsx"],
+      "message_types": [
+        {
+          "type": "suite_start",
+          "expected_fields": {
+            "type": {"type": "string", "required": true},
+            "total_benchmarks": {"type": "number", "required": true}
+          }
+        },
+        {
+          "type": "benchmark_result",
+          "expected_fields": {
+            "type": {"type": "string", "required": true},
+            "benchmark_id": {"type": "string", "required": true},
+            "status": {"type": "string", "required": true},
+            "duration_ms": {"type": "number", "required": false}
+          }
+        }
+      ]
+    }
+  ]
+}

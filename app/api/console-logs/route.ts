@@ -39,20 +39,20 @@ export async function GET() {
     // Check if log file exists
     if (!existsSync(LOG_FILE)) {
       return NextResponse.json({ 
-        logs: '', 
+        logs: [], 
         message: 'No logs yet. Send a chat message or click Test Particle button.' 
       });
     }
     
     const logs = await readFile(LOG_FILE, 'utf-8');
     
-    // Get last 100 lines
-    const lines = logs.split('\n').slice(-100).join('\n');
+    // Get last 100 lines as array
+    const lines = logs.split('\n').slice(-100).filter(line => line.trim());
     
     return NextResponse.json({ logs: lines });
   } catch (error) {
     return NextResponse.json({ 
-      logs: '', 
+      logs: [], 
       error: String(error) 
     }, { status: 500 });
   }

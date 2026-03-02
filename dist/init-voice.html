@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head><title>Initialize Voice</title></head>
+<body>
+<h1>ATLAS Voice Initialization</h1>
+<button onclick="init()" style="font-size:20px; padding:20px;">Click to Initialize Voice Settings</button>
+<pre id="output"></pre>
+<script>
+function init() {
+    localStorage.setItem('voice_enabled', 'true');
+    localStorage.setItem('tts_provider', 'cartesia');
+    
+    document.getElementById('output').textContent = 
+        'Settings initialized:\n' +
+        'voice_enabled: ' + localStorage.getItem('voice_enabled') + '\n' +
+        'tts_provider: ' + localStorage.getItem('tts_provider') + '\n\n' +
+        'Now open http://localhost:3000 in this same browser window.';
+}
+</script>
+</body>
+</html>

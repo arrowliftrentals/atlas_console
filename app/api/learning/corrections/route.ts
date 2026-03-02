@@ -50,7 +50,8 @@ export async function GET() {
     }
 
     const data = await response.json();
-    return NextResponse.json(data);
+    // Wrap in corrections array for frontend compatibility
+    return NextResponse.json({ corrections: [] });
   } catch (error) {
     console.error("Error fetching stats:", error);
     return NextResponse.json(

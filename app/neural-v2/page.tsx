@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { getAtlasWsUrl } from '@/lib/api';
 import NeuralArchitecture3DV2 from '@/components/Neural3D/NeuralArchitecture3DV2';
 
 export default function NeuralV2Page() {
@@ -21,7 +22,7 @@ export default function NeuralV2Page() {
     // Test 1: Backend health
     log('Test 1: Checking backend...');
     try {
-      const health = await fetch('http://localhost:8000/health');
+      const health = await fetch('/health');
       const data = await health.json();
       log('✅ Backend: ' + JSON.stringify(data));
     } catch (err: any) {
@@ -31,14 +32,14 @@ export default function NeuralV2Page() {
     
     // Test 2: WebSocket telemetry
     log('Test 2: Connecting to telemetry WebSocket...');
-    const ws = new WebSocket('ws://localhost:8000/v1/telemetry/stream');
+    const ws = new WebSocket(getAtlasWsUrl('/v1/telemetry/stream'));
     let msgCount = 0;
     let flowCount = 0;
     
     ws.onopen = () => {
       log('✅ WebSocket connected');
       log('Test 3: Sending query to generate telemetry...');
-      fetch('http://localhost:8000/v1/atlas/agent', {
+      fetch('/v1/atlas/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ query: 'test' })

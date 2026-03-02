@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { getAtlasWsUrl } from '@/lib/api';
 
 export default function TestParticlesPage() {
   const [response, setResponse] = useState('');
@@ -11,7 +12,7 @@ export default function TestParticlesPage() {
     setResponse('Sending...');
     
     try {
-      const res = await fetch('http://localhost:8000/v1/atlas/chat', {
+      const res = await fetch('/v1/atlas/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -30,7 +31,7 @@ export default function TestParticlesPage() {
   };
 
   const checkWebSocket = () => {
-    const ws = new WebSocket('ws://localhost:8000/v1/telemetry/stream');
+    const ws = new WebSocket(getAtlasWsUrl('/v1/telemetry/stream'));
     
     ws.onopen = () => {
       setResponse('WebSocket CONNECTED');
