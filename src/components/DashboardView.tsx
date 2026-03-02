@@ -1,9 +1,8 @@
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, Suspense, lazy } from "react";
 import ReactDOM from "react-dom";
 import { useHealth } from "@/contexts/HealthContext";
 import { useTelemetry } from "@/contexts/TelemetryContext";
-import dynamic from "next/dynamic";
 import DraggableCardContent from "./DraggableCardContent";
 import DashboardGrid from "./DashboardGrid";
 import { loadLayoutConfig, configToDefaultRows } from "@/lib/layoutConfig";
@@ -23,34 +22,52 @@ import {
   SubsystemStatusContent,
 } from "./dashboard-cards";
 
-// Lazy load full views
-const NeuralOrganismView = dynamic(() => import("./NeuralOrganismView"), { ssr: false });
-const ArchitectureViewV2 = dynamic(() => import("./ArchitectureViewV2"), { ssr: false });
-const MetaView = dynamic(() => import("./MetaView"), { ssr: false });
-const SandboxView = dynamic(() => import("./SandboxView"), { ssr: false });
-const LogsView = dynamic(() => import("./LogsView"), { ssr: false });
-const TasksView = dynamic(() => import("./TasksView"), { ssr: false });
-const MemoryView = dynamic(() => import("./MemoryView"), { ssr: false });
-const SecurityView = dynamic(() => import("./SecurityView"), { ssr: false });
-const RecommendationsView = dynamic(() => import("./RecommendationsView"), { ssr: false });
-const AnalysisPanel = dynamic(() => import("./AnalysisPanel"), { ssr: false });
-const SystemsView = dynamic(() => import("./SystemsView"), { ssr: false });
-const LearningView = dynamic(() => import("./LearningView"), { ssr: false });
-const AttentionView = dynamic(() => import("./AttentionView"), { ssr: false });
-const BenchmarkLiveView = dynamic(() => import("./BenchmarkLiveView"), { ssr: false });
-const DriftReviewView = dynamic(() => import("./DriftReviewView"), { ssr: false });
+// Lazy load full views using React.lazy (Vite compatible)
+const NeuralOrganismView = lazy(() => import("./NeuralOrganismView"));
+const ArchitectureViewV2 = lazy(() => import("./ArchitectureViewV2"));
+const MetaView = lazy(() => import("./MetaView"));
+const SandboxView = lazy(() => import("./SandboxView"));
+const LogsView = lazy(() => import("./LogsView"));
+const TasksView = lazy(() => import("./TasksView"));
+const MemoryView = lazy(() => import("./MemoryView"));
+const SecurityView = lazy(() => import("./SecurityView"));
+const RecommendationsView = lazy(() => import("./RecommendationsView"));
+const AnalysisPanel = lazy(() => import("./AnalysisPanel"));
+const SystemsView = lazy(() => import("./SystemsView"));
+const LearningView = lazy(() => import("./LearningView"));
+const AttentionView = lazy(() => import("./AttentionView"));
+const BenchmarkLiveView = lazy(() => import("./BenchmarkLiveView"));
+const DriftReviewView = lazy(() => import("./DriftReviewView"));
 
 // Real brain canvas for dashboard card
-const BrainCanvas = dynamic(() => import("./BrainCanvas"), { 
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-full bg-gradient-to-br from-orange-500/10 to-amber-500/5 rounded-lg flex items-center justify-center">
-      <div className="text-cyan-400/60 text-xs animate-pulse">Loading brain...</div>
-    </div>
-  )
-});
+const BrainCanvas = lazy(() => import("./BrainCanvas"));
 
-type ActiveView = null | "cognition" | "architecture" | "assessment" | "sandbox" | "logs" | "tasks" | "memory" | "security" | "recommendations" | "analysis" | "systems" | "learning" | "attention" | "benchmarks" | "drift-review";
+// Simple error boundary for catching 3D visualization errors
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode; fallback: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('[BrainCanvas Error]:', error);
+    console.error('[BrainCanvas Error Info]:', errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      console.log('[ErrorBoundary] Rendering fallback');
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
+
+type ActiveView = null | "cognition"
 
 interface CardInfo {
   title: string;
@@ -1230,21 +1247,23 @@ export default function DashboardView() {
         
         {/* Active view */}
         <div className="flex-1 overflow-hidden">
-          {activeView === "cognition" && <NeuralOrganismView />}
-          {activeView === "architecture" && <ArchitectureViewV2 />}
-          {activeView === "assessment" && <MetaView />}
-          {activeView === "sandbox" && <SandboxView />}
-          {activeView === "logs" && <LogsView />}
-          {activeView === "tasks" && <TasksView />}
-          {activeView === "memory" && <MemoryView />}
-          {activeView === "security" && <SecurityView />}
-          {activeView === "recommendations" && <RecommendationsView />}
-          {activeView === "analysis" && <AnalysisPanel />}
-          {activeView === "systems" && <SystemsView />}
-          {activeView === "learning" && <LearningView />}
-          {activeView === "attention" && <AttentionView />}
-          {activeView === "benchmarks" && <BenchmarkLiveView />}
-          {activeView === "drift-review" && <DriftReviewView />}
+          <Suspense fallback={<div className="h-full flex items-center justify-center text-cyan-400/60 text-sm animate-pulse">Loading...</div>}>
+            {activeView === "cognition" && <NeuralOrganismView />}
+            {activeView === "architecture" && <ArchitectureViewV2 />}
+            {activeView === "assessment" && <MetaView />}
+            {activeView === "sandbox" && <SandboxView />}
+            {activeView === "logs" && <LogsView />}
+            {activeView === "tasks" && <TasksView />}
+            {activeView === "memory" && <MemoryView />}
+            {activeView === "security" && <SecurityView />}
+            {activeView === "recommendations" && <RecommendationsView />}
+            {activeView === "analysis" && <AnalysisPanel />}
+            {activeView === "systems" && <SystemsView />}
+            {activeView === "learning" && <LearningView />}
+            {activeView === "attention" && <AttentionView />}
+            {activeView === "benchmarks" && <BenchmarkLiveView />}
+            {activeView === "drift-review" && <DriftReviewView />}
+          </Suspense>
         </div>
       </div>
     );
@@ -1590,7 +1609,24 @@ export default function DashboardView() {
                       className="-mx-2 -mb-2 rounded-lg overflow-hidden bg-[#0a0a12] cursor-pointer"
                       onClick={() => setActiveView("cognition")}
                     >
-                      <BrainCanvas />
+                      <ErrorBoundary fallback={
+                        <div className="w-full h-full bg-gradient-to-br from-orange-500/10 via-purple-500/5 to-amber-500/10 rounded-lg flex items-center justify-center">
+                          <div className="text-center">
+                            <div className="text-6xl mb-4">🧠</div>
+                            <div className="text-white/60 text-sm">Neural Visualization</div>
+                            <div className="text-white/40 text-xs mt-2">{stats.nodeCount} nodes • {stats.edgeCount} edges</div>
+                            <div className="text-red-400/60 text-xs mt-4">3D view unavailable - Click for fullscreen</div>
+                          </div>
+                        </div>
+                      }>
+                        <Suspense fallback={
+                          <div className="w-full h-full bg-gradient-to-br from-orange-500/10 to-amber-500/5 rounded-lg flex items-center justify-center">
+                            <div className="text-cyan-400/60 text-xs animate-pulse">Loading visualization...</div>
+                          </div>
+                        }>
+                          <BrainCanvas />
+                        </Suspense>
+                      </ErrorBoundary>
                     </div>
                   </DashboardCard>
               ),

@@ -37,6 +37,7 @@ export default function BrainCanvas() {
   // Track recently active nodes (with decay)
   const [recentlyActiveNodes, setRecentlyActiveNodes] = useState<Set<string>>(new Set());
   const activeTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const glRef = useRef<THREE.WebGLRenderer | null>(null);
 
   // Fetch architecture data
   useEffect(() => {
@@ -67,6 +68,23 @@ export default function BrainCanvas() {
     fetchData();
     const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
+  }, []);
+
+  // Cleanup WebGL context on unmount
+  useEffect(() => {
+    return () => {
+      // Clear all active node timeouts
+      activeTimeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+      activeTimeoutsRef.current.clear();
+      
+      // Dispose WebGL context
+      if (glRef.current) {
+        console.log('[BrainCanvas] Disposing WebGL context');
+        glRef.current.dispose();
+        glRef.current.forceContextLoss();
+        glRef.current = null;
+      }
+    };
   }, []);
 
   // Extract active node IDs from telemetry (same logic as NeuralOrganismView)
@@ -126,9 +144,26 @@ export default function BrainCanvas() {
 
   return (
     <Canvas
+      key="brain-canvas"
       camera={{ position: [0, 80, 180], fov: 50 }}
-      gl={{ antialias: true, alpha: false }}
+      gl={{ 
+        antialias: true, 
+        alpha: false,
+        powerPreference: "high-performance",
+        preserveDrawingBuffer: true
+      }}
       onPointerMissed={() => setSelectedNode(null)}
+      onCreated={({ gl }) => {
+        glRef.current = gl;
+        console.log('[BrainCanvas] WebGL context created');
+        gl.domElement.addEventListener('webglcontextlost', (e) => {
+          console.error('[BrainCanvas] WebGL context lost', e);
+          e.preventDefault();
+        });
+        gl.domElement.addEventListener('webglcontextrestored', () => {
+          console.log('[BrainCanvas] WebGL context restored');
+        });
+      }}
       style={{ background: BIO_COLORS.void }}
     >
       <color attach="background" args={[BIO_COLORS.void]} />

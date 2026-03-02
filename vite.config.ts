@@ -14,15 +14,16 @@ export default defineConfig({
   server: {
     port: 3001, // Vite dev server
     proxy: {
-      // Proxy API requests to Express server
+      // Proxy API requests directly to Atlas backend
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
-      // Proxy WebSocket to Express server
-      '/ws': {
-        target: 'ws://localhost:3000',
-        ws: true,
+      // Proxy /v1 API endpoints (HTTP and WebSocket)
+      '/v1': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        ws: true, // Enable WebSocket proxying for /v1/telemetry/stream
       },
     },
   },
