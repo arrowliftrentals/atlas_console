@@ -1,0 +1,80 @@
+name: Deploy to Production
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'production' }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+      
+      - name: Build for production
+        run: npm run build
+        env:
+          NODE_ENV: production
+          VITE_ATLAS_API_URL: ${{ secrets.ATLAS_API_URL }}
+      
+      - name: Create deployment package
+        run: |
+          mkdir -p deploy
+          cp -r dist deploy/
+          cp -r server deploy/
+          cp package*.json deploy/
+          cp .env.example deploy/.env
+          cd deploy
+          tar -czf ../atlas-console-${{ github.sha }}.tar.gz .
+      
+      - name: Upload deployment artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-${{ github.sha }}
+          path: atlas-console-${{ github.sha }}.tar.gz
+          retention-days: 30
+      
+      - name: Deployment summary
+        run: |
+          echo "### Deployment Summary 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: ${{ github.event.inputs.environment || 'production' }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Package**: atlas-console-${{ github.sha }}.tar.gz" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "#### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "1. Download the deployment artifact" >> $GITHUB_STEP_SUMMARY
+          echo "2. Extract: \`tar -xzf atlas-console-*.tar.gz\`" >> $GITHUB_STEP_SUMMARY
+          echo "3. Install: \`npm ci --production\`" >> $GITHUB_STEP_SUMMARY
+          echo "4. Configure: Edit \`.env\` with production values" >> $GITHUB_STEP_SUMMARY
+          echo "5. Start: \`npm start\`" >> $GITHUB_STEP_SUMMARY
+
+      # Optional: Add your deployment steps here
+      # - name: Deploy to server
+      #   uses: easingthemes/ssh-deploy@v2
+      #   env:
+      #     SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+      #     REMOTE_HOST: ${{ secrets.REMOTE_HOST }}
+      #     REMOTE_USER: ${{ secrets.REMOTE_USER }}
+      #     TARGET: /var/www/atlas-console
